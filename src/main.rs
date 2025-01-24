@@ -1,8 +1,11 @@
-use std::process::Command;
+use std::io::BufRead;
+use std::process::{Command, Output};
 use std::fs::read_to_string;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::env::current_dir;
 use serde::Deserialize;
+use itertools::Itertools;
+use std::env::args;
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -12,19 +15,22 @@ struct Config {
 }
 
 
+#[derive(Debug, Clone)]
+struct RefLogLine {
+    sha: String,
+    ref_name: String,
+    action: String,
+    message: String
+}
+
 
 fn main() {
     Command::new("git")
         .arg("-v")
         .output().expect("git not installed");
 
+    let mut args = args();
     let cwd = current_dir().unwrap();
-
-    let mut config = Config {
-        major: Vec::new(),
-        minor: Vec::new(),
-        patch: Vec::new()
-    };
 
     // start at the current_dir and walk up the fs and collect the paths of the config files in a vector
     let mut config_paths: Vec<PathBuf> = Vec::new();
@@ -37,6 +43,10 @@ fn main() {
         if current_path.parent().is_none() {
             break;
         }
+
+        if args.contains("--no-config-search") {
+            break;
+        }
         current_path = current_path.parent().unwrap().to_path_buf();
     }
 
@@ -45,18 +55,39 @@ fn main() {
         let config: Config = serde_yaml::from_str(&contents).unwrap();
         config
     }).reduce(|a, b| {
-        let mut config = Config {
-            major: a.major.clone(),
-            minor: a.minor.clone(),
-            patch: a.patch.clone()
-        };
-        config.major.extend(b.major.clone());
-        config.minor.extend(b.minor.clone());
-        config.patch.extend(b.patch.clone());
-        config
+        Config {
+            major: a.major.into_iter().merge(b.major.into_iter()).unique().collect(),
+            minor: a.minor.into_iter().merge(b.minor.into_iter()).unique().collect(),
+            patch: a.patch.into_iter().merge(b.patch.into_iter()).unique().collect()
+        }
     }).unwrap();
 
-    println!("{:?}", config);
+    let git_reflog: Vec<RefLogLine> = Command::new("git")
+        .arg("reflog")
+        .output()
+        .expect("pwd is not a git repository")
+        .stdout
+        .lines()
+        .map(|line| line.expect("could not read line"))
+        .map(|line| line.trim().to_string())
+        .map(|line| {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            RefLogLine {
+                sha: parts[0].to_string(),
+                ref_name: parts[1].to_string(),
+                action: parts[2].to_string(),
+                message: parts[3..].join(" ")
+            }
+        })
+        .collect();
+
+    println!("{:?}", git_reflog);
+
+
+
+
+
+
 
 
     
