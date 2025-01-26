@@ -1,0 +1,54 @@
+WHITESPACE = _{ " " }
+
+SHORT_SHA = { ASCII_HEX_DIGIT{7} }
+
+ALPHANUMERIC_DASH_UNDERSCORE = { LETTER | NUMBER | "-" | "_" }
+ALPHANUMERIC_DOT_DASH_UNDERSCORE = { ALPHANUMERIC_DASH_UNDERSCORE | "." }
+
+BRANCH_NAME = { ALPHANUMERIC_DASH_UNDERSCORE+ }
+TAG_NAME = { ALPHANUMERIC_DASH_UNDERSCORE+ }
+
+HEAD_INFO = { "HEAD" ~ WHITE_SPACE ~ "->" ~ WHITE_SPACE ~ BRANCH_NAME }
+TAG_INFO = { "tag:" ~ WHITE_SPACE ~ TAG_NAME }
+INFO_ENTRY = { HEAD_INFO | TAG_INFO | BRANCH_NAME }
+COMMIT_INFO = { "(" ~ (INFO_ENTRY ~ ", ")* ~ INFO_ENTRY ~ ")" }
+POSITION = { "HEAD@{" ~ ASCII_DIGIT+ ~ "}:" }
+REFLOG_LINE = { SHORT_SHA ~ WHITE_SPACE ~ COMMIT_INFO? ~ WHITE_SPACE ~ POSITION}
+REFLOG = { (REFLOG_LINE ~ LINE_SEPARATOR)+ }
+
+
+
+
+LOG = {(LOG_ENTRY ~ NEWLINE)* ~ LOG_ENTRY ~ EOI}
+
+LOG_ENTRY = {
+    COMMIT_LOGLINE
+    ~ TREE_LOGLINE?
+    ~ PARENT_LOGLINE?
+    ~ AUTHOR_LOGLINE 
+    ~ DATE_LOGLINE 
+    ~ NEWLINE
+    ~ #message = MESSAGE
+    ~ NEWLINE
+}
+
+COMMIT_LOGLINE = _{ "commit" ~ #commit_sha = SHA ~ NEWLINE?}
+SHA = @{ ASCII_HEX_DIGIT{40} }
+AUTHOR_LOGLINE = _{ "Author:" ~ #author_name = NAME ~ "<" ~ #author_email = EMAIL ~ ">" ~ NEWLINE? } 
+NAME = @{ ALPHANUMERIC_DOT_DASH_UNDERSCORE+ }
+EMAIL = @{ NAME ~ "@" ~ NAME }
+MESSAGE = { PRINTABLE* }
+PRINTABLE = _{ NUMBER | LETTER | PUNCTUATION | SYMBOL | SEPARATOR }
+DATE_LABEL = _{ "Date:" }
+DATE_LOGLINE = _{ DATE_LABEL ~ #date_string = DATE_STRING ~ NEWLINE? }
+DATE_STRING = { DAYOFWEEK ~ MONTHOFYEAR ~ DAYOFMONTH ~ TIME ~ YEAR ~ TIMEZONE}
+DAYOFWEEK = _{ "Fri" | "Sat" | "Sun" | "Mon" | "Tue" | "Wed" | "Thu" }
+MONTHOFYEAR = _{ "Jan" | "Feb" | "Mar" | "Apr" | "May" | "Jun" | "Jul" | "Aug" | "Sep" | "Oct" | "Nov" | "Dec" }
+DAYOFMONTH = _{ NUMBER{1,2} }
+TIME = _{ NUMBER{1,2} ~ ":" ~ NUMBER{1,2} ~ ":" ~ NUMBER{1,2} } 
+YEAR = _{ NUMBER{1,4} }
+TIMEZONE = _{ ("+" | "-") ~ NUMBER{4} }
+
+
+TREE_LOGLINE = _{ "tree" ~ #tree_sha = SHA ~ NEWLINE?}
+PARENT_LOGLINE = _{ "parent" ~ #parent_sha = SHA ~ NEWLINE?}

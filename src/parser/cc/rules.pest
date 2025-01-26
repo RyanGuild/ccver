@@ -1,0 +1,19 @@
+
+WHITESPACE = _{ " " }
+COMMIT = { HEADLINE ~ BODY_SECTION? ~ FOOTER_SECTION? ~ NEWLINE? ~ EOI }
+
+
+TAG = _{#type = TYPE  ~ SCOPE_SECTION? ~ BREAKING_BANG? ~ ":"}
+HEADLINE = _{ TAG ~ DESCRIPTION }
+
+
+TYPE = @{ LETTER+ }
+SCOPE = @{ (LETTER | NUMBER | "-" | "_" | "/" | ".")+ }
+SCOPE_SECTION = _{ "(" ~ #scope = SCOPE ~ ")" }
+BREAKING_BANG = @{ #breaking = "!" }
+TEXT = _{(LETTER | NUMBER | WHITESPACE | PUNCTUATION | SYMBOL)+}
+DESCRIPTION = { TEXT }
+BODY_SECTION = _{ NEWLINE ~ NEWLINE+ ~ #body = BODY }
+BODY = @{ (TEXT ~ NEWLINE)* ~ TEXT }
+FOOTER_SECTION = _{ NEWLINE ~ NEWLINE+ ~ (FOOTER ~ NEWLINE)* ~ FOOTER }
+FOOTER = { #footer_key = SCOPE ~ (": " | " #") ~ #footer_value = DESCRIPTION }
