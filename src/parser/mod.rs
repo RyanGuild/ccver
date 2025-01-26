@@ -1,5 +1,6 @@
 pub mod cc;
 pub mod git;
+mod reduce_tagged_pairs;
 
 mod flat_tag_map;
 

@@ -1,4 +1,6 @@
-use chrono::DateTime;
+use std::str::FromStr;
+
+use chrono::{DateTime, TimeZone};
 use itertools::Itertools as _;
 use pest::Parser as _;
 use pest_derive::Parser as PP;
@@ -31,19 +33,32 @@ pub fn parse_git_log(log: &str) -> Vec<LogEntry> {
         .into_inner()
         .map(|entry| match entry.as_rule() {
             Rule::LOG_ENTRY => {
-                let mut tags = flat_tag_map(entry.into_inner());
+                let inner = entry.into_inner();
+                let mut tags = flat_tag_map(inner);
+                dbg!(&tags);
+
+                let date = if let Some(d) = tags.remove("date_string") {
+                    chrono::DateTime::parse_from_str(&d, "%a %b %e %T %Y %z")
+                        .expect("cannot parse date")
+                        .to_utc()
+                } else if let Some(d) = tags.remove("commiter_time").or(tags.remove("author_time")) {
+                    chrono::DateTime::parse_from_str(&d, "%s %z")
+                        .expect("cannot parse date")
+                        .to_utc()
+                } else {
+                    panic!("no date found")
+                };
+
+
+
+        
                 Some(LogEntry {
                     commit_sha: tags.remove("commit_sha").unwrap(),
                     tree_sha: tags.remove("tree_sha"),
-                    parent_shas: tags.remove("parent_shas"),
+                    parent_shas: tags.remove("parent_sha"),
                     author_name: tags.remove("author_name").unwrap(),
                     author_email: tags.remove("author_email").unwrap(),
-                    date: chrono::DateTime::parse_from_str(
-                        &tags.remove("date_string").unwrap(),
-                        "%a %b %e %T %Y %z",
-                    )
-                    .expect("cannot parse date")
-                    .to_utc(),
+                    date: date,
                     message: tags.remove("message").unwrap(),
                 })
             }
@@ -63,8 +78,19 @@ mod parser_tests {
 
     #[test]
     fn parse_real_logs() {
-        let log =
-            String::from_utf8(Command::new("git").arg("log").output().unwrap().stdout).unwrap();
+        let log = String::from_utf8(
+            Command::new("git")
+                .arg("log")
+                .arg("--full-history")
+                .arg("--pretty=raw")
+                .arg("--topo-order")
+                .arg("--decorate=full")
+                .arg("--all")
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap();
         let parsed = parse_git_log(&log);
         println!("{:#?}", parsed);
     }
@@ -82,10 +108,50 @@ mod parser_tests {
             "commit 1234567890abcdef1234567890abcdef12345678 (HEAD -> master, origin/master, origin/HEAD)"
         ).unwrap();
         Parser::parse(
-            Rule::AUTHOR_LOGLINE,
+            Rule::AUTHOR_INFO,
             "Author: RyanGuild <ryan.guild@us-ignite.org>",
         )
         .unwrap();
         Parser::parse(Rule::DATE_LOGLINE, "Date:   Fri Jul 9 14:00:00 2021 -0400").unwrap();
+    }
+
+    #[test]
+    fn parse_author_logline() {
+        let author = Parser::parse(
+            Rule::AUTHOR_INFO,
+            "author RyanGuild <ryan.guild@us-ignite.org> 1737909824 -0500",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        println!("{:#?}", author);
+
+        let author2 = Parser::parse(
+            Rule::AUTHOR_INFO,
+            "Author: RyanGuild <ryan.guild@us-ignite.org>",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        println!("{:#?}", author2);
+    }
+
+    #[test]
+    fn parse_log() {
+        let entry = Parser::parse(Rule::LOG, include_str!("./log.txt"))
+            .unwrap()
+            .next()
+            .unwrap();
+
+        println!("{:#?}", entry);
+    }
+
+    #[test]
+    fn parse_log_entry() {
+        let entry = Parser::parse(Rule::LOG_ENTRY, include_str!("./entry.txt"))
+            .unwrap()
+            .next()
+            .unwrap();
+        println!("{:#?}", entry);
     }
 }
