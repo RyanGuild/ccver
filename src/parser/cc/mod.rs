@@ -1,12 +1,80 @@
-use std::collections::HashMap;
-
-use pest::Parser as _;
-use pest_derive::Parser as PP;
+use std::{collections::HashMap};
+use pest_consume::{match_nodes, Node, Parser as PP};
 
 #[derive(PP)]
 #[grammar = "parser/cc/rules.pest"]
 pub struct Parser;
 
+#[pest_consume::parser]
+impl Parser {
+    fn TYPE(input: Node<Rule, ()>) -> Result<String, pest_consume::Error<Rule>> {
+        Ok(input.as_str().to_string())
+    }
+
+    fn SCOPE(input: Node<Rule, ()>) -> Result<String, pest_consume::Error<Rule>> {
+        Ok(input.as_str().to_string())
+    }
+
+    fn BREAKING_BANG(input: Node<Rule, ()>) -> Result<bool, pest_consume::Error<Rule>> {
+        Ok(true)
+    }
+
+    fn DESCRIPTION(input: Node<Rule, ()>) -> Result<String, pest_consume::Error<Rule>> {
+        Ok(input.as_str().to_string())
+    }
+
+    fn BODY(input: Node<Rule, ()>) -> Result<String, pest_consume::Error<Rule>> {
+        Ok(input.as_str().to_string())
+    }
+
+    fn FOOTER(input: Node<Rule, ()>) -> Result<(String, String), pest_consume::Error<Rule>> {
+        let mut key = None;
+        let mut value = None;
+        match_nodes!(input.into_children();
+            [SCOPE(k)] => key = Some(k),
+            [DESCRIPTION(v)] => value = Some(v),
+        );
+        Ok((key.expect("footer key not found"), value.expect("footer value not found")))
+    }
+
+
+    fn EOI(_input: Node<Rule, ()>) -> Result<(), pest_consume::Error<Rule>> {
+        Ok(())
+    }
+
+
+    fn COMMIT(input: Node<Rule, ()>) -> Result<ConventionalCommit, pest_consume::Error<Rule>> {
+        let mut commit_type = None;
+        let mut breaking = false;
+        let mut scope = None;
+        let mut description = None;
+        let mut body = None;
+        let mut footer = HashMap::new();
+        
+
+        match_nodes!(input.into_children();
+            [TYPE(t)] => commit_type = Some(t),
+            [BREAKING_BANG(_)] => breaking = true,
+            [SCOPE(s)] => scope = Some(s),
+            [DESCRIPTION(d)] => description = Some(d),
+            [BODY(b)] => body = Some(b),
+            [FOOTER(f)..] => footer = f.collect(),
+            [EOI(_)] => (),
+        );
+
+
+        Ok(ConventionalCommit {
+            commit_type: commit_type.expect("commit type not found"),
+            breaking,
+            scope,
+            description: description.expect("description not found"),
+            body,
+            footer,
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct ConventionalCommit {
     commit_type: String,
     breaking: bool,
@@ -16,79 +84,45 @@ pub struct ConventionalCommit {
     footer: HashMap<String, String>,
 }
 
-pub fn parse_commit_message(commit_message: &str) -> ConventionalCommit {
-    let commit = Parser::parse(Rule::COMMIT, commit_message).unwrap();
-
-    let commit_type = commit
-        .find_first_tagged("type")
-        .unwrap()
-        .as_str()
-        .to_string();
-    let breaking = commit.find_first_tagged("breaking").is_some();
-    let scope = commit
-        .find_first_tagged("scope")
-        .map(|s| s.as_str().to_string());
-    let description = commit
-        .find_first_tagged("description")
-        .unwrap()
-        .as_str()
-        .to_string();
-    let body = commit
-        .find_first_tagged("body")
-        .map(|b| b.as_str().to_string());
-    let footer: HashMap<String, String> = commit
-        .find_tagged("footer")
-        .map(|footer_pair| {
-            let footer_inner = footer_pair.into_inner();
-            (
-                footer_inner
-                    .find_first_tagged("footer_key")
-                    .unwrap()
-                    .as_str()
-                    .to_string(),
-                footer_inner
-                    .find_first_tagged("footer_value")
-                    .unwrap()
-                    .as_str()
-                    .to_string(),
-            )
-        })
-        .collect();
-
-    return ConventionalCommit {
-        commit_type,
-        breaking,
-        scope,
-        description,
-        body,
-        footer,
-    };
-}
 
 #[cfg(test)]
 mod parser_tests {
     use indoc::indoc;
-    use pest::Parser as _;
 
     use super::*;
-    use crate::parser::flat_tag_map::flat_tag_map;
 
     #[test]
-    fn components() {
+    fn components() -> Result<(), pest_consume::Error<Rule>> {
         Parser::parse(Rule::TYPE, "feat").unwrap();
-        let full = Parser::parse(Rule::TAG, "feat(src)!:").unwrap();
+        let full = Parser::parse(Rule::COMMIT, "feat(src)!: body").unwrap();
         Parser::parse(Rule::TAG, "feat:").unwrap();
         Parser::parse(Rule::COMMIT, "feat: add new feature").unwrap();
         println!("{:#?}", full);
+
+        let single = full.single()?;
+
+        let commit = Parser::COMMIT(single)?;
+
+        println!("{:#?}", commit);
+
+
+
+
+        Ok(())
+
+
+
+
+        
     }
 
-    #[test]
-    fn tag_tests() {
-        let input = Parser::parse(Rule::COMMIT, "feat: add new feature").unwrap();
-        let tags = flat_tag_map(input);
-        println!("{:#?}", tags);
-        tags.get("type").expect("type not found");
-    }
+    // #[test]
+    // fn tag_tests() {
+    //     let input = Parser::parse(Rule::COMMIT, "feat: add new feature").unwrap();
+    //     let tags = flat_tag_map(input);
+    //     println!("{:#?}", tags);
+    //     tags.get("type").expect("type not found");
+    // }
 
     #[test]
     fn spaceing_test() {

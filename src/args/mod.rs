@@ -1,4 +1,8 @@
+use std::{env::current_dir, path::PathBuf, str::FromStr};
+
 use clap::{Args, Parser, Subcommand};
+use directories::{UserDirs, ProjectDirs, BaseDirs};
+use serde::Deserialize;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -8,6 +12,9 @@ use clap::{Args, Parser, Subcommand};
 pub struct CCVerArgs {
     #[command(subcommand)]
     pub command: CCVerSubCommand,
+
+    #[arg(long = "path", short = 'p')]
+    pub path: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -18,21 +25,19 @@ pub struct InitArgs {
 
     #[arg(long = "install", short = 'i')]
     pub install_hooks: bool,
-
-    #[arg(long = "path", short = 'p')]
-    pub path: Option<String>,
 }
 
 #[derive(Args, Debug)]
 #[command(about = "Install ccver git hooks in a git repository")]
 pub struct InstallArgs {
-    #[arg(long = "path", short = 'p')]
-    pub path: Option<String>,
+    
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Deserialize)]
 #[command(about = "Tag the current commit with a version")]
-pub struct TagArgs {}
+pub struct TagArgs {
+
+}
 
 #[derive(Subcommand, Debug)]
 pub enum CCVerSubCommand {

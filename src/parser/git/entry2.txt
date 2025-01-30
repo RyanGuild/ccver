@@ -1,8 +1,0 @@
-commit 00e30e4884696f57aaf89a56a3e11aa94d806da8 (HEAD -> refs/heads/master)
-tree ca8ee410c10eca81028f771ceaf91c481484c260
-parent 2e8251c338fb8deb7f3c2334a6a6ce23392fe270
-parent c4eb3d11d17913f2aceac92c3d3f1326af658ada
-author RyanGuild <ryan.guild@us-ignite.org> 1737910163 -0500
-committer RyanGuild <ryan.guild@us-ignite.org> 1737910163 -0500
-
-    Merge branch 'development'

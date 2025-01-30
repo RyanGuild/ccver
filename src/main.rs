@@ -4,28 +4,31 @@ use std::process::Command;
 use clap::Parser;
 
 
-pub mod config;
+
 pub mod parser;
 pub mod args;
+pub mod config;
 pub mod commands;
 
-use config::*;
 use args::*;
-use args::CCVerSubCommand::*;
 use commands::*;
+use args::CCVerSubCommand::*;
+use config::CCVerConfig;
 
-fn main() {
+use eyre::Result;
+
+fn main() -> Result<()> {
     Command::new("git")
         .arg("-v")
         .output()
         .expect("git not installed");
 
     let args = CCVerArgs::parse();
-    let config = CCVerConfig::default();
+    let config = CCVerConfig::default()?;
 
     match args.command {
-        Init(args) => init::run(args, config),
-        Install(args) => install::run(args, config),
-        Tag(args) => tag::run(args, config),
+        Init(_) => init::run(args, config),
+        Install(_) => install::run(args, config),
+        Tag(_) => tag::run(args, config),
     }
 }

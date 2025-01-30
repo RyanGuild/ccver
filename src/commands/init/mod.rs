@@ -1,6 +1,6 @@
 use std::{env::current_dir, path::PathBuf, process::Command, str::FromStr};
 
-use crate::{args::InitArgs, config::CCVerConfig, parser::git::parse_git_log};
+use crate::{config::InitArgs, config::CCVerConfig, parser::git::parse_git_log};
 
 pub fn run(args: InitArgs, config: CCVerConfig) {
     let working_dir = if let Some(path) = args.path {

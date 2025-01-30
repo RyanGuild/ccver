@@ -1,7 +1,0 @@
-commit b008bebb2c3109e6720a9d7afcb1e654781668cb
-tree bd3042a48d9425e3da5592e724774fc15c928b86
-parent 38aa9cdf8228f03997d0e953d03cb00a2c1be536
-author RyanGuild <ryan.guild@us-ignite.org> 1737909824 -0500
-committer RyanGuild <ryan.guild@us-ignite.org> 1737909824 -0500
-
-    fix(README.md): made the readme mean something

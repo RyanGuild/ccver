@@ -1,72 +1,57 @@
-use serde::Deserialize;
-use std::{env::current_dir, fs::read_to_string, path::PathBuf};
+use std::{
+    env::current_dir,
+    path::{Path, PathBuf},
+    str::FromStr,
+    vec,
+};
 
-#[derive(Debug, Deserialize)]
+use directories::BaseDirs;
+use eyre::{OptionExt, Result};
+use figment::{
+    providers::{Env, Format, Json, Toml, Yaml},
+    Figment,
+};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
 pub struct CCVerConfig {
-    major: Vec<String>,
-    minor: Vec<String>,
-    patch: Vec<String>,
+    commit_type: Option<LevelIndicators>,
+    scope: Option<LevelIndicators>,
+    branch: Option<LevelIndicators>,
+}
+
+#[derive(Deserialize)]
+struct LevelIndicators {
+    major: Option<Vec<String>>,
+    minor: Option<Vec<String>>,
+    patch: Option<Vec<String>>,
 }
 
 impl CCVerConfig {
-    pub fn new(override_config: CCVerConfig) -> CCVerConfig {
-        CCVerConfig::default().extend(override_config)
-    }
+    pub fn default() -> Result<CCVerConfig> {
+        let system = PathBuf::from_str("/etc/ccver")?;
+        let home = BaseDirs::new()
+            .ok_or_eyre("could not get directories")?
+            .home_dir()
+            .to_path_buf();
+        let cwd = current_dir()?;
 
-    pub fn default() -> CCVerConfig {
-        CCVerConfig {
-            major: vec!["breaking".to_string()],
-            minor: vec!["feat".to_string()],
-            patch: vec!["fix".to_string()],
-        }
-        .extend(CCVerConfig::from_fs())
-    }
+        let  fg = Figment::new()
+            .merge(Toml::file(system.join("ccver.toml")))
+            .merge(Toml::file(home.join("ccver.toml")))
+            .merge(Toml::file(cwd.join("ccver.toml")))
+            .merge(Json::file(system.join("ccver.json")))
+            .merge(Json::file(home.join("ccver.json")))
+            .merge(Json::file(cwd.join("ccver.json")))
+            .merge(Yaml::file(system.join("ccver.yaml")))
+            .merge(Yaml::file(home.join("ccver.yaml")))
+            .merge(Yaml::file(cwd.join("ccver.yaml")))
+            .merge(Yaml::file(system.join(".ccver")))
+            .merge(Yaml::file(home.join(".ccver")))
+            .merge(Yaml::file(home.join(".ccver")))
+            .merge(Env::prefixed("CCVER_"));
 
-    pub fn from_fs() -> CCVerConfig {
-        ConfigPaths(current_dir().expect("Could not get current directory"))
-            .map(CCVerConfig::from_path)
-            .reduce(CCVerConfig::extend)
-            .expect("No config found")
-    }
-
-    pub fn from_path(path: PathBuf) -> CCVerConfig {
-        serde_yaml::from_str(&read_to_string(path).expect("Could not read config file"))
-            .expect("Could not parse config file")
-    }
-
-    pub fn extend(mut self, source: CCVerConfig) -> Self {
-        self.major.extend(source.major);
-        self.minor.extend(source.minor);
-        self.patch.extend(source.patch);
-        self
-    }
-    
-    pub fn with_args(mut self, args: &crate::args::CCVerArgs) -> Self {
-        match args.command {
-           _ => {} 
-        };
-        self
-    }
-}
-
-struct ConfigPaths(PathBuf);
-
-impl Iterator for ConfigPaths {
-    type Item = PathBuf;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current_path = self.0.clone();
-
-        if current_path.parent().is_none() {
-            return None;
-        };
-
-        self.0 = current_path.parent().unwrap().to_path_buf();
-
-        if current_path.join(".ccver").exists() {
-            return Some(current_path.join(".ccver"));
-        };
-
-        return self.next();
+        let res: CCVerConfig = fg.extract()?;
+        return Ok(res);
     }
 }
