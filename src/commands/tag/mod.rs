@@ -1,7 +1,9 @@
-use crate::{config::TagArgs, config::CCVerConfig};
-use std::{env::Command};
-use eyre::Result
+use std::process::Command;
 
-pub fn run(args: TagArgs, config: CCVerConfig) -> Result<String> {
-    Command::new("git").args(["tag", "-l"])
+use crate::{args::CCVerArgs, config::CCVerConfig};
+use eyre::Result;
+
+pub fn run(args: CCVerArgs, config: CCVerConfig) -> Result<String> {
+    Command::new("git").args(["tag", "-l"]).output();
+    panic!("Not implemented");
 }

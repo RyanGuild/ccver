@@ -1,10 +1,12 @@
 use std::{env::current_dir, path::PathBuf, process::Command, str::FromStr};
 
-use crate::{config::InitArgs, config::CCVerConfig, parser::git::parse_git_log};
+use crate::{config::CCVerConfig, args::CCVerArgs};
 
-pub fn run(args: InitArgs, config: CCVerConfig) {
-    let working_dir = if let Some(path) = args.path {
-        PathBuf::from_str(&path).expect("Invalid path")
+use eyre::Result;
+
+pub fn run(args: CCVerArgs, config: CCVerConfig) -> Result<String> {
+    let working_dir = if let Some(path) = args.path.as_ref() {
+        PathBuf::from_str(path).expect("Invalid path")
     } else {
         current_dir().expect("Failed to get current directory")
     };
@@ -29,7 +31,6 @@ pub fn run(args: InitArgs, config: CCVerConfig) {
     )
     .expect("Failed to convert git log to string");
 
-    let log = parse_git_log(&log_str);
 
-    println!("{:#?}", log);
+    panic!("Not implemented");
 }

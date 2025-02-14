@@ -1,5 +1,7 @@
-use crate::{config::InstallArgs, config::CCVerConfig};
+use crate::{config::CCVerConfig, args::CCVerArgs};
 
-pub fn run(args: InstallArgs, config: CCVerConfig) {
-    todo!("Implement init command")
+use eyre::Result;
+
+pub fn run(args: CCVerArgs, config: CCVerConfig) -> Result<String> {
+    todo!("Implement init command");
 }

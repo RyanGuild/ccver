@@ -15,7 +15,7 @@ use commands::*;
 use args::CCVerSubCommand::*;
 use config::CCVerConfig;
 
-use eyre::Result;
+use eyre::{Result, eyre};
 
 fn main() -> Result<()> {
     Command::new("git")
@@ -26,9 +26,20 @@ fn main() -> Result<()> {
     let args = CCVerArgs::parse();
     let config = CCVerConfig::default()?;
 
-    match args.command {
+    let res  = match args.command {
         Init(_) => init::run(args, config),
         Install(_) => install::run(args, config),
         Tag(_) => tag::run(args, config),
+    };
+
+    if let Err(error) = res {
+        println!("{}", error);
+        panic!("Command returned error");
+    };
+
+    if let Ok(result) = res {
+        println!("{}", result);
     }
+
+    Ok(())
 }
