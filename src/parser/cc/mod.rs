@@ -1,4 +1,3 @@
-use chrono::TimeZone;
 use pest_consume::{match_nodes, Node, Parser as PP};
 use std::collections::HashMap;
 
@@ -6,15 +5,9 @@ use std::collections::HashMap;
 #[grammar = "parser/cc/rules.pest"]
 pub struct Parser;
 
-struct GitUserActionInfo {
-    name: String,
-    email: String,
-    timestamp: chrono::DateTime<chrono::Utc>,
-    timezone: i64,
-}
 
 #[derive(Debug)]
-struct LogRawEntry {
+pub struct LogRawEntry {
     commit_hash: String,
     parent_hash: Vec<String>,
     commit: Commit,
@@ -37,7 +30,7 @@ pub enum Commit {
 }
 
 #[derive(Debug)]
-struct CommitTag {
+pub struct CommitTag {
     commit_type: String,
     scope: Option<String>,
     breaking: bool,
@@ -163,14 +156,14 @@ impl Parser {
         }))
     }
 
-    fn COMMIT(input: Node<Rule, ()>) -> Result<Commit, pest_consume::Error<Rule>> {
+    pub fn COMMIT(input: Node<Rule, ()>) -> Result<Commit, pest_consume::Error<Rule>> {
         match_nodes!(input.children();
             [CONVENTIONAL_COMMIT(c)] => Ok(Commit::Conventional(c)),
             [BODY(t)] => Ok(Commit::Text(t)),
         )
     }
 
-    fn LOG_RAW(input: Node<Rule, ()>) -> Result<Vec<LogRawEntry>, pest_consume::Error<Rule>> {
+    pub fn LOG_RAW(input: Node<Rule, ()>) -> Result<Vec<LogRawEntry>, pest_consume::Error<Rule>> {
         match_nodes!(input.children();
             [LOG_RAW_ENTRY(e)..] => Ok(e.collect())
         )
@@ -179,8 +172,6 @@ impl Parser {
 
 #[cfg(test)]
 mod parser_tests {
-    use std::process::Command;
-
     use indoc::indoc;
 
     use super::*;
@@ -369,16 +360,6 @@ mod parser_tests {
             parsed_log_raw_entry.parent_hash,
             vec!["38aa9cdf8228f03997d0e953d03cb00a2c1be536"]
         );
-        Ok(())
-    }
-
-    #[test]
-    fn parse_real_logs() -> Result<(), pest_consume::Error<Rule>> {
-        let logs = Command::new("git").args(&["log", "--format=format:%H%n%P%n%B"]).output().unwrap();
-        let logs = String::from_utf8(logs.stdout).unwrap();
-        let logs = Parser::parse(Rule::LOG_RAW, &logs)?;
-        let parsed_logs = Parser::LOG_RAW(logs.single()?)?;
-        println!("{:#?}", parsed_logs);
         Ok(())
     }
 }
