@@ -1,0 +1,95 @@
+
+WHITESPACE = _{ " " | NEWLINE }
+TAG = {TYPE  ~ SCOPE_SECTION? ~ BREAKING_BANG }
+SUBJECT = { CONVENTIONAL_SUBJECT | DESCRIPTION }
+CONVENTIONAL_SUBJECT = { TAG ~ ":" ~ DESCRIPTION }
+
+
+TYPE = @{ LETTER+ }
+SCOPE = @{ (LETTER | NUMBER | "-" | "_" | "/" | ".")+ }
+FNAME = @{ (LETTER | NUMBER | "-" | "_" | ".")+}
+NAME = @{ (LETTER | NUMBER | "-" | "_")+ }
+SCOPE_SECTION = { "(" ~  SCOPE ~ ")" }
+BREAKING_BANG = @{ "!"? }
+TEXT = _{(LETTER | NUMBER | " " | PUNCTUATION | SYMBOL)+}
+DESCRIPTION = @{ TEXT+ }
+
+BODY_SECTION = { "{" ~ BODY ~ "}" }
+FOOTER_SECTION = {  FOOTER* }
+
+BODY = @{ (TEXT~NEWLINE?)*}
+FOOTER = {  SCOPE ~ (": " | " #") ~ DESCRIPTION }
+
+
+COMMIT_HASHLINE = { SHA }
+
+PARENT_HASHLINE = { SHA* }
+
+DECORATIONS_LINE = { "(" ~ (DECORATION~",")* ~ DECORATION? ~ ")"}
+DECORATION = { HEAD_DEC | TAG_DEC | REMOTE_DEC | BRANCH_DEC }
+HEAD_DEC = { "HEAD ->" ~ SCOPE }
+TAG_DEC = { "tag: " ~ SCOPE }
+REMOTE_DEC = { FNAME~"/"~SCOPE }
+BRANCH_DEC = { SCOPE }
+
+
+SHA = @{ ('0'..'9' | 'a'..'f'){40} }
+
+ISO8601_DATE = @{ 
+    YEAR ~ "-" ~ MONTH ~ "-" ~ DAY ~ "T" ~ HOUR ~ ":" ~ MINUTE ~ ":" ~ SECOND ~ TIMEZONE
+}
+
+YEAR = @{ DIGIT ~ DIGIT ~ DIGIT ~ DIGIT }
+MONTH = @{ ('0'..'1') ~ DIGIT }
+DAY = @{ ('0'..'3') ~ DIGIT }
+HOUR = @{ ('0'..'2') ~ DIGIT  }
+MINUTE = @{ ('0'..'5') ~ DIGIT }
+SECOND = @{ ('0'..'5') ~ DIGIT }
+TIMEZONE = @{ "Z" | ("+" | "-") ~ HOUR ~ ":" ~ MINUTE }
+
+DIGIT = _{ '0'..'9' }
+ASCII_NONZERO_DIGIT = _{ '1'..'9' }
+
+CCVER_LOG_ENTRY = {
+    "name="
+    ~ SCOPE
+    ~ "commit="
+    ~ COMMIT_HASHLINE
+    ~ "commit-time="
+    ~ ISO8601_DATE
+    ~ "dec="
+    ~ DECORATIONS_LINE?
+    ~ "parent="
+    ~ PARENT_HASHLINE
+    ~ "sub="
+    ~ SUBJECT
+    ~ "trailers="
+    ~ FOOTER_SECTION
+}
+
+CCVER_LOG = {CCVER_LOG_ENTRY+ ~ EOI}
+
+
+CCVER = @{"v"? ~ VERSION_NUMBER ~ "." ~ VERSION_NUMBER ~ "." ~ VERSION_NUMBER ~ PRE_TAG }
+VERSION_NUMBER = @{ NUMBER+ }
+PRE_TAG = ${
+    "-"
+    ~ (
+        RC_PRE_TAG
+        | BETA_PRE_TAG
+        | ALPHA_PRE_TAG
+        | BUILD_PRE_TAG
+        | NAMED_PRE_TAG
+        | SHA
+    )
+}
+
+
+
+
+
+RC_PRE_TAG = {("rc." ~ VERSION_NUMBER)}
+BETA_PRE_TAG = {("beta." ~ VERSION_NUMBER)}
+ALPHA_PRE_TAG = {("alpha." ~ VERSION_NUMBER)}
+BUILD_PRE_TAG = {("build." ~ VERSION_NUMBER)}
+NAMED_PRE_TAG = {(NAME ~ "." ~ VERSION_NUMBER)}

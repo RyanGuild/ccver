@@ -1,7 +1,4 @@
-use std::{env::current_dir, path::PathBuf, str::FromStr};
-
 use clap::{Args, Parser, Subcommand};
-use directories::{UserDirs, ProjectDirs, BaseDirs};
 use serde::Deserialize;
 
 #[derive(Parser, Debug)]
@@ -11,10 +8,22 @@ use serde::Deserialize;
 )]
 pub struct CCVerArgs {
     #[command(subcommand)]
-    pub command: CCVerSubCommand,
+    pub command: Option<CCVerSubCommand>,
 
     #[arg(long = "path", short = 'p')]
     pub path: Option<String>,
+
+    #[arg(long = "force-major")]
+    pub force_major: bool,
+
+    #[arg(long = "force-minor")]
+    pub force_minor: bool,
+
+    #[arg(long = "force-patch")]
+    pub force_patch: bool,
+
+
+
 }
 
 #[derive(Args, Debug)]
