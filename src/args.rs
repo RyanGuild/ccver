@@ -22,8 +22,8 @@ pub struct CCVerArgs {
     #[arg(long = "force-patch")]
     pub force_patch: bool,
 
-
-
+    #[arg(long = "format", short = 'f')]
+    pub format: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -38,15 +38,11 @@ pub struct InitArgs {
 
 #[derive(Args, Debug)]
 #[command(about = "Install ccver git hooks in a git repository")]
-pub struct InstallArgs {
-    
-}
+pub struct InstallArgs {}
 
 #[derive(Args, Debug, Deserialize)]
 #[command(about = "Tag the current commit with a version")]
-pub struct TagArgs {
-
-}
+pub struct TagArgs {}
 
 #[derive(Subcommand, Debug)]
 pub enum CCVerSubCommand {

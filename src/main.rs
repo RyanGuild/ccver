@@ -1,3 +1,5 @@
+#![feature(decl_macro)]
+
 // use itertools::Itertools;
 
 use clap::Parser;
@@ -7,17 +9,16 @@ use std::process::Command;
 
 pub mod args;
 pub mod config;
-pub mod logs;
 pub mod graph;
+pub mod logs;
 pub mod parser;
 pub mod version;
+pub mod version_format;
 
 use args::*;
 use config::CCVerConfig;
 use logs::Logs;
-use parser::Subject::*;
 use version::Version;
-
 
 use eyre::Result;
 
@@ -28,7 +29,7 @@ fn main() -> Result<()> {
         .expect("git not installed");
 
     let args = CCVerArgs::parse();
-    let config = CCVerConfig::default()?;
+    let _config = CCVerConfig::default()?;
 
     let path = args.path.map_or(
         current_dir().expect("could not get current dir"),
@@ -38,20 +39,11 @@ fn main() -> Result<()> {
     let mut logs = Logs::new(path);
     let graph_cell = logs.get_graph();
     let graph = graph_cell.borrow();
-
-    let versions = vec![Version::default()];
-
-    graph.dfs_postorder_history().for_each(|(idx, commit)| {
-        dbg!(commit.name);
-
-
-        match &commit.subject {
-            _=> {},
-            Conventional(ccdata) => {
-                
-            },
-        };
-
+    graph.history_windowed_childeren().for_each(|(commit, children)| {
+        println!("commit: {:?}", commit);
+        children.iter().for_each(|child| {
+            println!("child: {:?}", child);
+        });
     });
 
     Ok(())

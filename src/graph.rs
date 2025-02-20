@@ -1,22 +1,22 @@
 use eyre::{eyre, OptionExt, Result};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
+use std::fmt::Debug;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::parser::Decoration;
-use crate::parser::{CCVerLog, CCVerLogEntry, Decoration::HeadIndicator};
+use crate::logs::{Decoration, Log, LogEntry, Tag};
 
-pub type CCVerPetGraph<'a> = DiGraph<CCVerLogEntry<'a>, ()>;
+pub type PetGraph<'a> = DiGraph<LogEntry<'a>, ()>;
 
 #[derive(Debug)]
-pub struct CCVerCommitGraphData<'a> {
-    petgraph: CCVerPetGraph<'a>,
+pub struct CommitGraphData<'a> {
+    petgraph: PetGraph<'a>,
     head_index: NodeIndex,
     tail_index: NodeIndex,
     commit_to_index: HashMap<String, NodeIndex>,
 }
 
-pub type CCVerCommitGraph<'a> = Rc<RefCell<CCVerCommitGraphData<'a>>>;
+pub type CommitGraph<'a> = Rc<RefCell<CommitGraphData<'a>>>;
 pub enum Directions {
     Backward,
     Forward,
@@ -31,14 +31,20 @@ pub enum Locations<'a> {
 }
 
 impl Locations<'_> {
-    fn to_idx(&self, graph: &CCVerCommitGraphData) -> Result<NodeIndex> {
+    fn to_idx(&self, graph: &CommitGraphData) -> Result<NodeIndex> {
         match self {
             Locations::Head => Ok(graph.headidx()),
             Locations::Initial => Ok(graph.tailidx()),
             Locations::Sha(sha) => graph.commitidx(&sha),
             Locations::Decoration(d) => match d {
                 Decoration::HeadIndicator(_) => Ok(graph.headidx()),
-                Decoration::Tag(t) => graph.tagidx(t),
+                Decoration::Tag(t) => graph.tagidx(
+                    match t {
+                        Tag::Text(t) => t.to_string(),
+                        Tag::Version(v) => format!("{}", v),
+                    }
+                    .as_str(),
+                ),
                 Decoration::RemoteBranch((o, b)) => graph.remoteidx(o, b),
                 Decoration::Branch(b) => graph.branchidx(b),
             },
@@ -46,8 +52,8 @@ impl Locations<'_> {
     }
 }
 
-impl CCVerCommitGraphData<'_> {
-    pub fn new<'a>(logs: CCVerLog<'a>) -> Result<CCVerCommitGraph<'a>> {
+impl CommitGraphData<'_> {
+    pub fn new<'a>(logs: Log<'a>) -> Result<CommitGraph<'a>> {
         let mut petgraph = DiGraph::new();
         let commit_to_index: HashMap<String, NodeIndex> = logs
             .into_iter()
@@ -79,7 +85,7 @@ impl CCVerCommitGraphData<'_> {
                 let node = petgraph[*i].clone();
                 for dec in node.decorations.iter() {
                     match dec {
-                        HeadIndicator(_) => return true,
+                        Decoration::HeadIndicator(_) => return true,
                         _ => continue,
                     };
                 }
@@ -103,7 +109,7 @@ impl CCVerCommitGraphData<'_> {
             .ok_or_eyre("could not find initial commit circular history or no commits detected")?
             .clone();
 
-        Ok(Rc::new(RefCell::new(CCVerCommitGraphData {
+        Ok(Rc::new(RefCell::new(CommitGraphData {
             petgraph,
             head_index,
             tail_index,
@@ -111,7 +117,7 @@ impl CCVerCommitGraphData<'_> {
         })))
     }
 
-    pub fn commit(&self, index: &str) -> Result<CCVerLogEntry<'_>> {
+    pub fn commit(&self, index: &str) -> Result<LogEntry<'_>> {
         Ok(self.petgraph[self.commitidx(index)?].clone())
     }
 
@@ -122,7 +128,7 @@ impl CCVerCommitGraphData<'_> {
             .ok_or_eyre("could not find commit in commit map")
     }
 
-    pub fn head(&self) -> CCVerLogEntry {
+    pub fn head(&self) -> LogEntry {
         self.petgraph[self.head_index].clone()
     }
 
@@ -130,7 +136,7 @@ impl CCVerCommitGraphData<'_> {
         self.head_index
     }
 
-    pub fn tail(&self) -> CCVerLogEntry {
+    pub fn tail(&self) -> LogEntry {
         self.petgraph[self.tail_index].clone()
     }
 
@@ -138,7 +144,7 @@ impl CCVerCommitGraphData<'_> {
         self.tail_index
     }
 
-    pub fn tag(&self, tag: &str) -> Result<CCVerLogEntry> {
+    pub fn tag(&self, tag: &str) -> Result<LogEntry> {
         Ok(self.petgraph[self.tagidx(tag)?].clone())
     }
 
@@ -147,7 +153,7 @@ impl CCVerCommitGraphData<'_> {
             for dec in self.petgraph[idx].decorations.iter() {
                 match dec {
                     Decoration::Tag(t) => {
-                        if *t == tag {
+                        if t == &Tag::Text(tag) {
                             return Ok(idx);
                         } else {
                             continue;
@@ -162,7 +168,7 @@ impl CCVerCommitGraphData<'_> {
         Err(eyre!("tag not found in history"))
     }
 
-    pub fn branch(&self, branch: &str) -> Result<CCVerLogEntry> {
+    pub fn branch(&self, branch: &str) -> Result<LogEntry> {
         Ok(self.petgraph[self.branchidx(branch)?].clone())
     }
 
@@ -186,7 +192,7 @@ impl CCVerCommitGraphData<'_> {
         Err(eyre!("branch not found in history"))
     }
 
-    pub fn remote(&self, remote: &str, branch: &str) -> Result<CCVerLogEntry> {
+    pub fn remote(&self, remote: &str, branch: &str) -> Result<LogEntry> {
         Ok(self.petgraph[self.remoteidx(remote, branch)?].clone())
     }
 
@@ -214,7 +220,7 @@ impl CCVerCommitGraphData<'_> {
         &'a self,
         location: Locations,
         direction: Directions,
-    ) -> Result<Box<dyn Iterator<Item = (NodeIndex, CCVerLogEntry<'a>)> + 'a>> {
+    ) -> Result<Box<dyn Iterator<Item = (NodeIndex, LogEntry<'a>)> + 'a>> {
         let start = location.to_idx(&self)?;
 
         match direction {
@@ -235,26 +241,51 @@ impl CCVerCommitGraphData<'_> {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (NodeIndex, CCVerLogEntry)> {
+    pub fn iter(&self) -> impl Iterator<Item = (NodeIndex, LogEntry)> {
         self.petgraph
             .node_indices()
             .map(|idx| (idx, self.petgraph[idx].clone()))
     }
 
-    pub fn dfs_postorder_history(&self) -> impl Iterator<Item = (NodeIndex, CCVerLogEntry)> {
+    pub fn dfs_postorder_history(&self) -> impl Iterator<Item = (NodeIndex, LogEntry)> {
         let start = self.headidx();
         DfsPostOrder::new(&self.petgraph, start)
             .iter(&self.petgraph)
             .map(|idx| (idx, self.petgraph[idx].clone()))
     }
 
-    pub fn bfs_history(&self) -> impl Iterator<Item = (NodeIndex,CCVerLogEntry)> {
+    pub fn bfs_history(&self) -> impl Iterator<Item = (NodeIndex, LogEntry)> {
         let start = self.headidx();
         let graph = &self.petgraph;
         Bfs::new(graph, start)
             .iter(graph)
             .map(|idx| (idx, self.petgraph[idx].clone()))
     }
+
+    pub fn history_windowed_childeren(&self) -> impl Iterator<Item = (LogEntry, Vec<LogEntry>)> {
+        let mut history = self.dfs_postorder_history();
+        let mut windows: Vec<(NodeIndex, Vec<NodeIndex>)> = vec![];
+
+        while let Some((idx, _)) = history.next() {
+            let children: Vec<NodeIndex> = self.petgraph
+                // note that children point to parents in the DiGraph so we need to reverse the direction
+                .neighbors_directed(idx, petgraph::Direction::Incoming)
+                .collect();
+            windows.push((idx, children));
+        };
+
+        windows
+            .into_iter()
+            .map(|(idx, children)| {
+                let parent = self.petgraph[idx].clone();
+                let children = children
+                    .into_iter()
+                    .map(|idx| self.petgraph[idx].clone())
+                    .collect();
+                (parent, children)
+            })
+    }
+
 }
 
 #[cfg(test)]
@@ -284,11 +315,13 @@ mod graph_tests {
             .iter_from(Locations::Sha(second_commit), Directions::Forward)?
             .collect();
 
-        assert_ne!(iter2.len(),2);
-
+        assert_ne!(iter2.len(), 2);
 
         // -1 on account of the second_commit appears in both iters
-        assert_eq!(iter1.len() + iter2.len() - 1, graph.dfs_postorder_history().count());
+        assert_eq!(
+            iter1.len() + iter2.len() - 1,
+            graph.dfs_postorder_history().count()
+        );
         assert_eq!(iter1.len() + iter2.len() - 1, graph.bfs_history().count());
 
         Ok(())
@@ -301,14 +334,14 @@ mod graph_tests {
         let logs: Vec<String> = graph
             .borrow()
             .dfs_postorder_history()
-            .map(|(_,n)| n.commit_hash.to_string())
+            .map(|(_, n)| n.commit_hash.to_string())
             .collect();
         assert_ne!(logs.len(), 0);
 
         let logs2: Vec<String> = graph
             .borrow()
             .bfs_history()
-            .map(|(_,n)| n.commit_hash.to_string())
+            .map(|(_, n)| n.commit_hash.to_string())
             .collect();
         assert_eq!(logs.len(), logs2.len());
     }
