@@ -1,10 +1,11 @@
 use eyre::{eyre, OptionExt, Result};
 use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
+use petgraph::visit::{Bfs, DfsPostOrder, IntoNeighborsDirected, Reversed, Walker};
 use std::fmt::Debug;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::logs::{Decoration, Log, LogEntry, Tag};
+use crate::version::Version;
 
 pub type PetGraph<'a> = DiGraph<LogEntry<'a>, ()>;
 
@@ -14,6 +15,7 @@ pub struct CommitGraphData<'a> {
     head_index: NodeIndex,
     tail_index: NodeIndex,
     commit_to_index: HashMap<String, NodeIndex>,
+    index_to_version: HashMap<NodeIndex, Version>,
 }
 
 pub type CommitGraph<'a> = Rc<RefCell<CommitGraphData<'a>>>;
@@ -109,10 +111,85 @@ impl CommitGraphData<'_> {
             .ok_or_eyre("could not find initial commit circular history or no commits detected")?
             .clone();
 
+        let versions: HashMap<NodeIndex, Version> = petgraph
+            .node_indices()
+            .filter_map(|i| {
+                let node = petgraph[i].clone();
+                for dec in node.decorations.iter() {
+                    match dec {
+                        Decoration::Tag(t) => {
+                            if let Tag::Version(v) = t {
+                                return Some((i, v.clone()));
+                            } else {
+                                continue;
+                            }
+                        }
+                        _ => {
+                            continue;
+                        }
+                    };
+                }
+                None
+            })
+            .collect();
+
+        if versions.len() > 0 {
+            let (idx, first_version) = {
+                let reversed = Reversed(&petgraph);
+                Bfs::new(&reversed, tail_index)
+                    .iter(reversed)
+                    .find_map(|idx| {
+                        let node = petgraph[idx].clone();
+                        for dec in node.decorations.iter() {
+                            match dec {
+                                Decoration::Tag(t) => {
+                                    if let Tag::Version(v) = t {
+                                        return Some((idx, v.clone()));
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                _ => {
+                                    continue;
+                                }
+                            };
+                        }
+
+                        let mut children: Vec<_> = reversed
+                            .neighbors_directed(idx, petgraph::Direction::Outgoing)
+                            .map(|idx| petgraph[idx].clone())
+                            .filter_map(|node| {
+                                for dec in node.decorations.iter() {
+                                    match dec {
+                                        Decoration::Tag(t) => {
+                                            if let Tag::Version(v) = t {
+                                                return Some((idx, (*v).clone()));
+                                            } else {
+                                                continue;
+                                            }
+                                        }
+                                        _ => {
+                                            continue;
+                                        }
+                                    };
+                                }
+                                None
+                            })
+                            .collect();
+
+                        children.sort();
+
+                        children.pop()
+                    })
+            }
+            .ok_or_eyre("could not find initial version some descrepency with existing_versions")?;
+        }
+
         Ok(Rc::new(RefCell::new(CommitGraphData {
             petgraph,
             head_index,
             tail_index,
+            index_to_version: versions,
             commit_to_index,
         })))
     }
@@ -121,7 +198,7 @@ impl CommitGraphData<'_> {
         Ok(self.petgraph[self.commitidx(index)?].clone())
     }
 
-    fn commitidx(&self, index: &str) -> Result<NodeIndex> {
+    pub fn commitidx(&self, index: &str) -> Result<NodeIndex> {
         self.commit_to_index
             .get(index)
             .map(|n| *n)
@@ -267,25 +344,45 @@ impl CommitGraphData<'_> {
         let mut windows: Vec<(NodeIndex, Vec<NodeIndex>)> = vec![];
 
         while let Some((idx, _)) = history.next() {
-            let children: Vec<NodeIndex> = self.petgraph
+            let children: Vec<NodeIndex> = self
+                .petgraph
                 // note that children point to parents in the DiGraph so we need to reverse the direction
                 .neighbors_directed(idx, petgraph::Direction::Incoming)
                 .collect();
             windows.push((idx, children));
-        };
+        }
 
-        windows
-            .into_iter()
-            .map(|(idx, children)| {
-                let parent = self.petgraph[idx].clone();
-                let children = children
-                    .into_iter()
-                    .map(|idx| self.petgraph[idx].clone())
-                    .collect();
-                (parent, children)
-            })
+        windows.into_iter().map(|(idx, children)| {
+            let parent = self.petgraph[idx].clone();
+            let children = children
+                .into_iter()
+                .map(|idx| self.petgraph[idx].clone())
+                .collect();
+            (parent, children)
+        })
     }
 
+    pub fn history_windowed_parents(&self) -> impl Iterator<Item = (LogEntry, Vec<LogEntry>)> {
+        let mut history = self.dfs_postorder_history();
+        let mut windows: Vec<(NodeIndex, Vec<NodeIndex>)> = vec![];
+
+        while let Some((idx, _)) = history.next() {
+            let parents: Vec<NodeIndex> = self
+                .petgraph
+                .neighbors_directed(idx, petgraph::Direction::Outgoing)
+                .collect();
+            windows.push((idx, parents));
+        }
+
+        windows.into_iter().map(|(idx, parents)| {
+            let child = self.petgraph[idx].clone();
+            let parents = parents
+                .into_iter()
+                .map(|idx| self.petgraph[idx].clone())
+                .collect();
+            (child, parents)
+        })
+    }
 }
 
 #[cfg(test)]

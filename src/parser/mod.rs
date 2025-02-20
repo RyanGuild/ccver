@@ -1,6 +1,5 @@
 use core::str;
-use lexer::{LexerInput, LexerResult};
-use std::rc::Rc;
+use interpreter::InterpreterResult;
 
 use crate::{logs::Log, version::Version, version_format::VersionFormat};
 
@@ -14,25 +13,16 @@ mod grammar;
 use grammar::Parser;
 use grammar::Rule;
 
-mod lexer;
+mod interpreter;
 
-pub fn parse_log(log: &str) -> LexerResult<Log> {
+pub fn parse_log(log: &str) -> InterpreterResult<Log> {
     cc_parse!(CCVER_LOG, log)
 }
 
-pub fn parse_version_format(format: &str) -> LexerResult<VersionFormat> {
+pub fn parse_version_format(format: &str) -> InterpreterResult<VersionFormat> {
     cc_parse!(CCVER_VERSION_FORMAT, format)
 }
 
-pub fn parse_version<'input, 'format>(
-    version: &'input str,
-    format: VersionFormat<'format>,
-) -> LexerResult<Version<'input>> {
-    cc_parse_with_data!(
-        CCVER_VERSION,
-        version,
-        LexerInput {
-            version_format: Rc::new(format)
-        }
-    )
+pub fn parse_version(version: &str, format: VersionFormat) -> InterpreterResult<Version> {
+    cc_parse_with_data!(CCVER_VERSION, version, format)
 }

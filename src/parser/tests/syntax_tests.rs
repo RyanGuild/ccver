@@ -2,11 +2,11 @@ use indoc::indoc;
 
 use crate::logs::Tag;
 use crate::parser::macros::cc_parse;
-use crate::parser::LexerResult;
+use crate::parser::InterpreterResult;
 use crate::version::{Version, VersionNumber};
 
 #[test]
-fn test_footers() -> LexerResult<()> {
+fn test_footers() -> InterpreterResult<()> {
     let footer = indoc! {
         "Footer-Key: Footer Value"
     };
@@ -28,42 +28,42 @@ fn test_footers() -> LexerResult<()> {
 }
 
 #[test]
-fn parse_macro() -> LexerResult<()> {
+fn parse_macro() -> InterpreterResult<()> {
     let _commit = cc_parse!(CONVENTIONAL_SUBJECT, "test(anotha)!: build")?;
 
     Ok(())
 }
 
 #[test]
-fn test_type() -> LexerResult<()> {
+fn test_type() -> InterpreterResult<()> {
     let t = cc_parse!(TYPE, "feat")?;
     assert_eq!(t, "feat");
     Ok(())
 }
 
 #[test]
-fn test_scope() -> LexerResult<()> {
+fn test_scope() -> InterpreterResult<()> {
     let scope = cc_parse!(SCOPE, "src/data.ts")?;
     assert_eq!(scope, "src/data.ts");
     Ok(())
 }
 
 #[test]
-fn test_scope_section() -> LexerResult<()> {
+fn test_scope_section() -> InterpreterResult<()> {
     let scope_section = cc_parse!(SCOPE_SECTION, "(src/data.ts)")?;
     assert_eq!(scope_section, "src/data.ts");
     Ok(())
 }
 
 #[test]
-fn test_breaking_bang() -> LexerResult<()> {
+fn test_breaking_bang() -> InterpreterResult<()> {
     let breaking_bang = cc_parse!(BREAKING_BANG, "!")?;
     assert!(breaking_bang);
     Ok(())
 }
 
 #[test]
-fn test_tag_with_scope_and_breaking() -> LexerResult<()> {
+fn test_tag_with_scope_and_breaking() -> InterpreterResult<()> {
     let (commit_type, scope, breaking) = cc_parse!(TAG, "feat(scope)!")?;
     assert_eq!(commit_type, "feat");
     assert_eq!(scope, Some("scope"));
@@ -72,7 +72,7 @@ fn test_tag_with_scope_and_breaking() -> LexerResult<()> {
 }
 
 #[test]
-fn test_commit() -> LexerResult<()> {
+fn test_commit() -> InterpreterResult<()> {
     let commit = cc_parse!(CONVENTIONAL_SUBJECT, "feat(scope)!: title")?;
     assert_eq!(commit.commit_type, "feat");
     assert_eq!(commit.scope, Some("scope"));
@@ -82,7 +82,7 @@ fn test_commit() -> LexerResult<()> {
 }
 
 #[test]
-fn test_headline() -> LexerResult<()> {
+fn test_headline() -> InterpreterResult<()> {
     let commit = cc_parse!(CONVENTIONAL_SUBJECT, "feat(scope)!: title")?;
     assert_eq!(commit.commit_type, "feat");
     assert_eq!(commit.scope, Some("scope"));
@@ -92,14 +92,14 @@ fn test_headline() -> LexerResult<()> {
 }
 
 #[test]
-fn test_tag_raw_type() -> LexerResult<()> {
+fn test_tag_raw_type() -> InterpreterResult<()> {
     let parsed_tag = cc_parse!(TYPE, "fix")?;
     assert_eq!(parsed_tag, "fix");
     Ok(())
 }
 
 #[test]
-fn test_tag_type_with_bang() -> LexerResult<()> {
+fn test_tag_type_with_bang() -> InterpreterResult<()> {
     let (commit_type, _, breaking) = cc_parse!(TAG, "fix!")?;
     assert_eq!(commit_type, "fix");
     assert!(breaking);
@@ -107,7 +107,7 @@ fn test_tag_type_with_bang() -> LexerResult<()> {
 }
 
 #[test]
-fn test_tag_with_scope() -> LexerResult<()> {
+fn test_tag_with_scope() -> InterpreterResult<()> {
     let (commit_type, scope, _) = cc_parse!(TAG, "fix(README.md)")?;
     assert_eq!(commit_type, "fix");
     assert_eq!(scope, Some("README.md"));
@@ -115,7 +115,7 @@ fn test_tag_with_scope() -> LexerResult<()> {
 }
 
 #[test]
-fn test_commit_hashline() -> LexerResult<()> {
+fn test_commit_hashline() -> InterpreterResult<()> {
     let commit_hashline = cc_parse!(
         COMMIT_HASHLINE,
         "b008bebb2c3109e6720a9d7afcb1e654781668cb\n"
@@ -125,7 +125,7 @@ fn test_commit_hashline() -> LexerResult<()> {
 }
 
 #[test]
-fn test_parent_hashline() -> LexerResult<()> {
+fn test_parent_hashline() -> InterpreterResult<()> {
     let parent_hashline = cc_parse!(
         PARENT_HASHLINE,
         "38aa9cdf8228f03997d0e953d03cb00a2c1be536 38aa9cdf8228f03997d0e953d03cb00a2c1be536\n"
@@ -141,14 +141,14 @@ fn test_parent_hashline() -> LexerResult<()> {
 }
 
 #[test]
-fn test_head_dec() -> LexerResult<()> {
+fn test_head_dec() -> InterpreterResult<()> {
     let head_dec = cc_parse!(HEAD_DEC, "HEAD -> master")?;
     println!("head_dec: {}", head_dec);
     Ok(())
 }
 
 #[test]
-fn test_tag_dec() -> LexerResult<()> {
+fn test_tag_dec() -> InterpreterResult<()> {
     let head_dec = cc_parse!(TAG_DEC, "tag: v0.1.1")?;
     assert_eq!(
         head_dec,

@@ -1,13 +1,27 @@
 use std::cmp::Ordering;
 
 #[derive(Debug, Clone, Default)]
-pub struct VersionFormat<'a> {
+pub struct VersionFormat {
     pub v_prefix: bool,
     pub major: VersionNumberFormat,
     pub minor: VersionNumberFormat,
     pub patch: VersionNumberFormat,
-    pub prerelease: Option<PreTagFormat<'a>>,
+    pub prerelease: Option<PreTagFormat>,
 }
+
+impl Default for &VersionFormat {
+    fn default() -> Self {
+        &DEFAULT_VERSION_FORMAT
+    }
+}
+
+const DEFAULT_VERSION_FORMAT: VersionFormat = VersionFormat {
+    v_prefix: false,
+    major: VersionNumberFormat::CCVer,
+    minor: VersionNumberFormat::CCVer,
+    patch: VersionNumberFormat::CCVer,
+    prerelease: None,
+};
 
 #[derive(Debug, Clone)]
 pub enum VersionNumberFormat {
@@ -18,6 +32,12 @@ pub enum VersionNumberFormat {
 impl Default for VersionNumberFormat {
     fn default() -> Self {
         VersionNumberFormat::CCVer
+    }
+}
+
+impl Default for &VersionNumberFormat {
+    fn default() -> Self {
+        &VersionNumberFormat::CCVer
     }
 }
 
@@ -96,19 +116,41 @@ impl Ord for CalVerFormatSegment {
 }
 
 #[derive(Debug, Clone)]
-pub enum PreTagFormat<'a> {
+pub enum PreTagFormat {
     Rc(VersionNumberFormat),
     Beta(VersionNumberFormat),
     Alpha(VersionNumberFormat),
     Build(VersionNumberFormat),
-    Named(&'a str, VersionNumberFormat),
+    Named(String, VersionNumberFormat),
     Sha,
     ShortSha,
 }
 
-impl Default for PreTagFormat<'_> {
+const DEFAULT_PRE_TAG_FORMAT: PreTagFormat = PreTagFormat::Build(VersionNumberFormat::CCVer);
+
+impl Default for PreTagFormat {
     fn default() -> Self {
-        PreTagFormat::Build(VersionNumberFormat::default())
+        DEFAULT_PRE_TAG_FORMAT
+    }
+}
+
+impl Default for &PreTagFormat {
+    fn default() -> Self {
+        &DEFAULT_PRE_TAG_FORMAT
+    }
+}
+
+impl PreTagFormat {
+    pub fn version_format(&self) -> Option<&VersionNumberFormat> {
+        match self {
+            PreTagFormat::Rc(vf)
+            | PreTagFormat::Beta(vf)
+            | PreTagFormat::Alpha(vf)
+            | PreTagFormat::Build(vf)
+            | PreTagFormat::Named(_, vf) => Some(vf),
+            PreTagFormat::Sha => None,
+            PreTagFormat::ShortSha => None,
+        }
     }
 }
 

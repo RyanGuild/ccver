@@ -1,5 +1,4 @@
 use clap::{Args, Parser, Subcommand};
-use serde::Deserialize;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -40,7 +39,7 @@ pub struct InitArgs {
 #[command(about = "Install ccver git hooks in a git repository")]
 pub struct InstallArgs {}
 
-#[derive(Args, Debug, Deserialize)]
+#[derive(Args, Debug)]
 #[command(about = "Tag the current commit with a version")]
 pub struct TagArgs {}
 

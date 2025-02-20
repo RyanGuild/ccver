@@ -11,4 +11,3 @@ fn test_self_git_log() -> Result<()> {
     println!("{logs:#?}");
     Ok(())
 }
-

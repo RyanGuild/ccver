@@ -29,7 +29,7 @@ pub enum Subject<'a> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Tag<'a> {
     Text(&'a str),
-    Version(Version<'a>),
+    Version(Version),
 }
 
 #[derive(Debug)]

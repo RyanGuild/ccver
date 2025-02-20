@@ -3,18 +3,17 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-
 use crate::version_format::{CalVerFormat, CalVerFormatSegment};
 
-#[derive(PartialEq, Eq, Debug)]
-pub struct Version<'a> {
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct Version {
     pub major: VersionNumber,
     pub minor: VersionNumber,
     pub patch: VersionNumber,
-    pub prerelease: Option<PreTag<'a>>,
+    pub prerelease: Option<PreTag>,
 }
 
-impl Display for Version<'_> {
+impl Display for Version {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)?;
         match &self.prerelease {
@@ -24,7 +23,7 @@ impl Display for Version<'_> {
     }
 }
 
-impl Version<'_> {
+impl Version {
     pub fn major(&mut self) -> Self {
         Version {
             major: self.major.bump(),
@@ -67,18 +66,57 @@ impl Version<'_> {
         }
     }
 
-    pub fn rc() {}
+    pub fn rc(&self) -> Self {
+        Version {
+            major: self.major.clone(),
+            minor: self.minor.clone(),
+            patch: self.patch.clone(),
+            prerelease: match &self.prerelease {
+                None => Some(PreTag::Rc(VersionNumber::CCVer(0))),
+                Some(pre) => match pre {
+                    PreTag::Rc(v) => Some(PreTag::Rc(v.bump())),
+                    _ => Some(PreTag::Rc(VersionNumber::CCVer(0))),
+                },
+            },
+        }
+    }
 
-    pub fn beta() {}
+    pub fn beta(&mut self) -> Self {
+        Version {
+            major: self.major.clone(),
+            minor: self.minor.clone(),
+            patch: self.patch.clone(),
+            prerelease: match &self.prerelease {
+                None => Some(PreTag::Beta(VersionNumber::CCVer(0))),
+                Some(pre) => match pre {
+                    PreTag::Beta(v) => Some(PreTag::Beta(v.bump())),
+                    _ => Some(PreTag::Beta(VersionNumber::CCVer(0))),
+                },
+            },
+        }
+    }
 
-    pub fn alpha() {}
+    pub fn alpha(&self) -> Version {
+        Version {
+            major: self.major.clone(),
+            minor: self.minor.clone(),
+            patch: self.patch.clone(),
+            prerelease: match &self.prerelease {
+                None => Some(PreTag::Alpha(VersionNumber::CCVer(0))),
+                Some(pre) => match pre {
+                    PreTag::Alpha(v) => Some(PreTag::Alpha(v.bump())),
+                    _ => Some(PreTag::Alpha(VersionNumber::CCVer(0))),
+                },
+            },
+        }
+    }
 
     pub fn named() {}
 
     pub fn sha() {}
 }
 
-impl Default for Version<'_> {
+impl Default for Version {
     fn default() -> Self {
         Version {
             major: VersionNumber::default(),
@@ -89,7 +127,7 @@ impl Default for Version<'_> {
     }
 }
 
-impl Ord for Version<'_> {
+impl Ord for Version {
     fn cmp(&self, other: &Self) -> Ordering {
         match self.major.cmp(&other.major) {
             Ordering::Equal => match self.minor.cmp(&other.minor) {
@@ -116,24 +154,24 @@ impl Ord for Version<'_> {
     }
 }
 
-impl PartialOrd for Version<'_> {
+impl PartialOrd for Version {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub enum PreTag<'a> {
+pub enum PreTag {
     Rc(VersionNumber),
     Beta(VersionNumber),
     Alpha(VersionNumber),
     Build(VersionNumber),
-    Named(&'a str, VersionNumber),
-    Sha(&'a str),
-    ShortSha(&'a str),
+    Named(String, VersionNumber),
+    Sha(String),
+    ShortSha(String),
 }
 
-impl Display for PreTag<'_> {
+impl Display for PreTag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             PreTag::Rc(v) => write!(f, "rc.{}", v),
@@ -147,14 +185,13 @@ impl Display for PreTag<'_> {
     }
 }
 
-const DEFAULT_PRE_TAG: PreTag = PreTag::Named("pre", VersionNumber::CCVer(0));
-impl Default for PreTag<'_> {
+impl Default for PreTag {
     fn default() -> Self {
-        DEFAULT_PRE_TAG.clone()
+        PreTag::Build(VersionNumber::CCVer(0))
     }
 }
 
-impl PartialOrd for PreTag<'_> {
+impl PartialOrd for PreTag {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self {
             PreTag::Rc(v) => match other {
@@ -210,7 +247,7 @@ impl VersionNumber {
     pub fn bump(&self) -> Self {
         match self {
             VersionNumber::CCVer(v) => VersionNumber::CCVer(*v + 1),
-            VersionNumber::CalVer(format,_) => {
+            VersionNumber::CalVer(format, _) => {
                 VersionNumber::CalVer(format.clone(), chrono::Utc::now())
             }
         }

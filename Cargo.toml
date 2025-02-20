@@ -8,8 +8,8 @@ authors = ["Ryan Guild <rdg27@pitt.edu>"]
 
 [profile.release]
 strip = true  # Automatically strip symbols from the binary.
-opt-level = "z"  # Optimize for size.
-lto = true
+opt-level = "z"
+lto = "fat"
 codegen-units = 1
 panic = "abort"
 
@@ -22,9 +22,9 @@ indoc = "2"
 chrono = {version = "0.4.39", default-features = true}
 pest_derive = {version = "2.7.15", default-features = false}
 pest = {version = "2.7.15", default-features = false}
-serde = { version = "1.0.217", features = ["derive"], default-features = false}
+# serde = { version = "1.0.217", features = ["derive"], default-features = false}
 clap = { version = "4.5.27", features = ["derive"] }
 pest_consume = "1.1.3"
-figment = { version = "0.10.19", features = ["json"] }
+# figment = { version = "0.10.19", features = ["json"] }
 eyre = "0.6.12"
 petgraph = {version = "0.7.1", features = ["graphmap"], default-features = false}

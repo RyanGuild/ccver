@@ -7,7 +7,7 @@
 CCVer is a command-line tool designed for automating version management in git repositories. It leverages conventional commit message conventions to help you:
 
 - **Parse and validate commit messages**  
-  Utilize a custom parser built with [Pest](https://pest.rs/) ([`src/parser/lexer.rs`](src/parser/lexer.rs) & [`src/parser/rules.pest`](src/parser/rules.pest)) to ensure commit messages adhere to a conventional format.
+  Utilize a custom parser built with [Pest](https://pest.rs/) ([`src/parser/interpreter.rs`](src/parser/interpreter.rs) & [`src/parser/rules.pest`](src/parser/rules.pest)) to ensure commit messages adhere to a conventional format.
 
 - **Automate semantic versioning**  
   Extract version and tagging information from commits to automatically bump version numbers following [semver](https://semver.org/) principles.

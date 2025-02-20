@@ -1,6 +1,6 @@
-use crate::parser::{
-    macros::{cc_parse, cc_parse_with_data},
-    LexerInput,
+use crate::{
+    parser::macros::{cc_parse, cc_parse_with_data},
+    version_format::VersionFormat,
 };
 use eyre::Result;
 #[test]
@@ -20,7 +20,7 @@ fn test_parsing() -> Result<()> {
 
 #[test]
 fn test_version_ordering() -> Result<()> {
-    let default_config = LexerInput::default();
+    let default_config = VersionFormat::default();
 
     let build_1 = cc_parse_with_data!(CCVER_VERSION, "1.0.0", default_config.clone())?;
     let build_2 = cc_parse_with_data!(CCVER_VERSION, "1.0.0-rc.1", default_config.clone())?;
