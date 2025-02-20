@@ -51,3 +51,5 @@ CCVer is a command-line tool designed for automating version management in git r
   Run various subcommands such as initializing (`Init`), installing hooks (`Install`), and tagging commits (`Tag`) to integrate version management into your workflow.
 
 This tool is ideal for projects that want to maintain a clear commit history and manage releases automatically, all while ensuring that commit messages and version tags meet established conventions.
+
+## Fake Pr Addition
