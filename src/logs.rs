@@ -1,6 +1,7 @@
 use crate::graph::{CommitGraph, CommitGraphData};
 use crate::parser::parse_log;
 use crate::version::Version;
+use crate::version_map::{VersionMap, VersionMapData};
 use std::rc::Rc;
 use std::{env::current_dir, path::PathBuf, process::Command};
 
@@ -26,6 +27,20 @@ pub enum Subject<'a> {
     Text(&'a str),
 }
 
+impl Subject<'_> {
+    pub fn as_initial_version(&self) -> Version {
+        match self {
+            Subject::Conventional(sub) => match (sub.breaking, sub.commit_type) {
+                (true, _) => Version::default().major(),
+                (_, "feat") => Version::default().minor(),
+                (_, "fix") => Version::default().patch(),
+                _ => Version::default(),
+            },
+            _ => Version::default(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Tag<'a> {
     Text(&'a str),
@@ -45,6 +60,23 @@ pub struct LogEntryData<'a> {
     pub footers: std::collections::HashMap<&'a str, &'a str>,
 }
 
+impl LogEntryData<'_> {
+    pub fn tagged_version(&self) -> Option<Version> {
+        for decoration in self.decorations.iter() {
+            if let Decoration::Tag(tag) = decoration {
+                if let Tag::Version(version) = tag {
+                    return Some(version.clone());
+                }
+            }
+        }
+        None
+    }
+
+    pub fn as_initial_version(&self) -> Version {
+        self.subject.as_initial_version()
+    }
+}
+
 pub type LogEntry<'a> = Rc<LogEntryData<'a>>;
 
 pub type Log<'a> = Rc<[LogEntry<'a>]>;
@@ -54,22 +86,26 @@ pub const GIT_FORMAT_ARGS: [&str;4] = ["log", "--source", "--branches","--format
 #[derive(Debug)]
 pub struct Logs<'a> {
     raw: &'a str,
+    dir: PathBuf,
     parsed: Option<Log<'a>>,
     graph: Option<CommitGraph<'a>>,
+    version_map: Option<VersionMap>,
 }
 
 impl<'a> Logs<'a> {
     pub fn new(dir: PathBuf) -> Logs<'a> {
         let output = Command::new("git")
             .args(&GIT_FORMAT_ARGS)
-            .current_dir(dir)
+            .current_dir(&dir)
             .output()
             .expect("error getting command output");
         let output_str = String::from_utf8(output.stdout).expect("error parsing utf8");
         Logs {
             raw: Box::leak(output_str.into_boxed_str()),
+            dir,
             parsed: None,
             graph: None,
+            version_map: None,
         }
     }
 
@@ -96,6 +132,47 @@ impl<'a> Logs<'a> {
             self.graph = Some(graph.clone());
             graph
         }
+    }
+
+
+    pub fn get_version_map(&mut self) -> VersionMap {
+        if let Some(version_map) = self.version_map.clone() {
+            version_map.clone()
+        } else {
+            let graph = self.get_graph();
+            let version_map = VersionMapData::new(&graph).expect("could not create version map");
+            self.version_map = Some(version_map.clone());
+            version_map
+        }
+    }
+
+
+    pub fn get_commit_version(&mut self, commit_hash: &str) -> Version {
+        let graph = self.get_graph();
+        let version_map = self.get_version_map();
+        let commit_idx = graph.commitidx(commit_hash).expect("commit not found in graph");
+        version_map.get(commit_idx).expect("commit not found in version map").clone()
+    }
+
+    pub fn get_latest_version(&mut self) -> Version {
+        let graph = self.get_graph();
+        let version_map = self.get_version_map();
+        let head = graph.headidx();
+        version_map.get(head).expect("tail not found in version map").clone()
+    }
+
+    pub fn get_uncommited_version(&mut self) -> Version {
+        self.get_latest_version().build()
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        let output = Command::new("git")
+            .args(&["status", "--porcelain"])
+            .current_dir(&self.dir)
+            .output()
+            .expect("error getting command output");
+        let output_str = String::from_utf8(output.stdout).expect("error parsing utf8");
+        !output_str.is_empty()
     }
 }
 

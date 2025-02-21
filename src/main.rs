@@ -1,5 +1,7 @@
 #![feature(decl_macro)]
 use clap::Parser;
+use petgraph::graph::NodeIndex;
+use version_map::{VersionMap, VersionMapData};
 use std::path::PathBuf;
 use std::process::Command;
 use std::{collections::HashMap, env::current_dir};
@@ -11,6 +13,7 @@ pub mod logs;
 pub mod parser;
 pub mod version;
 pub mod version_format;
+pub mod version_map;
 
 use args::*;
 use eyre::Result;
@@ -31,62 +34,23 @@ fn main() -> Result<()> {
     );
 
     let mut logs = Logs::new(path);
-    let graph_cell = logs.get_graph();
-    let graph = graph_cell.borrow();
-    let mut current_version = Version {
-        major: VersionNumber::CCVer(0),
-        minor: VersionNumber::CCVer(0),
-        patch: VersionNumber::CCVer(0),
-        prerelease: None,
-    };
-    let node_version_map: HashMap<_, _> = graph
-        .history_windowed_parents()
-        .map(|(commit, _parents)| {
-            let commitidx = graph
-                .commitidx(commit.commit_hash)
-                .expect("hash not in graph");
-            let existing_version_tag = commit
-                .decorations
-                .iter()
-                .filter_map(|dec| {
-                    if let Decoration::Tag(tag) = dec {
-                        match tag {
-                            logs::Tag::Text(_) => None,
-                            logs::Tag::Version(version) => Some(version),
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .next();
 
-            if let Some(version) = existing_version_tag {
-                current_version = version.clone();
-
-                (commitidx, current_version.clone())
-            } else if let Subject::Conventional(subject) = &commit.subject {
-                current_version = match (subject.commit_type, subject.breaking, commit.branch) {
-                    (_, breaking, _) if breaking => current_version.major(),
-                    ("feat", _, _) => current_version.minor(),
-                    ("fix", _, _) => current_version.patch(),
-                    (_, _, "staging") => current_version.rc(),
-                    (_, _, "development") => current_version.beta(),
-                    (_, _, "next") => current_version.alpha(),
-                    _ => current_version.build(),
-                };
-                (commitidx, current_version.clone())
+    match args.command {
+        None => {
+            if logs.is_dirty() {
+                println!("{}", logs.get_uncommited_version())
             } else {
-                current_version = current_version.build();
-                (commitidx, current_version.clone())
+                println!("{}", logs.get_latest_version())
             }
-        })
-        .collect();
-
-    let mut versions = node_version_map.values().collect::<Vec<_>>();
-    versions.sort();
-
-    for version in versions {
-        println!("{}", version);
+        },
+        Some(command) => {
+            match command {
+                CCVerSubCommand::Tag(tag_args) => {
+                    
+                },
+                _ => todo!(),
+            }
+        }
     }
 
     Ok(())

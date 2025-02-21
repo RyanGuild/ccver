@@ -1,8 +1,8 @@
 use eyre::{eyre, OptionExt, Result};
 use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::visit::{Bfs, DfsPostOrder, IntoNeighborsDirected, Reversed, Walker};
+use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
 use std::fmt::Debug;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::logs::{Decoration, Log, LogEntry, Tag};
 use crate::version::Version;
@@ -15,10 +15,9 @@ pub struct CommitGraphData<'a> {
     head_index: NodeIndex,
     tail_index: NodeIndex,
     commit_to_index: HashMap<String, NodeIndex>,
-    index_to_version: HashMap<NodeIndex, Version>,
 }
 
-pub type CommitGraph<'a> = Rc<RefCell<CommitGraphData<'a>>>;
+pub type CommitGraph<'a> = Rc<CommitGraphData<'a>>;
 pub enum Directions {
     Backward,
     Forward,
@@ -111,87 +110,28 @@ impl CommitGraphData<'_> {
             .ok_or_eyre("could not find initial commit circular history or no commits detected")?
             .clone();
 
-        let versions: HashMap<NodeIndex, Version> = petgraph
-            .node_indices()
-            .filter_map(|i| {
-                let node = petgraph[i].clone();
-                for dec in node.decorations.iter() {
-                    match dec {
-                        Decoration::Tag(t) => {
-                            if let Tag::Version(v) = t {
-                                return Some((i, v.clone()));
-                            } else {
-                                continue;
-                            }
-                        }
-                        _ => {
-                            continue;
-                        }
-                    };
-                }
-                None
-            })
-            .collect();
-
-        if versions.len() > 0 {
-            let (idx, first_version) = {
-                let reversed = Reversed(&petgraph);
-                Bfs::new(&reversed, tail_index)
-                    .iter(reversed)
-                    .find_map(|idx| {
-                        let node = petgraph[idx].clone();
-                        for dec in node.decorations.iter() {
-                            match dec {
-                                Decoration::Tag(t) => {
-                                    if let Tag::Version(v) = t {
-                                        return Some((idx, v.clone()));
-                                    } else {
-                                        continue;
-                                    }
-                                }
-                                _ => {
-                                    continue;
-                                }
-                            };
-                        }
-
-                        let mut children: Vec<_> = reversed
-                            .neighbors_directed(idx, petgraph::Direction::Outgoing)
-                            .map(|idx| petgraph[idx].clone())
-                            .filter_map(|node| {
-                                for dec in node.decorations.iter() {
-                                    match dec {
-                                        Decoration::Tag(t) => {
-                                            if let Tag::Version(v) = t {
-                                                return Some((idx, (*v).clone()));
-                                            } else {
-                                                continue;
-                                            }
-                                        }
-                                        _ => {
-                                            continue;
-                                        }
-                                    };
-                                }
-                                None
-                            })
-                            .collect();
-
-                        children.sort();
-
-                        children.pop()
-                    })
-            }
-            .ok_or_eyre("could not find initial version some descrepency with existing_versions")?;
-        }
-
-        Ok(Rc::new(RefCell::new(CommitGraphData {
+        Ok(Rc::new(CommitGraphData {
             petgraph,
             head_index,
             tail_index,
-            index_to_version: versions,
             commit_to_index,
-        })))
+        }))
+    }
+
+    pub fn get(&self, idx: NodeIndex) -> Option<LogEntry> {
+        Some(self.petgraph[idx].clone())
+    }
+
+    pub fn parents(&self, idx: NodeIndex) -> Vec<NodeIndex> {
+        self.petgraph
+            .neighbors_directed(idx, petgraph::Direction::Outgoing)
+            .collect()
+    }
+
+    pub fn children(&self, idx: NodeIndex) -> Vec<NodeIndex> {
+        self.petgraph
+            .neighbors_directed(idx, petgraph::Direction::Incoming)
+            .collect()
     }
 
     pub fn commit(&self, index: &str) -> Result<LogEntry<'_>> {
@@ -209,7 +149,7 @@ impl CommitGraphData<'_> {
         self.petgraph[self.head_index].clone()
     }
 
-    fn headidx(&self) -> NodeIndex {
+    pub fn headidx(&self) -> NodeIndex {
         self.head_index
     }
 
@@ -217,7 +157,7 @@ impl CommitGraphData<'_> {
         self.petgraph[self.tail_index].clone()
     }
 
-    fn tailidx(&self) -> NodeIndex {
+    pub fn tailidx(&self) -> NodeIndex {
         self.tail_index
     }
 
@@ -397,7 +337,6 @@ mod graph_tests {
     fn test_iter_from() -> Result<()> {
         let mut logs = Logs::default();
         let graph = logs.get_graph();
-        let graph = graph.borrow();
 
         // Second commit
         let second_commit = "40f8bef8e7c290ebe0e52b91fa84fee30b4a162d";
@@ -429,14 +368,12 @@ mod graph_tests {
         let mut logs = Logs::default();
         let graph = logs.get_graph();
         let logs: Vec<String> = graph
-            .borrow()
             .dfs_postorder_history()
             .map(|(_, n)| n.commit_hash.to_string())
             .collect();
         assert_ne!(logs.len(), 0);
 
         let logs2: Vec<String> = graph
-            .borrow()
             .bfs_history()
             .map(|(_, n)| n.commit_hash.to_string())
             .collect();

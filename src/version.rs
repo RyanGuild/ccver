@@ -3,7 +3,11 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use crate::version_format::{CalVerFormat, CalVerFormatSegment};
+use crate::{
+    graph::{CommitGraph, CommitGraphData},
+    logs::{ConventionalSubject, LogEntry, LogEntryData, Subject},
+    version_format::{CalVerFormat, CalVerFormatSegment},
+};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Version {
@@ -23,8 +27,21 @@ impl Display for Version {
     }
 }
 
+const DEFAULT_VERSION: Version = Version {
+    major: VersionNumber::CCVer(0),
+    minor: VersionNumber::CCVer(0),
+    patch: VersionNumber::CCVer(0),
+    prerelease: Some(PreTag::Build(VersionNumber::CCVer(0))),
+};
+
+impl Default for &Version {
+    fn default() -> Self {
+        &DEFAULT_VERSION
+    }
+}
+
 impl Version {
-    pub fn major(&mut self) -> Self {
+    pub fn major(&self) -> Self {
         Version {
             major: self.major.bump(),
             minor: self.minor.zero(),
@@ -33,7 +50,7 @@ impl Version {
         }
     }
 
-    pub fn minor(&mut self) -> Self {
+    pub fn minor(&self) -> Self {
         Version {
             major: self.major.clone(),
             minor: self.minor.bump(),
@@ -42,7 +59,7 @@ impl Version {
         }
     }
 
-    pub fn patch(&mut self) -> Self {
+    pub fn patch(&self) -> Self {
         Version {
             major: self.major.clone(),
             minor: self.minor.clone(),
@@ -51,7 +68,7 @@ impl Version {
         }
     }
 
-    pub fn build(&mut self) -> Self {
+    pub fn build(&self) -> Self {
         Version {
             major: self.major.clone(),
             minor: self.minor.clone(),
@@ -81,7 +98,7 @@ impl Version {
         }
     }
 
-    pub fn beta(&mut self) -> Self {
+    pub fn beta(&self) -> Self {
         Version {
             major: self.major.clone(),
             minor: self.minor.clone(),
@@ -111,9 +128,38 @@ impl Version {
         }
     }
 
-    pub fn named() {}
+    pub fn named(&self, name: &str) -> Version {
+        Version {
+            major: self.major.clone(),
+            minor: self.minor.clone(),
+            patch: self.patch.clone(),
+            prerelease: match &self.prerelease {
+                None => Some(PreTag::Named(name.to_string(), VersionNumber::CCVer(0))),
+                Some(pre) => match pre {
+                    PreTag::Named(_, v) => Some(PreTag::Named(name.to_string(), v.bump())),
+                    _ => Some(PreTag::Named(name.to_string(), VersionNumber::CCVer(0))),
+                },
+            },
+        }
+    }
 
-    pub fn sha() {}
+    pub fn release(&self) -> Version {
+        Version {
+            major: self.major.clone(),
+            minor: self.minor.clone(),
+            patch: self.patch.clone(),
+            prerelease: None,
+        }
+    }
+
+    pub fn sha(&self, sha: &str) -> Version {
+        Version {
+            major: self.major.clone(),
+            minor: self.minor.clone(),
+            patch: self.patch.clone(),
+            prerelease: Some(PreTag::Sha(sha.to_string())),
+        }
+    }
 }
 
 impl Default for Version {
