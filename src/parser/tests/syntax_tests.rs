@@ -153,6 +153,7 @@ fn test_tag_dec() -> InterpreterResult<()> {
     assert_eq!(
         head_dec,
         Tag::Version(Version {
+            v_prefix: true,
             major: VersionNumber::CCVer(0),
             minor: VersionNumber::CCVer(1),
             patch: VersionNumber::CCVer(1),

@@ -2,7 +2,7 @@ use std::cell::Cell;
 use std::cmp::Ordering;
 
 pub const VERSION_FORMAT: Cell<VersionFormat> = Cell::new(VersionFormat {
-    v_prefix: false,
+    v_prefix: true,
     major: VersionNumberFormat::CCVer,
     minor: VersionNumberFormat::CCVer,
     patch: VersionNumberFormat::CCVer,
@@ -21,6 +21,7 @@ pub struct VersionFormat<'ctx> {
 impl<'ctx> VersionFormat<'ctx> {
     pub fn as_default_version(&self) -> Version {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.as_default_version_number(),
             minor: self.minor.as_default_version_number(),
             patch: self.patch.as_default_version_number(),
@@ -156,7 +157,7 @@ pub const PRE_TAG_FORMAT: Cell<PreTagFormat> =
 
 impl Default for PreTagFormat<'_> {
     fn default() -> Self {
-        PRE_TAG_FORMAT.take().clone()
+        PRE_TAG_FORMAT.into_inner().clone()
     }
 }
 

@@ -53,13 +53,15 @@ impl Parser {
     pub fn CCVER_VERSION(input: Node) -> InterpreterResult<Version> {
         let parser_input = log_parsing_context!(input).unwrap_or_default();
         match_nodes!(input.children();
-            [V_PREFIX(_), VERSION_NUMBER(major), VERSION_NUMBER(minor), VERSION_NUMBER(patch)] => Ok(Version {
+            [V_PREFIX(v_prefix), VERSION_NUMBER(major), VERSION_NUMBER(minor), VERSION_NUMBER(patch)] => Ok(Version {
+                v_prefix,
                 major: parser_input.major.parse(major),
                 minor: parser_input.minor.parse(minor),
                 patch: parser_input.patch.parse(patch),
                 prerelease: None
             }),
-            [V_PREFIX(_), VERSION_NUMBER(major), VERSION_NUMBER(minor), VERSION_NUMBER(patch), PRE_TAG(pretag)] => Ok(Version {
+            [V_PREFIX(v_prefix), VERSION_NUMBER(major), VERSION_NUMBER(minor), VERSION_NUMBER(patch), PRE_TAG(pretag)] => Ok(Version {
+                v_prefix,
                 major: parser_input.major.parse(major),
                 minor: parser_input.minor.parse(minor),
                 patch: parser_input.patch.parse(patch),

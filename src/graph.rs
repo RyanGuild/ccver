@@ -8,7 +8,7 @@ use crate::logs::{Decoration, Log, LogEntry, Tag};
 
 pub type PetGraph<'a> = DiGraph<LogEntry<'a>, ()>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CommitGraphData<'a> {
     petgraph: PetGraph<'a>,
     head_index: NodeIndex,
@@ -16,6 +16,9 @@ pub struct CommitGraphData<'a> {
     commit_to_index: HashMap<String, NodeIndex>,
 }
 
+pub macro commit_graph() {
+    Rc::new(CommitGraphData::default())
+}
 pub type CommitGraph<'a> = Rc<CommitGraphData<'a>>;
 pub enum Directions {
     Backward,

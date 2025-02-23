@@ -7,6 +7,7 @@ use crate::version_format::{CalVerFormat, CalVerFormatSegment, VERSION_FORMAT};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Version {
+    pub v_prefix: bool,
     pub major: VersionNumber,
     pub minor: VersionNumber,
     pub patch: VersionNumber,
@@ -15,6 +16,9 @@ pub struct Version {
 
 impl Display for Version {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        if self.v_prefix {
+            write!(f, "v")?;
+        }
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)?;
         match &self.prerelease {
             None => Ok(()),
@@ -26,6 +30,7 @@ impl Display for Version {
 impl Version {
     pub fn major(&self) -> Self {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.bump(),
             minor: self.minor.zero(),
             patch: self.patch.zero(),
@@ -35,6 +40,7 @@ impl Version {
 
     pub fn minor(&self) -> Self {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.bump(),
             patch: self.minor.zero(),
@@ -44,6 +50,7 @@ impl Version {
 
     pub fn patch(&self) -> Self {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.bump(),
@@ -53,6 +60,7 @@ impl Version {
 
     pub fn build(&self) -> Self {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
@@ -68,6 +76,7 @@ impl Version {
 
     pub fn rc(&self) -> Self {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
@@ -83,6 +92,7 @@ impl Version {
 
     pub fn beta(&self) -> Self {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
@@ -98,6 +108,7 @@ impl Version {
 
     pub fn alpha(&self) -> Version {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
@@ -113,6 +124,7 @@ impl Version {
 
     pub fn named(&self, name: String) -> Version {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
@@ -128,6 +140,7 @@ impl Version {
 
     pub fn release(&self) -> Version {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
@@ -137,6 +150,7 @@ impl Version {
 
     pub fn sha(&self, sha: String) -> Version {
         Version {
+            v_prefix: self.v_prefix,
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
