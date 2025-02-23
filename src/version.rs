@@ -3,7 +3,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use crate::version_format::{CalVerFormat, CalVerFormatSegment};
+use crate::version_format::{CalVerFormat, CalVerFormatSegment, VERSION_FORMAT};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Version {
@@ -147,8 +147,7 @@ impl Version {
 
 impl Default for Version {
     fn default() -> Self {
-        // VERSION_FORMAT.into_inner().as_default_version().clone()
-        todo!()
+        VERSION_FORMAT.into_inner().as_default_version().clone()
     }
 }
 

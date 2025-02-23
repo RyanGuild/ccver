@@ -3,7 +3,7 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::process::Command;
 use std::env::current_dir;
-use version_format::VERSION_FORMAT;
+use version_format::{PRE_TAG_FORMAT, VERSION_FORMAT};
 
 pub mod args;
 pub mod graph;
@@ -37,6 +37,9 @@ fn main() -> Result<()> {
         let format_string = format_str.to_string();
         let format = parser::parse_version_format(&format_string, logs.get_graph()?)?;
         VERSION_FORMAT.set(format.clone());
+        if let Some(pre_format) = format.prerelease {
+            PRE_TAG_FORMAT.set(pre_format);
+        }
     }
 
     match args.command {

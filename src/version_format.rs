@@ -151,7 +151,7 @@ pub enum PreTagFormat<'ctx> {
     ShortSha(CommitGraph<'ctx>),
 }
 
-const PRE_TAG_FORMAT: Cell<PreTagFormat> =
+pub const PRE_TAG_FORMAT: Cell<PreTagFormat> =
     Cell::new(PreTagFormat::Build(VersionNumberFormat::CCVer));
 
 impl Default for PreTagFormat<'_> {
