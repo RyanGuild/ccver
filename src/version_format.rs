@@ -1,4 +1,3 @@
-use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
 
 pub static VERSION_FORMAT: Mutex<VersionFormat> = Mutex::new(VersionFormat {
@@ -89,7 +88,6 @@ impl PartialOrd for CalVerFormatSegment {
 }
 
 use std::cmp::Ordering::*;
-use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use CalVerFormatSegment::*;

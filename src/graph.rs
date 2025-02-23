@@ -3,7 +3,7 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use crate::logs::{Decoration, Log, LogEntry, Tag};
 

@@ -85,7 +85,7 @@ pub type LogEntry<'a> = Arc<LogEntryData<'a>>;
 
 pub type Log<'a> = Arc<[LogEntry<'a>]>;
 
-pub const GIT_FORMAT_ARGS: [&str;4] = ["log", "--source", "--branches","--format=name=%n%f%nbranch=%n%S%ncommit=%n%H%ncommit-time=%n%cI%ndec=%n%d%nparent=%n%P%nsub=%n%s%ntrailers=%n%(trailers:only)%n"];
+pub const GIT_FORMAT_ARGS: [&str;5] = ["log", "--full-history", "--source", "--branches","--format=name=%n%f%nbranch=%n%S%ncommit=%n%H%ncommit-time=%n%cI%ndec=%n%d%nparent=%n%P%nsub=%n%s%ntrailers=%n%(trailers:only)%n"];
 
 #[derive(Debug)]
 pub struct Logs<'a> {
