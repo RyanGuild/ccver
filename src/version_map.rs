@@ -5,7 +5,7 @@ use petgraph::graph::NodeIndex;
 use crate::{
     graph::CommitGraph,
     logs::{ConventionalSubject, Subject},
-    version::Version, version_format::{VERSION_FORMAT},
+    version::Version, version_format::VERSION_FORMAT,
 };
 use eyre::Result;
 

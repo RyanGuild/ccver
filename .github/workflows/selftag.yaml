@@ -6,7 +6,8 @@ on:
     paths:
       - 'Cargo.toml'
       - 'src/**'
-      - '.github/workflows/selftag.yaml'
+      - '.github/workflows'
+  workflow_dispatch: {}
 
 jobs:
   tag:
