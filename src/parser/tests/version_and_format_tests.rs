@@ -1,5 +1,5 @@
 use crate::{
-    graph::{commit_graph, CommitGraph}, parser::macros::{cc_parse, cc_parse_format, cc_parse_with_data}, version::Version, version_format::VersionFormat
+    graph::commit_graph, parser::macros::{cc_parse_format, cc_parse_with_data}, version::Version, version_format::VersionFormat
 };
 use eyre::Result;
 #[test]

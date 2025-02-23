@@ -1,9 +1,9 @@
 use std::{
     cmp::Ordering,
-    fmt::{write, Display, Formatter},
+    fmt::{Display, Formatter},
 };
 
-use crate::{logs::LogEntry, version_format::{CalVerFormat, CalVerFormatSegment, PRE_TAG_FORMAT, VERSION_FORMAT}};
+use crate::{logs::LogEntry, version_format::{CalVerFormat, CalVerFormatSegment, PRE_TAG_FORMAT}};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Version {
@@ -29,7 +29,7 @@ impl Display for Version {
 
 impl Version {
 
-    
+
     pub fn major(&self, commit: LogEntry) -> Self {
         Version {
             v_prefix: self.v_prefix,
@@ -136,7 +136,7 @@ impl Version {
                 None => Some(PreTag::Named(commit.branch.to_string(), pre_version_format.as_default_version_number(commit))),
                 Some(pre) => match pre {
                     PreTag::Named(tag, v) if tag.eq(commit.branch) => Some(PreTag::Named(tag.to_string(), v.bump(commit))),
-                    PreTag::Named(tag, _) => Some(PreTag::Named(commit.branch.to_string(), pre_version_format.as_default_version_number(commit))),
+                    PreTag::Named(_, _) => Some(PreTag::Named(commit.branch.to_string(), pre_version_format.as_default_version_number(commit))),
                     _ => Some(PreTag::Named(commit.branch.to_string(), pre_version_format.as_default_version_number(commit))),
                 },
             },
