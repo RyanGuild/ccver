@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use pest_consume::{Node as PestNode, *};
 
 use crate::graph::CommitGraph;
 use crate::logs::{ConventionalSubject, Decoration, LogEntry, LogEntryData, Subject, Tag};
-use crate::version::PreTag;
+use crate::version::{PreTag, VersionNumber};
 use crate::version_format::CalVerFormat;
 use crate::version_format::{
     CalVerFormatSegment::{self, *},
@@ -45,7 +46,7 @@ macro pre_format($input:expr) {{
         .unwrap_or_default()
         .prerelease
         .unwrap_or_default();
-    pre_format.version_format().unwrap_or_default()
+    pre_format.version_format()
 }}
 
 #[pest_consume::parser]
@@ -83,8 +84,8 @@ impl Parser {
 
     pub fn SHA_PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
         match_nodes!(input.children();
-            [SHA(s)] => Ok(PreTag::Sha(s.to_string())),
-            [SHORT_SHA(s)] => Ok(PreTag::ShortSha(s.to_string()))
+            [SHA(s)] => Ok(PreTag::Sha(VersionNumber::Sha(s.to_string()))),
+            [SHORT_SHA(s)] => Ok(PreTag::ShortSha(VersionNumber::ShortSha(s.to_string())))
         )
     }
 
@@ -158,7 +159,7 @@ impl Parser {
 
             ] => {
                 Ok(
-                   Rc::new( LogEntryData {
+                   Arc::new( LogEntryData {
                         name,
                         branch,
                         commit_hash,
@@ -182,7 +183,7 @@ impl Parser {
 
             ] => {
                 Ok(
-                    Rc::new(LogEntryData {
+                    Arc::new(LogEntryData {
                         name,
                         branch,
                         commit_hash,
@@ -190,7 +191,7 @@ impl Parser {
                         commit_timezone: commit_datetime.timezone(),
                         parent_hashes: parents,
                         footers,
-                        decorations: Rc::new([]),
+                        decorations: Arc::new([]),
                         subject
                     })
                 )
@@ -275,7 +276,7 @@ impl Parser {
         Ok(input.as_str())
     }
 
-    pub fn PARENT_HASHLINE<'a>(input: Node<'a, '_>) -> InterpreterResult<Rc<[&'a str]>> {
+    pub fn PARENT_HASHLINE<'a>(input: Node<'a, '_>) -> InterpreterResult<Arc<[&'a str]>> {
         match_nodes!(input.children();
             [SHA(s)..] => Ok(s.collect())
         )
@@ -341,9 +342,9 @@ impl Parser {
         )
     }
 
-    pub fn DECORATIONS_LINE<'a>(input: Node<'a, '_>) -> InterpreterResult<Rc<[Decoration<'a>]>> {
+    pub fn DECORATIONS_LINE<'a>(input: Node<'a, '_>) -> InterpreterResult<Arc<[Decoration<'a>]>> {
         if input.children().count() == 0 {
-            return Ok(Rc::new([]));
+            return Ok(Arc::new([]));
         } else {
             input.children().map(Parser::DECORATION).collect()
         }
@@ -394,7 +395,7 @@ impl Parser {
                         None
                     }
                 }
-                Some(Sha(_) | ShortSha(_)) | None => None,
+                Some(Sha(_,_) | ShortSha(_,_)) | None => None,
             }
         };
 
@@ -426,8 +427,8 @@ impl Parser {
     ) -> InterpreterResult<PreTagFormat<'ctx>> {
         let graph = format_parsing_context!(input);
         match_nodes!(input.children();
-            [SHA_FORMAT(_)] => Ok(PreTagFormat::Sha(graph.clone())),
-            [SHORT_SHA_FORMAT(_)] => Ok(PreTagFormat::ShortSha(graph.clone()))
+            [SHA_FORMAT(_)] => Ok(PreTagFormat::Sha(graph.clone(), VersionNumberFormat::Sha)),
+            [SHORT_SHA_FORMAT(_)] => Ok(PreTagFormat::ShortSha(graph.clone(), VersionNumberFormat::ShortSha))
         )
     }
 
@@ -486,7 +487,15 @@ impl Parser {
     pub fn VERSION_NUMBER_FORMAT(input: Node) -> InterpreterResult<VersionNumberFormat> {
         match_nodes!(input.children();
             [SEMANTIC_VERSION_FORMAT(_)] => Ok(VersionNumberFormat::CCVer),
-            [CALENDAR_VERSION_FORMAT(format)] => Ok(VersionNumberFormat::CalVer(format))
+            [CALENDAR_VERSION_FORMAT(format)] => Ok(VersionNumberFormat::CalVer(format)),
+            [SHA_VERSION_FORMAT(s)] => Ok(s),
+        )
+    }
+
+    pub fn SHA_VERSION_FORMAT(input: Node) -> InterpreterResult<VersionNumberFormat> {
+        match_nodes!(input.children();
+            [SHA_FORMAT(_)] => Ok(VersionNumberFormat::Sha),
+            [SHORT_SHA_FORMAT(_)] => Ok(VersionNumberFormat::ShortSha)
         )
     }
 
@@ -508,13 +517,13 @@ impl Parser {
 
     pub fn CALENDAR_VERSION_FORMAT_SEGMENT(input: Node) -> InterpreterResult<CalVerFormatSegment> {
         match input.as_str() {
-            "YYYY" => Ok(CalVerFormatSegment::Year4),
-            "YY" => Ok(CalVerFormatSegment::Year2),
+            "YY" => Ok(CalVerFormatSegment::Year4),
+            "yy" => Ok(CalVerFormatSegment::Year2),
             "E" => Ok(CalVerFormatSegment::Epoch),
             "MM" => Ok(CalVerFormatSegment::Month),
             "DD" => Ok(CalVerFormatSegment::Day),
             "DDD" => Ok(CalVerFormatSegment::DayOfYear),
-            "HH" => Ok(CalVerFormatSegment::Hour),
+            "hh" => Ok(CalVerFormatSegment::Hour),
             "mm" => Ok(CalVerFormatSegment::Minute),
             "ss" => Ok(CalVerFormatSegment::Second),
             _ => Err(parsing_error!(input, "Invalid CalVer Format Segment")),

@@ -1,13 +1,14 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
 
-pub const VERSION_FORMAT: Cell<VersionFormat> = Cell::new(VersionFormat {
+pub static VERSION_FORMAT: Mutex<VersionFormat> = Mutex::new(VersionFormat {
     v_prefix: true,
     major: VersionNumberFormat::CCVer,
     minor: VersionNumberFormat::CCVer,
     patch: VersionNumberFormat::CCVer,
     prerelease: None,
 });
+
 
 #[derive(Debug, Clone, Default)]
 pub struct VersionFormat<'ctx> {
@@ -19,17 +20,16 @@ pub struct VersionFormat<'ctx> {
 }
 
 impl<'ctx> VersionFormat<'ctx> {
-    pub fn as_default_version(&self) -> Version {
+    pub fn as_default_version(&self, commit: LogEntry) -> Version {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.as_default_version_number(),
-            minor: self.minor.as_default_version_number(),
-            patch: self.patch.as_default_version_number(),
+            major: self.major.as_default_version_number(commit.clone()),
+            minor: self.minor.as_default_version_number(commit.clone()),
+            patch: self.patch.as_default_version_number(commit.clone()),
             prerelease: self
                 .prerelease
                 .as_ref()
-                .map(|ptf| ptf.as_default_pre_tag())
-                .flatten(),
+                .map(|ptf| ptf.as_default_pre_tag(commit)),
         }
     }
 }
@@ -38,16 +38,19 @@ impl<'ctx> VersionFormat<'ctx> {
 pub enum VersionNumberFormat {
     CCVer,
     CalVer(CalVerFormat),
+    Sha,
+    ShortSha,
 }
 
 impl VersionNumberFormat {
-    fn as_default_version_number(&self) -> VersionNumber {
+    pub fn as_default_version_number(&self, commit: LogEntry) -> VersionNumber {
         match self {
             VersionNumberFormat::CCVer => VersionNumber::CCVer(0),
             VersionNumberFormat::CalVer(calendar_parts) => {
-                let date = chrono::Utc::now();
-                VersionNumber::CalVer(calendar_parts.clone(), date)
-            }
+                VersionNumber::CalVer(calendar_parts.clone(), commit.commit_datetime)
+            },
+            VersionNumberFormat::Sha => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumberFormat::ShortSha => VersionNumber::ShortSha(commit.commit_hash[0..7].to_string()),
         }
     }
 }
@@ -64,7 +67,7 @@ impl Default for &VersionNumberFormat {
     }
 }
 
-pub type CalVerFormat = Rc<[CalVerFormatSegment]>;
+pub type CalVerFormat = Arc<[CalVerFormatSegment]>;
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum CalVerFormatSegment {
@@ -88,11 +91,11 @@ impl PartialOrd for CalVerFormatSegment {
 use std::cmp::Ordering::*;
 use std::rc::Rc;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use CalVerFormatSegment::*;
 
 use crate::{
-    graph::CommitGraph,
-    version::{PreTag, Version, VersionNumber},
+    graph::CommitGraph, logs::LogEntry, version::{PreTag, Version, VersionNumber}
 };
 
 impl Ord for CalVerFormatSegment {
@@ -148,43 +151,44 @@ pub enum PreTagFormat<'ctx> {
     Alpha(VersionNumberFormat),
     Build(VersionNumberFormat),
     Named(String, VersionNumberFormat),
-    Sha(CommitGraph<'ctx>),
-    ShortSha(CommitGraph<'ctx>),
+    Sha(CommitGraph<'ctx>, VersionNumberFormat),
+    ShortSha(CommitGraph<'ctx>, VersionNumberFormat),
 }
 
-pub const PRE_TAG_FORMAT: Cell<PreTagFormat> =
-    Cell::new(PreTagFormat::Build(VersionNumberFormat::CCVer));
+pub static PRE_TAG_FORMAT: Mutex<PreTagFormat> =
+    Mutex::new(PreTagFormat::Build(VersionNumberFormat::CCVer));
 
 impl Default for PreTagFormat<'_> {
     fn default() -> Self {
-        PRE_TAG_FORMAT.into_inner().clone()
+        PRE_TAG_FORMAT.lock().unwrap().clone()
     }
 }
 
 impl PreTagFormat<'_> {
-    pub fn version_format(&self) -> Option<VersionNumberFormat> {
+    pub fn version_format(&self) -> VersionNumberFormat {
         match self {
             PreTagFormat::Rc(vf)
             | PreTagFormat::Beta(vf)
             | PreTagFormat::Alpha(vf)
             | PreTagFormat::Build(vf)
-            | PreTagFormat::Named(_, vf) => Some(vf.clone()),
-            PreTagFormat::Sha(_) | PreTagFormat::ShortSha(_) => None,
+            | PreTagFormat::Sha(_, vf)
+            | PreTagFormat::ShortSha(_, vf)
+            | PreTagFormat::Named(_, vf) => vf.clone(),
         }
     }
 
-    pub fn as_default_pre_tag(&self) -> Option<PreTag> {
+    pub fn as_default_pre_tag(&self, commit: LogEntry) -> PreTag {
         match self {
-            PreTagFormat::Rc(vf) => Some(PreTag::Rc(vf.as_default_version_number())),
-            PreTagFormat::Beta(vf) => Some(PreTag::Beta(vf.as_default_version_number())),
-            PreTagFormat::Alpha(vf) => Some(PreTag::Alpha(vf.as_default_version_number())),
-            PreTagFormat::Build(vf) => Some(PreTag::Build(vf.as_default_version_number())),
+            PreTagFormat::Rc(vf) => PreTag::Rc(vf.as_default_version_number(commit)),
+            PreTagFormat::Beta(vf) => PreTag::Beta(vf.as_default_version_number(commit)),
+            PreTagFormat::Alpha(vf) => PreTag::Alpha(vf.as_default_version_number(commit)),
+            PreTagFormat::Build(vf) => PreTag::Build(vf.as_default_version_number(commit)),
             PreTagFormat::Named(name, vf) => {
-                Some(PreTag::Named(name.clone(), vf.as_default_version_number()))
+                PreTag::Named(name.clone(), vf.as_default_version_number(commit))
             }
-            PreTagFormat::Sha(graph) => Some(PreTag::Sha(graph.tail().commit_hash.to_string())),
-            PreTagFormat::ShortSha(graph) => {
-                Some(PreTag::ShortSha(graph.tail().commit_hash[0..7].to_string()))
+            PreTagFormat::Sha(graph, _) => PreTag::Sha(VersionNumber::ShortSha(graph.tail().commit_hash.to_string())),
+            PreTagFormat::ShortSha(graph, _) => {
+                PreTag::ShortSha(VersionNumber::ShortSha(graph.tail().commit_hash[0..7].to_string()))
             }
         }
     }
@@ -196,8 +200,8 @@ impl PreTagFormat<'_> {
             PreTagFormat::Alpha(vf) => PreTag::Alpha(vf.parse(data)),
             PreTagFormat::Build(vf) => PreTag::Build(vf.parse(data)),
             PreTagFormat::Named(name, vf) => PreTag::Named(name.clone(), vf.parse(data)),
-            PreTagFormat::Sha(_) => PreTag::Sha(data.to_string()),
-            PreTagFormat::ShortSha(_) => PreTag::ShortSha(data.to_string()),
+            PreTagFormat::Sha(_, vf) => PreTag::Sha(vf.parse(data)),
+            PreTagFormat::ShortSha(_,vf) => PreTag::ShortSha(vf.parse(data)),
         }
     }
 }
@@ -207,25 +211,28 @@ impl VersionNumberFormat {
         match self {
             VersionNumberFormat::CCVer => VersionNumber::CCVer(usize::from_str(data).unwrap()),
             VersionNumberFormat::CalVer(calendar_parts) => {
-                let format_str: String = calendar_parts
-                    .iter()
-                    .map(|part| match part {
-                        Year4 => "%Y",
-                        Year2 => "%y",
-                        Epoch => "%s",
-                        Month => "%m",
-                        Day => "%d",
-                        DayOfYear => "%j",
-                        Hour => "%H",
-                        Minute => "%M",
-                        Second => "%S",
-                    })
-                    .collect::<Vec<&str>>()
-                    .join("");
+                        let format_str: String = calendar_parts
+                            .iter()
+                            .map(|part| match part {
+                                Year4 => "%Y",
+                                Year2 => "%y",
+                                Epoch => "%s",
+                                Month => "%m",
+                                Day => "%d",
+                                DayOfYear => "%j",
+                                Hour => "%H",
+                                Minute => "%M",
+                                Second => "%S",
+                            })
+                            .collect::<Vec<&str>>()
+                            .join("");
 
-                let date = chrono::DateTime::parse_from_str(data, &format_str).unwrap();
-                VersionNumber::CalVer(calendar_parts.clone(), date.to_utc())
-            }
+                        let date = chrono::DateTime::parse_from_str(data, &format_str).unwrap();
+                        VersionNumber::CalVer(calendar_parts.clone(), date.to_utc())
+                    }
+            VersionNumberFormat::Sha => VersionNumber::Sha(data.to_string()),
+            VersionNumberFormat::ShortSha => VersionNumber::ShortSha(data.to_string()),
+
         }
     }
 }

@@ -1,9 +1,9 @@
 use std::{
     cmp::Ordering,
-    fmt::{Display, Formatter},
+    fmt::{write, Display, Formatter},
 };
 
-use crate::version_format::{CalVerFormat, CalVerFormatSegment, VERSION_FORMAT};
+use crate::{logs::LogEntry, version_format::{CalVerFormat, CalVerFormatSegment, PRE_TAG_FORMAT, VERSION_FORMAT}};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Version {
@@ -28,142 +28,153 @@ impl Display for Version {
 }
 
 impl Version {
-    pub fn major(&self) -> Self {
+
+    
+    pub fn major(&self, commit: LogEntry) -> Self {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.bump(),
-            minor: self.minor.zero(),
-            patch: self.patch.zero(),
+            major: self.major.bump(commit.clone()),
+            minor: self.minor.zero(commit.clone()),
+            patch: self.patch.zero(commit.clone()),
             prerelease: None,
         }
     }
 
-    pub fn minor(&self) -> Self {
+    pub fn minor(&self, commit: LogEntry) -> Self {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.bump(),
-            patch: self.minor.zero(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.bump(commit.clone()),
+            patch: self.minor.zero(commit),
             prerelease: None,
         }
     }
 
-    pub fn patch(&self) -> Self {
+    pub fn patch(&self, commit: LogEntry) -> Self {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.bump(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.bump(commit),
             prerelease: None,
         }
     }
 
-    pub fn build(&self) -> Self {
+    pub fn build(&self, commit: LogEntry) -> Self {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.clone(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Build(VersionNumber::CCVer(0))),
+                None => Some(PreTag::Build(PRE_TAG_FORMAT.lock().unwrap().version_format().as_default_version_number(commit))),
                 Some(pre) => match pre {
-                    PreTag::Build(v) => Some(PreTag::Build(v.bump())),
-                    _ => Some(PreTag::Build(VersionNumber::CCVer(0))),
+                    PreTag::Build(v) => Some(PreTag::Build(v.bump(commit))),
+                    _ => Some(PreTag::Build(PRE_TAG_FORMAT.lock().unwrap().version_format().as_default_version_number(commit))),
                 },
             },
         }
     }
 
-    pub fn rc(&self) -> Self {
+    pub fn rc(&self, commit: LogEntry) -> Self {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.clone(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Rc(VersionNumber::CCVer(0))),
+                None => Some(PreTag::Rc(PRE_TAG_FORMAT.lock().unwrap().version_format().as_default_version_number(commit))),
                 Some(pre) => match pre {
-                    PreTag::Rc(v) => Some(PreTag::Rc(v.bump())),
-                    _ => Some(PreTag::Rc(VersionNumber::CCVer(0))),
+                    PreTag::Rc(v) => Some(PreTag::Rc(v.bump(commit))),
+                    _ => Some(PreTag::Rc(PRE_TAG_FORMAT.lock().unwrap().version_format().as_default_version_number(commit))),
                 },
             },
         }
     }
 
-    pub fn beta(&self) -> Self {
+    pub fn beta(&self, commit: LogEntry) -> Self {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.clone(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Beta(VersionNumber::CCVer(0))),
+                None => Some(PreTag::Beta(PRE_TAG_FORMAT.lock().unwrap().version_format().as_default_version_number(commit))),
                 Some(pre) => match pre {
-                    PreTag::Beta(v) => Some(PreTag::Beta(v.bump())),
-                    _ => Some(PreTag::Beta(VersionNumber::CCVer(0))),
+                    PreTag::Beta(v) => Some(PreTag::Beta(v.bump(commit))),
+                    _ => Some(PreTag::Beta(PRE_TAG_FORMAT.lock().unwrap().version_format().as_default_version_number(commit))),
                 },
             },
         }
     }
 
-    pub fn alpha(&self) -> Version {
+    pub fn alpha(&self, commit: LogEntry) -> Version {
+        let pre_version_format = PRE_TAG_FORMAT.lock().unwrap().version_format();
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.clone(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Alpha(VersionNumber::CCVer(0))),
+                None => Some(PreTag::Alpha(pre_version_format.as_default_version_number(commit))),
                 Some(pre) => match pre {
-                    PreTag::Alpha(v) => Some(PreTag::Alpha(v.bump())),
-                    _ => Some(PreTag::Alpha(VersionNumber::CCVer(0))),
+                    PreTag::Alpha(v) => Some(PreTag::Alpha(v.bump(commit))),
+                    _ => Some(PreTag::Alpha(pre_version_format.as_default_version_number(commit))),
                 },
             },
         }
     }
 
-    pub fn named(&self, name: String) -> Version {
+    pub fn named(&self, commit: LogEntry) -> Version {
+        let pre_version_format = PRE_TAG_FORMAT.lock().unwrap().version_format();
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.clone(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Named(name, VersionNumber::CCVer(0))),
+                None => Some(PreTag::Named(commit.branch.to_string(), pre_version_format.as_default_version_number(commit))),
                 Some(pre) => match pre {
-                    PreTag::Named(_, v) => Some(PreTag::Named(name, v.bump())),
-                    _ => Some(PreTag::Named(name, VersionNumber::CCVer(0))),
+                    PreTag::Named(tag, v) if tag.eq(commit.branch) => Some(PreTag::Named(tag.to_string(), v.bump(commit))),
+                    PreTag::Named(tag, _) => Some(PreTag::Named(commit.branch.to_string(), pre_version_format.as_default_version_number(commit))),
+                    _ => Some(PreTag::Named(commit.branch.to_string(), pre_version_format.as_default_version_number(commit))),
                 },
             },
         }
     }
 
-    pub fn release(&self) -> Version {
+    pub fn release(&self, commit: LogEntry) -> Version {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.clone(),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
             prerelease: None,
         }
     }
 
-    pub fn sha(&self, sha: String) -> Version {
+    pub fn sha(&self, commit: LogEntry) -> Version {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.clone(),
-            minor: self.minor.clone(),
-            patch: self.patch.clone(),
-            prerelease: Some(PreTag::Sha(sha)),
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
+            prerelease: Some(PreTag::Sha(VersionNumber::Sha(commit.commit_hash.to_string()))),
+        }
+    }
+
+    pub fn short_sha(&self, commit: LogEntry) -> Version {
+        Version {
+            v_prefix: self.v_prefix,
+            major: self.major.peek(commit.clone()),
+            minor: self.minor.peek(commit.clone()),
+            patch: self.patch.peek(commit.clone()),
+            prerelease: Some(PreTag::ShortSha(VersionNumber::ShortSha(commit.commit_hash[0..7].to_string()))),
         }
     }
 }
 
-impl Default for Version {
-    fn default() -> Self {
-        VERSION_FORMAT.into_inner().as_default_version().clone()
-    }
-}
+
 
 impl Ord for Version {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -205,8 +216,8 @@ pub enum PreTag {
     Alpha(VersionNumber),
     Build(VersionNumber),
     Named(String, VersionNumber),
-    Sha(String),
-    ShortSha(String),
+    Sha(VersionNumber),
+    ShortSha(VersionNumber),
 }
 
 impl Display for PreTag {
@@ -223,11 +234,6 @@ impl Display for PreTag {
     }
 }
 
-impl Default for PreTag {
-    fn default() -> Self {
-        PreTag::Build(VersionNumber::CCVer(0))
-    }
-}
 
 impl PartialOrd for PreTag {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -273,28 +279,39 @@ impl PartialOrd for PreTag {
 pub enum VersionNumber {
     CCVer(usize),
     CalVer(CalVerFormat, chrono::DateTime<chrono::Utc>),
-}
-
-impl Default for VersionNumber {
-    fn default() -> Self {
-        VersionNumber::CCVer(0)
-    }
+    Sha(String),
+    ShortSha(String),
 }
 
 impl VersionNumber {
-    pub fn bump(&self) -> Self {
+    pub fn bump(&self, commit: LogEntry) -> Self {
         match self {
             VersionNumber::CCVer(v) => VersionNumber::CCVer(*v + 1),
             VersionNumber::CalVer(format, _) => {
-                VersionNumber::CalVer(format.clone(), chrono::Utc::now())
-            }
+                        VersionNumber::CalVer(format.clone(), commit.commit_datetime)
+                    }
+            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::ShortSha(_) => VersionNumber::ShortSha(commit.commit_hash[0..7].to_string()),
         }
     }
 
-    pub fn zero(&self) -> Self {
+    pub fn peek(&self, commit: LogEntry) -> Self {
+        match self {
+            VersionNumber::CCVer(v) => VersionNumber::CCVer(*v),
+            VersionNumber::CalVer(format, _) => {
+                        VersionNumber::CalVer(format.clone(), commit.commit_datetime)
+                    }
+            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::ShortSha(_) => VersionNumber::ShortSha(commit.commit_hash[0..7].to_string()),
+        }
+    }
+
+    pub fn zero(&self, commit: LogEntry) -> Self {
         match self {
             VersionNumber::CCVer(_) => VersionNumber::CCVer(0),
-            VersionNumber::CalVer(_, _) => self.bump(),
+            VersionNumber::CalVer(_, _) => self.bump(commit),
+            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::ShortSha(_) => VersionNumber::ShortSha(commit.commit_hash[0..7].to_string()),
         }
     }
 }
@@ -317,6 +334,14 @@ impl Ord for VersionNumber {
                 }
                 _ => panic!("Cannot compare CCVer Version Number with CalVer Version Number"),
             },
+            VersionNumber::Sha(s) => match other {
+                VersionNumber::Sha(s2) => s.cmp(s2),
+                _ => panic!("Cannot compare Sha Version Number with non Sha Version Number"),
+            },
+            VersionNumber::ShortSha(s) => match other {
+                VersionNumber::ShortSha(s2) => s.cmp(s2),
+                _ => panic!("Cannot compare ShortSha Version Number with non ShortSha Version Number"),
+            },
         }
     }
 }
@@ -325,19 +350,20 @@ impl PartialOrd for VersionNumber {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self {
             VersionNumber::CCVer(ver) => match other {
-                VersionNumber::CCVer(ver2) => Some(ver.cmp(ver2)),
-                _ => None,
-            },
+                        VersionNumber::CCVer(ver2) => Some(ver.cmp(ver2)),
+                        _ => None,
+                    },
             VersionNumber::CalVer(format, date) => match other {
-                VersionNumber::CalVer(format2, date2) => {
-                    if format.iter().eq(format2.iter()) {
-                        date.partial_cmp(date2)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            },
+                        VersionNumber::CalVer(format2, date2) => {
+                            if format.iter().eq(format2.iter()) {
+                                date.partial_cmp(date2)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    },
+            VersionNumber::Sha(_) | VersionNumber::ShortSha(_) => None,
         }
     }
 }
@@ -347,27 +373,29 @@ impl Display for VersionNumber {
         match self {
             VersionNumber::CCVer(v) => write!(f, "{}", v),
             VersionNumber::CalVer(format, date) => {
-                let err = format
-                    .iter()
-                    .map(|seg| match seg {
-                        CalVerFormatSegment::Year4 => write!(f, "{}", date.format("%Y")),
-                        CalVerFormatSegment::Year2 => write!(f, "{}", date.format("%y")),
-                        CalVerFormatSegment::Epoch => write!(f, "{}", date.format("%s")),
-                        CalVerFormatSegment::Month => write!(f, "{}", date.format("%m")),
-                        CalVerFormatSegment::Day => write!(f, "{}", date.format("%d")),
-                        CalVerFormatSegment::DayOfYear => write!(f, "{}", date.format("%j")),
-                        CalVerFormatSegment::Hour => write!(f, "{}", date.format("%H")),
-                        CalVerFormatSegment::Minute => write!(f, "{}", date.format("%M")),
-                        CalVerFormatSegment::Second => write!(f, "{}", date.format("%S")),
-                    })
-                    .find(|res| res.is_err())
-                    .map(|r| r.unwrap_err());
+                        let err = format
+                            .iter()
+                            .map(|seg| match seg {
+                                CalVerFormatSegment::Year4 => write!(f, "{}", date.format("%Y")),
+                                CalVerFormatSegment::Year2 => write!(f, "{}", date.format("%y")),
+                                CalVerFormatSegment::Epoch => write!(f, "{}", date.format("%s")),
+                                CalVerFormatSegment::Month => write!(f, "{}", date.format("%m")),
+                                CalVerFormatSegment::Day => write!(f, "{}", date.format("%d")),
+                                CalVerFormatSegment::DayOfYear => write!(f, "{}", date.format("%j")),
+                                CalVerFormatSegment::Hour => write!(f, "{}", date.format("%H")),
+                                CalVerFormatSegment::Minute => write!(f, "{}", date.format("%M")),
+                                CalVerFormatSegment::Second => write!(f, "{}", date.format("%S")),
+                            })
+                            .find(|res| res.is_err())
+                            .map(|r| r.unwrap_err());
 
-                match err {
-                    Some(e) => Err(e),
-                    None => Ok(()),
-                }
-            }
+                        match err {
+                            Some(e) => Err(e),
+                            None => Ok(()),
+                        }
+                    }
+            VersionNumber::Sha(s) => write!(f, "{}", s),
+            VersionNumber::ShortSha(s) => write!(f, "{}", s),
         }
     }
 }

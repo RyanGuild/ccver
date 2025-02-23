@@ -2,6 +2,7 @@ use eyre::{eyre, OptionExt, Result};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
 use std::fmt::Debug;
+use std::sync::Arc;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::logs::{Decoration, Log, LogEntry, Tag};
@@ -17,9 +18,9 @@ pub struct CommitGraphData<'a> {
 }
 
 pub macro commit_graph() {
-    Rc::new(CommitGraphData::default())
+    Arc::new(CommitGraphData::default())
 }
-pub type CommitGraph<'a> = Rc<CommitGraphData<'a>>;
+pub type CommitGraph<'a> = Arc<CommitGraphData<'a>>;
 pub enum Directions {
     Backward,
     Forward,
@@ -112,7 +113,7 @@ impl CommitGraphData<'_> {
             .ok_or_eyre("could not find initial commit circular history or no commits detected")?
             .clone();
 
-        Ok(Rc::new(CommitGraphData {
+        Ok(Arc::new(CommitGraphData {
             petgraph,
             head_index,
             tail_index,

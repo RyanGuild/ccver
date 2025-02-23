@@ -1,4 +1,4 @@
-#![feature(decl_macro)]
+#![feature(decl_macro, lock_value_accessors)]
 use clap::Parser;
 use std::path::PathBuf;
 use std::process::Command;
@@ -36,9 +36,9 @@ fn main() -> Result<()> {
     if let Some(format_str) = args.format {
         let format_string = format_str.to_string();
         let format = parser::parse_version_format(&format_string, logs.get_graph()?)?;
-        VERSION_FORMAT.set(format.clone());
+        VERSION_FORMAT.replace(format.clone())?;
         if let Some(pre_format) = format.prerelease {
-            PRE_TAG_FORMAT.set(pre_format);
+            PRE_TAG_FORMAT.replace(pre_format)?;
         }
     }
 

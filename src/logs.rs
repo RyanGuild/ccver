@@ -1,9 +1,11 @@
 use crate::graph::{CommitGraph, CommitGraphData};
 use crate::parser::parse_log;
 use crate::version::Version;
+use crate::version_format::VERSION_FORMAT;
 use crate::version_map::{VersionMap, VersionMapData};
 use eyre::{eyre, Result, *};
 use std::rc::Rc;
+use std::sync::Arc;
 use std::{env::current_dir, path::PathBuf, process::Command};
 
 #[derive(Debug)]
@@ -29,15 +31,16 @@ pub enum Subject<'a> {
 }
 
 impl Subject<'_> {
-    pub fn as_initial_version(&self) -> Version {
+    pub fn as_initial_version(&self, commit: LogEntry) -> Version {
+        let format = VERSION_FORMAT.lock().unwrap().clone();
         match self {
             Subject::Conventional(sub) => match (sub.breaking, sub.commit_type) {
-                (true, _) => Version::default().major(),
-                (_, "feat") => Version::default().minor(),
-                (_, "fix") => Version::default().patch(),
-                _ => Version::default(),
+                (true, _) => format.as_default_version(commit.clone()).major(commit),
+                (_, "feat") => format.as_default_version(commit.clone()).minor(commit),
+                (_, "fix") => format.as_default_version(commit.clone()).patch(commit),
+                _ => format.as_default_version(commit),
             },
-            _ => Version::default(),
+            _ => format.as_default_version(commit),
         }
     }
 }
@@ -55,8 +58,8 @@ pub struct LogEntryData<'a> {
     pub commit_hash: &'a str,
     pub commit_timezone: chrono::Utc,
     pub commit_datetime: chrono::DateTime<chrono::Utc>,
-    pub parent_hashes: Rc<[&'a str]>,
-    pub decorations: Rc<[Decoration<'a>]>,
+    pub parent_hashes: Arc<[&'a str]>,
+    pub decorations: Arc<[Decoration<'a>]>,
     pub subject: Subject<'a>,
     pub footers: std::collections::HashMap<&'a str, &'a str>,
 }
@@ -73,14 +76,14 @@ impl LogEntryData<'_> {
         None
     }
 
-    pub fn as_initial_version(&self) -> Version {
-        self.subject.as_initial_version()
+    pub fn as_initial_version(&self, commit: LogEntry) -> Version {
+        self.subject.as_initial_version(commit)
     }
 }
 
-pub type LogEntry<'a> = Rc<LogEntryData<'a>>;
+pub type LogEntry<'a> = Arc<LogEntryData<'a>>;
 
-pub type Log<'a> = Rc<[LogEntry<'a>]>;
+pub type Log<'a> = Arc<[LogEntry<'a>]>;
 
 pub const GIT_FORMAT_ARGS: [&str;4] = ["log", "--source", "--branches","--format=name=%n%f%nbranch=%n%S%ncommit=%n%H%ncommit-time=%n%cI%ndec=%n%d%nparent=%n%P%nsub=%n%s%ntrailers=%n%(trailers:only)%n"];
 
@@ -167,14 +170,16 @@ impl<'a> Logs<'a> {
     }
 
     pub fn get_uncommited_version(&mut self) -> Result<Version> {
+        let graph = self.get_graph()?;
+        let head = graph.head();
         self.get_latest_version().map(|version| {
             let branch = self.current_branch_name().unwrap();
             match branch.as_str() {
-                "main" | "master" => version.build(),
-                "staging" => version.rc(),
-                "development" => version.beta(),
-                "next" => version.alpha(),
-                s => version.named(s.to_string()),
+                "main" | "master" => version.build(head),
+                "staging" => version.rc(head),
+                "development" => version.beta(head),
+                "next" => version.alpha(head),
+                _ => version.named(head),
             }
         })
     }
