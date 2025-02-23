@@ -1,11 +1,9 @@
 #![feature(decl_macro)]
 use clap::Parser;
-use petgraph::graph::NodeIndex;
-use version_map::{VersionMap, VersionMapData};
 use std::path::PathBuf;
 use std::process::Command;
-use std::{collections::HashMap, env::current_dir};
-use version::{Version, VersionNumber};
+use std::env::current_dir;
+use version_format::VERSION_FORMAT;
 
 pub mod args;
 pub mod graph;
@@ -17,7 +15,7 @@ pub mod version_map;
 
 use args::*;
 use eyre::Result;
-use logs::{Decoration, Logs, Subject};
+use logs::Logs;
 
 fn main() -> Result<()> {
     Command::new("git")
@@ -35,22 +33,24 @@ fn main() -> Result<()> {
 
     let mut logs = Logs::new(path);
 
+    if let Some(format_str) = args.format {
+        let format_string = format_str.to_string();
+        let format = parser::parse_version_format(&format_string, logs.get_graph()?)?;
+        VERSION_FORMAT.set(format.clone());
+    }
+
     match args.command {
         None => {
             if logs.is_dirty() {
-                println!("{}", logs.get_uncommited_version())
+                println!("{}", logs.get_uncommited_version()?)
             } else {
-                println!("{}", logs.get_latest_version())
-            }
-        },
-        Some(command) => {
-            match command {
-                CCVerSubCommand::Tag(tag_args) => {
-                    
-                },
-                _ => todo!(),
+                println!("{}", logs.get_latest_version()?)
             }
         }
+        Some(command) => match command {
+            CCVerSubCommand::Tag(_) => {}
+            _ => todo!(),
+        },
     }
 
     Ok(())

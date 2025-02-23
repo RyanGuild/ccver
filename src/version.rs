@@ -3,11 +3,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use crate::{
-    graph::{CommitGraph, CommitGraphData},
-    logs::{ConventionalSubject, LogEntry, LogEntryData, Subject},
-    version_format::{CalVerFormat, CalVerFormatSegment},
-};
+use crate::version_format::{CalVerFormat, CalVerFormatSegment};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Version {
@@ -18,25 +14,12 @@ pub struct Version {
 }
 
 impl Display for Version {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)?;
         match &self.prerelease {
             None => Ok(()),
             Some(pre) => write!(f, "-{}", pre),
         }
-    }
-}
-
-const DEFAULT_VERSION: Version = Version {
-    major: VersionNumber::CCVer(0),
-    minor: VersionNumber::CCVer(0),
-    patch: VersionNumber::CCVer(0),
-    prerelease: Some(PreTag::Build(VersionNumber::CCVer(0))),
-};
-
-impl Default for &Version {
-    fn default() -> Self {
-        &DEFAULT_VERSION
     }
 }
 
@@ -128,16 +111,16 @@ impl Version {
         }
     }
 
-    pub fn named(&self, name: &str) -> Version {
+    pub fn named(&self, name: String) -> Version {
         Version {
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Named(name.to_string(), VersionNumber::CCVer(0))),
+                None => Some(PreTag::Named(name, VersionNumber::CCVer(0))),
                 Some(pre) => match pre {
-                    PreTag::Named(_, v) => Some(PreTag::Named(name.to_string(), v.bump())),
-                    _ => Some(PreTag::Named(name.to_string(), VersionNumber::CCVer(0))),
+                    PreTag::Named(_, v) => Some(PreTag::Named(name, v.bump())),
+                    _ => Some(PreTag::Named(name, VersionNumber::CCVer(0))),
                 },
             },
         }
@@ -152,24 +135,20 @@ impl Version {
         }
     }
 
-    pub fn sha(&self, sha: &str) -> Version {
+    pub fn sha(&self, sha: String) -> Version {
         Version {
             major: self.major.clone(),
             minor: self.minor.clone(),
             patch: self.patch.clone(),
-            prerelease: Some(PreTag::Sha(sha.to_string())),
+            prerelease: Some(PreTag::Sha(sha)),
         }
     }
 }
 
 impl Default for Version {
     fn default() -> Self {
-        Version {
-            major: VersionNumber::default(),
-            minor: VersionNumber::default(),
-            patch: VersionNumber::default(),
-            prerelease: Some(PreTag::default()),
-        }
+        // VERSION_FORMAT.into_inner().as_default_version().clone()
+        todo!()
     }
 }
 
@@ -218,7 +197,7 @@ pub enum PreTag {
 }
 
 impl Display for PreTag {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             PreTag::Rc(v) => write!(f, "rc.{}", v),
             PreTag::Beta(v) => write!(f, "beta.{}", v),
@@ -351,7 +330,7 @@ impl PartialOrd for VersionNumber {
 }
 
 impl Display for VersionNumber {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             VersionNumber::CCVer(v) => write!(f, "{}", v),
             VersionNumber::CalVer(format, date) => {

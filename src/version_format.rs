@@ -1,32 +1,54 @@
+use std::cell::Cell;
 use std::cmp::Ordering;
 
-#[derive(Debug, Clone, Default)]
-pub struct VersionFormat {
-    pub v_prefix: bool,
-    pub major: VersionNumberFormat,
-    pub minor: VersionNumberFormat,
-    pub patch: VersionNumberFormat,
-    pub prerelease: Option<PreTagFormat>,
-}
-
-impl Default for &VersionFormat {
-    fn default() -> Self {
-        &DEFAULT_VERSION_FORMAT
-    }
-}
-
-const DEFAULT_VERSION_FORMAT: VersionFormat = VersionFormat {
+pub const VERSION_FORMAT: Cell<VersionFormat> = Cell::new(VersionFormat {
     v_prefix: false,
     major: VersionNumberFormat::CCVer,
     minor: VersionNumberFormat::CCVer,
     patch: VersionNumberFormat::CCVer,
     prerelease: None,
-};
+});
+
+#[derive(Debug, Clone, Default)]
+pub struct VersionFormat<'ctx> {
+    pub v_prefix: bool,
+    pub major: VersionNumberFormat,
+    pub minor: VersionNumberFormat,
+    pub patch: VersionNumberFormat,
+    pub prerelease: Option<PreTagFormat<'ctx>>,
+}
+
+impl<'ctx> VersionFormat<'ctx> {
+    pub fn as_default_version(&self) -> Version {
+        Version {
+            major: self.major.as_default_version_number(),
+            minor: self.minor.as_default_version_number(),
+            patch: self.patch.as_default_version_number(),
+            prerelease: self
+                .prerelease
+                .as_ref()
+                .map(|ptf| ptf.as_default_pre_tag())
+                .flatten(),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum VersionNumberFormat {
     CCVer,
     CalVer(CalVerFormat),
+}
+
+impl VersionNumberFormat {
+    fn as_default_version_number(&self) -> VersionNumber {
+        match self {
+            VersionNumberFormat::CCVer => VersionNumber::CCVer(0),
+            VersionNumberFormat::CalVer(calendar_parts) => {
+                let date = chrono::Utc::now();
+                VersionNumber::CalVer(calendar_parts.clone(), date)
+            }
+        }
+    }
 }
 
 impl Default for VersionNumberFormat {
@@ -67,7 +89,10 @@ use std::rc::Rc;
 use std::str::FromStr;
 use CalVerFormatSegment::*;
 
-use crate::version::VersionNumber;
+use crate::{
+    graph::CommitGraph,
+    version::{PreTag, Version, VersionNumber},
+};
 
 impl Ord for CalVerFormatSegment {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -116,40 +141,62 @@ impl Ord for CalVerFormatSegment {
 }
 
 #[derive(Debug, Clone)]
-pub enum PreTagFormat {
+pub enum PreTagFormat<'ctx> {
     Rc(VersionNumberFormat),
     Beta(VersionNumberFormat),
     Alpha(VersionNumberFormat),
     Build(VersionNumberFormat),
     Named(String, VersionNumberFormat),
-    Sha,
-    ShortSha,
+    Sha(CommitGraph<'ctx>),
+    ShortSha(CommitGraph<'ctx>),
 }
 
-const DEFAULT_PRE_TAG_FORMAT: PreTagFormat = PreTagFormat::Build(VersionNumberFormat::CCVer);
+const PRE_TAG_FORMAT: Cell<PreTagFormat> =
+    Cell::new(PreTagFormat::Build(VersionNumberFormat::CCVer));
 
-impl Default for PreTagFormat {
+impl Default for PreTagFormat<'_> {
     fn default() -> Self {
-        DEFAULT_PRE_TAG_FORMAT
+        PRE_TAG_FORMAT.take().clone()
     }
 }
 
-impl Default for &PreTagFormat {
-    fn default() -> Self {
-        &DEFAULT_PRE_TAG_FORMAT
-    }
-}
-
-impl PreTagFormat {
-    pub fn version_format(&self) -> Option<&VersionNumberFormat> {
+impl PreTagFormat<'_> {
+    pub fn version_format(&self) -> Option<VersionNumberFormat> {
         match self {
             PreTagFormat::Rc(vf)
             | PreTagFormat::Beta(vf)
             | PreTagFormat::Alpha(vf)
             | PreTagFormat::Build(vf)
-            | PreTagFormat::Named(_, vf) => Some(vf),
-            PreTagFormat::Sha => None,
-            PreTagFormat::ShortSha => None,
+            | PreTagFormat::Named(_, vf) => Some(vf.clone()),
+            PreTagFormat::Sha(_) | PreTagFormat::ShortSha(_) => None,
+        }
+    }
+
+    pub fn as_default_pre_tag(&self) -> Option<PreTag> {
+        match self {
+            PreTagFormat::Rc(vf) => Some(PreTag::Rc(vf.as_default_version_number())),
+            PreTagFormat::Beta(vf) => Some(PreTag::Beta(vf.as_default_version_number())),
+            PreTagFormat::Alpha(vf) => Some(PreTag::Alpha(vf.as_default_version_number())),
+            PreTagFormat::Build(vf) => Some(PreTag::Build(vf.as_default_version_number())),
+            PreTagFormat::Named(name, vf) => {
+                Some(PreTag::Named(name.clone(), vf.as_default_version_number()))
+            }
+            PreTagFormat::Sha(graph) => Some(PreTag::Sha(graph.tail().commit_hash.to_string())),
+            PreTagFormat::ShortSha(graph) => {
+                Some(PreTag::ShortSha(graph.tail().commit_hash[0..7].to_string()))
+            }
+        }
+    }
+
+    pub fn parse(&self, data: &str) -> PreTag {
+        match self {
+            PreTagFormat::Rc(vf) => PreTag::Rc(vf.parse(data)),
+            PreTagFormat::Beta(vf) => PreTag::Beta(vf.parse(data)),
+            PreTagFormat::Alpha(vf) => PreTag::Alpha(vf.parse(data)),
+            PreTagFormat::Build(vf) => PreTag::Build(vf.parse(data)),
+            PreTagFormat::Named(name, vf) => PreTag::Named(name.clone(), vf.parse(data)),
+            PreTagFormat::Sha(_) => PreTag::Sha(data.to_string()),
+            PreTagFormat::ShortSha(_) => PreTag::ShortSha(data.to_string()),
         }
     }
 }

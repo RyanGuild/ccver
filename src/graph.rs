@@ -5,7 +5,6 @@ use std::fmt::Debug;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::logs::{Decoration, Log, LogEntry, Tag};
-use crate::version::Version;
 
 pub type PetGraph<'a> = DiGraph<LogEntry<'a>, ()>;
 
@@ -329,14 +328,14 @@ impl CommitGraphData<'_> {
 mod graph_tests {
 
     use crate::logs::Logs;
-    use eyre::Result;
+    use eyre::*;
 
     use super::{Directions, Locations};
 
     #[test]
     fn test_iter_from() -> Result<()> {
         let mut logs = Logs::default();
-        let graph = logs.get_graph();
+        let graph = logs.get_graph()?;
 
         // Second commit
         let second_commit = "40f8bef8e7c290ebe0e52b91fa84fee30b4a162d";
@@ -364,9 +363,9 @@ mod graph_tests {
     }
 
     #[test]
-    fn test_graph_walk() {
+    fn test_graph_walk() -> Result<()> {
         let mut logs = Logs::default();
-        let graph = logs.get_graph();
+        let graph = logs.get_graph()?;
         let logs: Vec<String> = graph
             .dfs_postorder_history()
             .map(|(_, n)| n.commit_hash.to_string())
@@ -378,5 +377,7 @@ mod graph_tests {
             .map(|(_, n)| n.commit_hash.to_string())
             .collect();
         assert_eq!(logs.len(), logs2.len());
+
+        Ok(())
     }
 }

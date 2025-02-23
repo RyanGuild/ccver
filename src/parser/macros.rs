@@ -1,8 +1,10 @@
 use super::{Parser, Rule};
+use crate::parser::interpreter::ParserInputs;
+
 use pest_consume::Parser as _;
 
 pub macro cc_parse($rule:ident, $str_ref:expr) {
-    match Parser::parse_with_userdata(Rule::$rule, $str_ref, None) {
+    match Parser::parse_with_userdata(Rule::$rule, $str_ref, ParserInputs::LogParsing(None)) {
         Err(e) => Err(e),
         Ok(parsed) => match parsed.single() {
             Err(e) => Err(e),
@@ -15,7 +17,8 @@ pub macro cc_parse($rule:ident, $str_ref:expr) {
 }
 
 pub macro cc_parse_with_data($rule:ident, $str_ref:expr, $data:expr) {
-    match Parser::parse_with_userdata(Rule::$rule, $str_ref, Some($data)) {
+    match Parser::parse_with_userdata(Rule::$rule, $str_ref, ParserInputs::LogParsing(Some($data)))
+    {
         Err(e) => Err(e),
         Ok(parsed) => match parsed.single() {
             Err(e) => Err(e),
@@ -27,23 +30,16 @@ pub macro cc_parse_with_data($rule:ident, $str_ref:expr, $data:expr) {
     }
 }
 
-#[allow(unused_macros)]
-pub macro dbg_cc_parse($rule:ident, $str_ref:expr) {
-    match Parser::parse_with_userdata(Rule::$rule, $str_ref, None) {
+pub macro cc_parse_format($rule:ident, $str_ref:expr, $data:expr) {
+    match Parser::parse_with_userdata(Rule::$rule, $str_ref, ParserInputs::FormatParsing($data)) {
         Err(e) => Err(e),
-        Ok(parsed) => {
-            dbg!(&parsed);
-            match parsed.single() {
+        Ok(parsed) => match parsed.single() {
+            Err(e) => Err(e),
+            Ok(single) => match Parser::$rule(single) {
                 Err(e) => Err(e),
-                Ok(single) => match Parser::$rule(single) {
-                    Err(e) => Err(e),
-                    Ok(hydrated) => {
-                        dbg!(&hydrated);
-                        Ok(hydrated)
-                    }
-                },
-            }
-        }
+                Ok(hydrated) => Ok(hydrated),
+            },
+        },
     }
 }
 

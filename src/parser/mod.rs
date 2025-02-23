@@ -1,13 +1,14 @@
 use core::str;
 use interpreter::InterpreterResult;
 
+use crate::graph::CommitGraph;
 use crate::{logs::Log, version::Version, version_format::VersionFormat};
 
 #[cfg(test)]
 mod tests;
 
 mod macros;
-use macros::{cc_parse, cc_parse_with_data};
+use macros::{cc_parse, cc_parse_format, cc_parse_with_data};
 
 mod grammar;
 use grammar::Parser;
@@ -19,8 +20,11 @@ pub fn parse_log(log: &str) -> InterpreterResult<Log> {
     cc_parse!(CCVER_LOG, log)
 }
 
-pub fn parse_version_format(format: &str) -> InterpreterResult<VersionFormat> {
-    cc_parse!(CCVER_VERSION_FORMAT, format)
+pub fn parse_version_format<'graph>(
+    format: &str,
+    graph: CommitGraph<'graph>,
+) -> InterpreterResult<VersionFormat<'graph>> {
+    cc_parse_format!(CCVER_VERSION_FORMAT, format, graph)
 }
 
 pub fn parse_version(version: &str, format: VersionFormat) -> InterpreterResult<Version> {

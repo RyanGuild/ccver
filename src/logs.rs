@@ -2,6 +2,7 @@ use crate::graph::{CommitGraph, CommitGraphData};
 use crate::parser::parse_log;
 use crate::version::Version;
 use crate::version_map::{VersionMap, VersionMapData};
+use eyre::{eyre, Result, *};
 use std::rc::Rc;
 use std::{env::current_dir, path::PathBuf, process::Command};
 
@@ -42,8 +43,8 @@ impl Subject<'_> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Tag<'a> {
-    Text(&'a str),
+pub enum Tag<'input> {
+    Text(&'input str),
     Version(Version),
 }
 
@@ -113,56 +114,79 @@ impl<'a> Logs<'a> {
         self.raw
     }
 
-    pub fn get_parsed(&mut self) -> Log<'a> {
+    pub fn get_parsed(&mut self) -> Result<Log<'a>> {
         if let Some(parsed) = self.parsed.clone() {
-            parsed
+            Ok(parsed)
         } else {
-            let parsed = parse_log(self.raw).expect("could not parse raw logs");
+            let parsed = parse_log(self.raw)?;
             self.parsed = Some(parsed.clone());
-            parsed
+            Ok(parsed)
         }
     }
 
-    pub fn get_graph(&mut self) -> CommitGraph<'a> {
+    pub fn get_graph(&mut self) -> Result<CommitGraph<'a>> {
         if let Some(graph) = self.graph.clone() {
-            graph.clone()
+            Ok(graph.clone())
         } else {
-            let log = self.get_parsed();
-            let graph = CommitGraphData::new(log).expect("could not parse commits to graph");
+            let log = self.get_parsed()?;
+            let graph = CommitGraphData::new(log)?;
             self.graph = Some(graph.clone());
-            graph
+            Ok(graph)
         }
     }
 
-
-    pub fn get_version_map(&mut self) -> VersionMap {
+    pub fn get_version_map(&mut self) -> Result<VersionMap> {
         if let Some(version_map) = self.version_map.clone() {
-            version_map.clone()
+            Ok(version_map.clone())
         } else {
-            let graph = self.get_graph();
-            let version_map = VersionMapData::new(&graph).expect("could not create version map");
+            let graph = self.get_graph()?;
+            let version_map: Rc<VersionMapData> = VersionMapData::new(graph)?;
             self.version_map = Some(version_map.clone());
-            version_map
+            Ok(version_map.clone())
         }
     }
 
-
-    pub fn get_commit_version(&mut self, commit_hash: &str) -> Version {
-        let graph = self.get_graph();
-        let version_map = self.get_version_map();
-        let commit_idx = graph.commitidx(commit_hash).expect("commit not found in graph");
-        version_map.get(commit_idx).expect("commit not found in version map").clone()
+    pub fn get_commit_version(&mut self, commit_hash: &str) -> Result<Version> {
+        let graph = self.get_graph()?;
+        let version_map = self.get_version_map()?;
+        let commit_idx = graph.commitidx(commit_hash)?;
+        version_map
+            .get(commit_idx)
+            .cloned()
+            .ok_or(eyre!("commit not found in version map"))
     }
 
-    pub fn get_latest_version(&mut self) -> Version {
-        let graph = self.get_graph();
-        let version_map = self.get_version_map();
+    pub fn get_latest_version(&mut self) -> Result<Version> {
+        let graph = self.get_graph()?;
+        let version_map = self.get_version_map()?;
         let head = graph.headidx();
-        version_map.get(head).expect("tail not found in version map").clone()
+        version_map
+            .get(head)
+            .cloned()
+            .ok_or(eyre!("head not found in version map"))
     }
 
-    pub fn get_uncommited_version(&mut self) -> Version {
-        self.get_latest_version().build()
+    pub fn get_uncommited_version(&mut self) -> Result<Version> {
+        self.get_latest_version().map(|version| {
+            let branch = self.current_branch_name().unwrap();
+            match branch.as_str() {
+                "main" | "master" => version.build(),
+                "staging" => version.rc(),
+                "development" => version.beta(),
+                "next" => version.alpha(),
+                s => version.named(s.to_string()),
+            }
+        })
+    }
+
+    pub fn current_branch_name(&self) -> Result<String> {
+        let output = Command::new("git")
+            .args(&["rev-parse", "--abbrev-ref", "HEAD"])
+            .current_dir(&self.dir)
+            .output()
+            .expect("error getting command output");
+        let output_str = String::from_utf8(output.stdout).expect("error parsing utf8");
+        Ok(output_str.trim().to_string())
     }
 
     pub fn is_dirty(&self) -> bool {
@@ -196,12 +220,12 @@ mod logs_tests {
     #[test]
     fn test_logs_parsed() {
         let mut logs = Logs::default();
-        logs.get_parsed();
+        let _ = logs.get_parsed();
     }
 
     #[test]
     fn test_logs_graph() {
         let mut logs = Logs::default();
-        logs.get_graph();
+        let _ = logs.get_graph();
     }
 }
