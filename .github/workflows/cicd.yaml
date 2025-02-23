@@ -1,8 +1,10 @@
 name: CI/CD
 
 on:
-  push:
-    branches: [ "master", "staging", "development", "next" ]
+  workflow_run: 
+    workflows: ["Auto Tag"]
+    types:
+      - completed
 
 env:
   CARGO_TERM_COLOR: always
