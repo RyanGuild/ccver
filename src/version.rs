@@ -181,18 +181,18 @@ impl Ord for Version {
         match self.major.cmp(&other.major) {
             Ordering::Equal => match self.minor.cmp(&other.minor) {
                 Ordering::Equal => match self.patch.cmp(&other.patch) {
-                    Ordering::Equal => match &self.prerelease {
-                        None => match &other.prerelease {
+                    Ordering::Equal => match (&self.prerelease,&other.prerelease) {
+                        (None, None) => Ordering::Equal,
+                        (Some(PreTag::Build(_)), None) => Ordering::Greater,
+                        (None, Some(PreTag::Build(_))) => Ordering::Less,
+                        (Some(PreTag::Build(a)), Some(PreTag::Build(b))) => a.cmp(b),
+                        (Some(_), None) => Ordering::Less,
+                        (None, Some(_)) => Ordering::Greater,
+                        (Some(a), Some(b)) => match a.partial_cmp(b) {
+                            Some(ord) => ord,
                             None => Ordering::Equal,
-                            Some(_) => Ordering::Greater,
-                        },
-                        Some(pre) => match &other.prerelease {
-                            None => Ordering::Less,
-                            Some(other_pre) => match pre.partial_cmp(other_pre) {
-                                Some(ord) => ord,
-                                None => Ordering::Equal,
-                            },
-                        },
+                        }
+
                     },
                     ord => ord,
                 },

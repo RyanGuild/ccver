@@ -2,11 +2,11 @@ name: Auto Tag
 
 on:
   push:
-    branches: [ "master", "staging", "development", "next" ]
+    branches: ["main", "master", "staging", "development", "next" ]
     paths:
       - 'Cargo.toml'
       - 'src/**'
-      - '.github/workflows'
+      - '.github/workflows/**'
   workflow_dispatch: {}
 
 jobs:
