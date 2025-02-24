@@ -19,3 +19,7 @@ jobs:
         uses: MarcoIeni/cargo-assist@v0.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          clippy_flags: "--all-targets --all-features --workspace"
+          commit_message: "chore: format, fix lints"
+          fmt: true
+          clippy: true
