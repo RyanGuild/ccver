@@ -1,8 +1,10 @@
 name: Auto Tag
 
 on:
-  check_suite: 
-    types: [completed]
+  workflow_run: 
+    workflows: ["Create Test Report"]
+    types:
+      - completed
   workflow_dispatch: {}
 
 jobs:
