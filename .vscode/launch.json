@@ -3,6 +3,18 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Cargo launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    
+                ]
+            },
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Cargo test",
             "cargo": {
                 "args": [
@@ -12,16 +24,5 @@
             },
             "args": []
         },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Cargo launch",
-            "cargo": {
-                "args": [
-                    "build"
-                ]
-            },
-            "args": []
-        }
     ]
 }
