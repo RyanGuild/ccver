@@ -75,7 +75,6 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: contains(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
         with:
