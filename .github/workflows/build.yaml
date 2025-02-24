@@ -79,7 +79,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-tags: true
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: /refs/heads/${{ github.event.workflow_run.head_branch }}
 
 
       - name: Download artifacts
