@@ -51,19 +51,19 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: binary-linux-amd64
+            artifact_name: ccver-linux-amd64
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            artifact_name: binary-linux-arm64
+            artifact_name: ccver-linux-arm64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: binary-windows-amd64.exe
+            artifact_name: ccver-windows-amd64.exe
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: binary-macos-amd64
+            artifact_name: ccver-macos-amd64
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: binary-macos-arm64
+            artifact_name: ccver-macos-arm64
 
     steps:
     - uses: actions/checkout@v4
@@ -89,13 +89,9 @@ jobs:
       shell: bash
       run: |
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          ls target/
-          mkdir -p ${{ matrix.artifact_name }}
-          cp target/${{ matrix.target }}/release/*.exe ${{ matrix.artifact_name }}
+          cp target/${{ matrix.target }}/release/ccver.exe ${{ matrix.artifact_name }}
         else
-          ls target/
-          mkdir -p ${{ matrix.artifact_name }}
-          cp target/${{ matrix.target }}/release/* ${{ matrix.artifact_name }}
+          cp target/${{ matrix.target }}/release/ccver ${{ matrix.artifact_name }}
         fi
         
     - name: Upload artifact
@@ -120,6 +116,6 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          binary-*
+          ccver-*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
