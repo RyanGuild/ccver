@@ -106,9 +106,9 @@ jobs:
       shell: bash
       run: |
         if [ "${{ matrix.target.runner }}" = "windows-latest" ]; then
-          cp target/${{ matrix.target }}/release/ccver.exe ${{ matrix.target.artifact_name }}
+          cp target/${{ matrix.target.arch }}/release/ccver.exe ${{ matrix.target.artifact_name }}
         else
-          cp target/${{ matrix.target }}/release/ccver ${{ matrix.target.artifact_name }}
+          cp target/${{ matrix.target.arch }}/release/ccver ${{ matrix.target.artifact_name }}
         fi
         
     - name: Upload artifact
