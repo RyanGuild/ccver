@@ -1,9 +1,9 @@
 use eyre::{eyre, OptionExt, Result};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::collections::HashMap;
 
 use crate::logs::{Decoration, Log, LogEntry, Tag};
 
@@ -39,7 +39,7 @@ impl Locations<'_> {
         match self {
             Locations::Head => Ok(graph.headidx()),
             Locations::Initial => Ok(graph.tailidx()),
-            Locations::Sha(sha) => graph.commitidx(&sha),
+            Locations::Sha(sha) => graph.commitidx(sha),
             Locations::Decoration(d) => match d {
                 Decoration::HeadIndicator(_) => Ok(graph.headidx()),
                 Decoration::Tag(t) => graph.tagidx(
@@ -57,10 +57,10 @@ impl Locations<'_> {
 }
 
 impl CommitGraphData<'_> {
-    pub fn new<'a>(logs: Log<'a>) -> Result<CommitGraph<'a>> {
+    pub fn new(logs: Log<'_>) -> Result<CommitGraph<'_>> {
         let mut petgraph = DiGraph::new();
         let commit_to_index: HashMap<String, NodeIndex> = logs
-            .into_iter()
+            .iter()
             .map(|l| (l.commit_hash.to_string(), petgraph.add_node(l.clone())))
             .collect();
 
@@ -70,9 +70,9 @@ impl CommitGraphData<'_> {
             .flat_map(|i| {
                 let ref1 = petgraph[*i].clone();
                 let parents = ref1.parent_hashes.clone();
-                let parents_iter = parents.into_iter();
+                let parents_iter = parents.iter();
                 let parent_index_iter = parents_iter.map(|p| commit_to_index[*p]);
-                let current_index_iter = std::iter::repeat_n((*i).clone(), parent_index_iter.len());
+                let current_index_iter = std::iter::repeat_n(*i, parent_index_iter.len());
                 current_index_iter
                     .zip(parent_index_iter)
                     .collect::<Vec<(NodeIndex, NodeIndex)>>()
@@ -80,7 +80,7 @@ impl CommitGraphData<'_> {
             .collect();
 
         for (child, parent) in edges {
-            petgraph.add_edge(child.clone(), parent.clone(), ());
+            petgraph.add_edge(child, parent, ());
         }
 
         let head_index = petgraph
@@ -93,25 +93,19 @@ impl CommitGraphData<'_> {
                         _ => continue,
                     };
                 }
-                return false;
+                false
             })
             .next()
-            .ok_or_eyre("could not find HEAD in graph")?
-            .clone();
+            .ok_or_eyre("could not find HEAD in graph")?;
 
         let tail_index = petgraph
             .node_indices()
             .filter(|i| {
                 let node = petgraph[*i].clone();
-                if node.parent_hashes.len() == 0 {
-                    true
-                } else {
-                    false
-                }
+                node.parent_hashes.is_empty()
             })
             .next()
-            .ok_or_eyre("could not find initial commit circular history or no commits detected")?
-            .clone();
+            .ok_or_eyre("could not find initial commit circular history or no commits detected")?;
 
         Ok(Arc::new(CommitGraphData {
             petgraph,
@@ -144,7 +138,7 @@ impl CommitGraphData<'_> {
     pub fn commitidx(&self, index: &str) -> Result<NodeIndex> {
         self.commit_to_index
             .get(index)
-            .map(|n| *n)
+            .copied()
             .ok_or_eyre("could not find commit in commit map")
     }
 
@@ -241,7 +235,7 @@ impl CommitGraphData<'_> {
         location: Locations,
         direction: Directions,
     ) -> Result<Box<dyn Iterator<Item = (NodeIndex, LogEntry<'a>)> + 'a>> {
-        let start = location.to_idx(&self)?;
+        let start = location.to_idx(self)?;
 
         match direction {
             Directions::Backward => Ok(Box::new(
@@ -283,10 +277,10 @@ impl CommitGraphData<'_> {
     }
 
     pub fn history_windowed_childeren(&self) -> impl Iterator<Item = (LogEntry, Vec<LogEntry>)> {
-        let mut history = self.dfs_postorder_history();
+        let history = self.dfs_postorder_history();
         let mut windows: Vec<(NodeIndex, Vec<NodeIndex>)> = vec![];
 
-        while let Some((idx, _)) = history.next() {
+        for (idx, _) in history {
             let children: Vec<NodeIndex> = self
                 .petgraph
                 // note that children point to parents in the DiGraph so we need to reverse the direction
@@ -306,10 +300,10 @@ impl CommitGraphData<'_> {
     }
 
     pub fn history_windowed_parents(&self) -> impl Iterator<Item = (LogEntry, Vec<LogEntry>)> {
-        let mut history = self.dfs_postorder_history();
+        let history = self.dfs_postorder_history();
         let mut windows: Vec<(NodeIndex, Vec<NodeIndex>)> = vec![];
 
-        while let Some((idx, _)) = history.next() {
+        for (idx, _) in history {
             let parents: Vec<NodeIndex> = self
                 .petgraph
                 .neighbors_directed(idx, petgraph::Direction::Outgoing)

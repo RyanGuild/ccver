@@ -394,7 +394,7 @@ impl Parser {
                         None
                     }
                 }
-                Some(Sha(_,_) | ShortSha(_,_)) | None => None,
+                Some(Sha(_, _) | ShortSha(_, _)) | None => None,
             }
         };
 
@@ -503,7 +503,7 @@ impl Parser {
             [CALENDAR_VERSION_FORMAT_SEGMENT(s)..] => s.collect()
         );
         let sorted = segments.iter().rev().collect::<Vec<_>>().is_sorted();
-        if sorted && segments.len() > 0 {
+        if sorted && !segments.is_empty() {
             Ok(segments)
         } else {
             dbg!(&segments);

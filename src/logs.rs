@@ -99,7 +99,7 @@ pub struct Logs<'a> {
 impl<'a> Logs<'a> {
     pub fn new(dir: PathBuf) -> Logs<'a> {
         let output = Command::new("git")
-            .args(&GIT_FORMAT_ARGS)
+            .args(GIT_FORMAT_ARGS)
             .current_dir(&dir)
             .output()
             .expect("error getting command output");
@@ -186,7 +186,7 @@ impl<'a> Logs<'a> {
 
     pub fn current_branch_name(&self) -> Result<String> {
         let output = Command::new("git")
-            .args(&["rev-parse", "--abbrev-ref", "HEAD"])
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
             .current_dir(&self.dir)
             .output()
             .expect("error getting command output");
@@ -196,7 +196,7 @@ impl<'a> Logs<'a> {
 
     pub fn is_dirty(&self) -> bool {
         let output = Command::new("git")
-            .args(&["status", "--porcelain"])
+            .args(["status", "--porcelain"])
             .current_dir(&self.dir)
             .output()
             .expect("error getting command output");

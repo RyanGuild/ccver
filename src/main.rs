@@ -1,8 +1,8 @@
 #![feature(decl_macro, lock_value_accessors)]
 use clap::Parser;
+use std::env::current_dir;
 use std::path::PathBuf;
 use std::process::Command;
-use std::env::current_dir;
 use version_format::{PRE_TAG_FORMAT, VERSION_FORMAT};
 
 pub mod args;

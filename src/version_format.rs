@@ -8,7 +8,6 @@ pub static VERSION_FORMAT: Mutex<VersionFormat> = Mutex::new(VersionFormat {
     prerelease: None,
 });
 
-
 #[derive(Debug, Clone, Default)]
 pub struct VersionFormat<'ctx> {
     pub v_prefix: bool,
@@ -18,7 +17,7 @@ pub struct VersionFormat<'ctx> {
     pub prerelease: Option<PreTagFormat<'ctx>>,
 }
 
-impl<'ctx> VersionFormat<'ctx> {
+impl VersionFormat<'_> {
     pub fn as_default_version(&self, commit: LogEntry) -> Version {
         Version {
             v_prefix: self.v_prefix,
@@ -33,8 +32,9 @@ impl<'ctx> VersionFormat<'ctx> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum VersionNumberFormat {
+    #[default]
     CCVer,
     CalVer(CalVerFormat),
     Sha,
@@ -47,16 +47,12 @@ impl VersionNumberFormat {
             VersionNumberFormat::CCVer => VersionNumber::CCVer(0),
             VersionNumberFormat::CalVer(calendar_parts) => {
                 VersionNumber::CalVer(calendar_parts.clone(), commit.commit_datetime)
-            },
+            }
             VersionNumberFormat::Sha => VersionNumber::Sha(commit.commit_hash.to_string()),
-            VersionNumberFormat::ShortSha => VersionNumber::ShortSha(commit.commit_hash[0..7].to_string()),
+            VersionNumberFormat::ShortSha => {
+                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+            }
         }
-    }
-}
-
-impl Default for VersionNumberFormat {
-    fn default() -> Self {
-        VersionNumberFormat::CCVer
     }
 }
 
@@ -93,7 +89,9 @@ use std::sync::{Arc, Mutex};
 use CalVerFormatSegment::*;
 
 use crate::{
-    graph::CommitGraph, logs::LogEntry, version::{PreTag, Version, VersionNumber}
+    graph::CommitGraph,
+    logs::LogEntry,
+    version::{PreTag, Version, VersionNumber},
 };
 
 impl Ord for CalVerFormatSegment {
@@ -184,10 +182,12 @@ impl PreTagFormat<'_> {
             PreTagFormat::Named(name, vf) => {
                 PreTag::Named(name.clone(), vf.as_default_version_number(commit))
             }
-            PreTagFormat::Sha(graph, _) => PreTag::Sha(VersionNumber::ShortSha(graph.tail().commit_hash.to_string())),
-            PreTagFormat::ShortSha(graph, _) => {
-                PreTag::ShortSha(VersionNumber::ShortSha(graph.tail().commit_hash[0..7].to_string()))
-            }
+            PreTagFormat::Sha(graph, _) => PreTag::Sha(VersionNumber::ShortSha(
+                graph.tail().commit_hash.to_string(),
+            )),
+            PreTagFormat::ShortSha(graph, _) => PreTag::ShortSha(VersionNumber::ShortSha(
+                graph.tail().commit_hash[0..7].to_string(),
+            )),
         }
     }
 
@@ -199,7 +199,7 @@ impl PreTagFormat<'_> {
             PreTagFormat::Build(vf) => PreTag::Build(vf.parse(data)),
             PreTagFormat::Named(name, vf) => PreTag::Named(name.clone(), vf.parse(data)),
             PreTagFormat::Sha(_, vf) => PreTag::Sha(vf.parse(data)),
-            PreTagFormat::ShortSha(_,vf) => PreTag::ShortSha(vf.parse(data)),
+            PreTagFormat::ShortSha(_, vf) => PreTag::ShortSha(vf.parse(data)),
         }
     }
 }
@@ -209,28 +209,27 @@ impl VersionNumberFormat {
         match self {
             VersionNumberFormat::CCVer => VersionNumber::CCVer(usize::from_str(data).unwrap()),
             VersionNumberFormat::CalVer(calendar_parts) => {
-                        let format_str: String = calendar_parts
-                            .iter()
-                            .map(|part| match part {
-                                Year4 => "%Y",
-                                Year2 => "%y",
-                                Epoch => "%s",
-                                Month => "%m",
-                                Day => "%d",
-                                DayOfYear => "%j",
-                                Hour => "%H",
-                                Minute => "%M",
-                                Second => "%S",
-                            })
-                            .collect::<Vec<&str>>()
-                            .join("");
+                let format_str: String = calendar_parts
+                    .iter()
+                    .map(|part| match part {
+                        Year4 => "%Y",
+                        Year2 => "%y",
+                        Epoch => "%s",
+                        Month => "%m",
+                        Day => "%d",
+                        DayOfYear => "%j",
+                        Hour => "%H",
+                        Minute => "%M",
+                        Second => "%S",
+                    })
+                    .collect::<Vec<&str>>()
+                    .join("");
 
-                        let date = chrono::DateTime::parse_from_str(data, &format_str).unwrap();
-                        VersionNumber::CalVer(calendar_parts.clone(), date.to_utc())
-                    }
+                let date = chrono::DateTime::parse_from_str(data, &format_str).unwrap();
+                VersionNumber::CalVer(calendar_parts.clone(), date.to_utc())
+            }
             VersionNumberFormat::Sha => VersionNumber::Sha(data.to_string()),
             VersionNumberFormat::ShortSha => VersionNumber::ShortSha(data.to_string()),
-
         }
     }
 }

@@ -5,7 +5,8 @@ use petgraph::graph::NodeIndex;
 use crate::{
     graph::CommitGraph,
     logs::{ConventionalSubject, Subject},
-    version::Version, version_format::VERSION_FORMAT,
+    version::Version,
+    version_format::VERSION_FORMAT,
 };
 use eyre::Result;
 
@@ -54,12 +55,12 @@ impl VersionMapData {
 
                 if let Some(existing) = existing {
                     if existing < max_parent {
-                        return Err(eyre::eyre!(
+                        Err(eyre::eyre!(
                             "Existing version is less than its latest parent's version"
-                        ));
+                        ))
                     } else {
                         map.insert(idx, existing);
-                        return Ok(());
+                        Ok(())
                     }
                 } else {
                     let next_version = match (
@@ -87,7 +88,9 @@ impl VersionMapData {
                             "main" | "master",
                             _,
                         ) => max_parent.patch(commit),
-                        (Subject::Conventional(_), "main" | "master", _) => max_parent.build(commit),
+                        (Subject::Conventional(_), "main" | "master", _) => {
+                            max_parent.build(commit)
+                        }
                         (
                             Subject::Conventional(ConventionalSubject { breaking: true, .. }),
                             "staging",
@@ -183,7 +186,7 @@ impl VersionMapData {
                     // dbg!(&next_version);
 
                     map.insert(idx, next_version);
-                    return Ok(());
+                    Ok(())
                 }
             })
             .collect::<Vec<Result<()>>>();
