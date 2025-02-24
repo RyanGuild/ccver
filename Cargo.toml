@@ -23,7 +23,7 @@ chrono = {version = "0.4.39", default-features = true}
 pest_derive = {version = "2.7.15", default-features = false}
 pest = {version = "2.7.15", default-features = false}
 # serde = { version = "1.0.217", features = ["derive"], default-features = false}
-clap = { version = "4.5.27", features = ["derive"] }
+clap = { version = "4.5.31", features = ["derive"] }
 pest_consume = "1.1.3"
 # figment = { version = "0.10.19", features = ["json"] }
 eyre = "0.6.12"
