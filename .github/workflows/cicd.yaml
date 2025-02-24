@@ -9,14 +9,28 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+
+  
 jobs:
   test:
     name: Test
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.target.runner }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable]
+        rust:
+          - nightly
+        target:
+          - runner: ubuntu-latest
+            arch: x86_64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            arch: aarch64-unknown-linux-gnu
+          - runner: windows-latest
+            arch: x86_64-pc-windows-msvc
+          - runner: macos-latest
+            arch: x86_64-apple-darwin
+          - runner: macos-latest
+            arch: aarch64-apple-darwin
+          
 
     steps:
     - uses: actions/checkout@v4
@@ -28,6 +42,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: ${{ matrix.rust }}
+        target:  ${{ matrix.target.arch }}
     
     - name: Cache dependencies
       uses: actions/cache@v3
@@ -44,25 +59,26 @@ jobs:
   build:
     name: Build Release
     needs: test
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.target.runner }}
     strategy:
-      fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+        rust:
+          - nightly
+        target:
+          - runner: ubuntu-latest
+            arch: x86_64-unknown-linux-gnu
             artifact_name: ccver-linux-amd64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            arch: aarch64-unknown-linux-gnu
             artifact_name: ccver-linux-arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+          - runner: windows-latest
+            arch: x86_64-pc-windows-msvc
             artifact_name: ccver-windows-amd64.exe
-          - os: macos-latest
-            target: x86_64-apple-darwin
+          - runner: macos-latest
+            arch: x86_64-apple-darwin
             artifact_name: ccver-macos-amd64
-          - os: macos-latest
-            target: aarch64-apple-darwin
+          - runner: macos-latest
+            arch: aarch64-apple-darwin
             artifact_name: ccver-macos-arm64
 
     steps:
@@ -71,7 +87,8 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        targets: ${{ matrix.target }}
+        toolchain: ${{ matrix.rust }}
+        targets: ${{ matrix.target.arch }}
 
     - name: Install cross-compilation dependencies
       if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -88,17 +105,17 @@ jobs:
     - name: Prepare binary
       shell: bash
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp target/${{ matrix.target }}/release/ccver.exe ${{ matrix.artifact_name }}
+        if [ "${{ matrix.target.runner }}" = "windows-latest" ]; then
+          cp target/${{ matrix.target }}/release/ccver.exe ${{ matrix.target.artifact_name }}
         else
-          cp target/${{ matrix.target }}/release/ccver ${{ matrix.artifact_name }}
+          cp target/${{ matrix.target }}/release/ccver ${{ matrix.target.artifact_name }}
         fi
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.artifact_name }}
-        path: ${{ matrix.artifact_name }}
+        name: ${{ matrix.target.artifact_name }}
+        path: ${{ matrix.target.artifact_name }}
 
   release:
     name: Create Release
