@@ -4,58 +4,11 @@
 		{
 			"type": "cargo",
 			"command": "build",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
 			"problemMatcher": [
 				"$rustc"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"dependsOn": [
-				"rust: cargo fmt"
-			],
+			"group": "build",
 			"label": "rust: cargo build"
-		},
-		{
-			"type": "cargo",
-			"command": "fmt",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [
-				"$rustc"
-			],
-			"group": "build",
-			"label": "rust: cargo fmt"
-		},
-		{
-			"type": "cargo",
-			"command": "run",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [
-				"$rustc"
-			],
-			"label": "rust: cargo run"
-		},
-		{
-			"type": "cargo",
-			"command": "fix",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"args": [
-				"--allow-dirty"
-			],
-			"problemMatcher": [
-				"$rustc"
-			],
-			"group": "build",
-			"label": "rust: cargo fix"
 		}
 	]
 }

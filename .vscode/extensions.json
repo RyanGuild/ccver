@@ -7,6 +7,9 @@
         "streetsidesoftware.code-spell-checker",
         "vadimcn.vscode-lldb",
         "swellaby.vscode-rust-test-adapter",
-        "dustypomerleau.rust-syntax"
+        "dustypomerleau.rust-syntax",
+        "vivaxy.vscode-conventional-commits",
+        "fill-labs.dependi",
+        "jscearcy.rust-doc-viewer"
     ]
 }

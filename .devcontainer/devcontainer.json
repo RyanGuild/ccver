@@ -1,0 +1,32 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"name": "Ubuntu",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/base:jammy",
+	"features": {
+		"ghcr.io/devcontainers/features/rust:1": {},
+		"ghcr.io/devcontainers/features/docker-outside-of-docker": {},
+		"ghcr.io/dhoeric/features/act": {
+			"version": "latest"
+		}
+	},
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"redhat.vscode-yaml",
+        		"pest.pest-ide-tools",
+        		"rust-lang.rust-analyzer",
+        		"github.vscode-github-actions",
+        		"streetsidesoftware.code-spell-checker",
+        		"vadimcn.vscode-lldb",
+        		"swellaby.vscode-rust-test-adapter",
+        		"dustypomerleau.rust-syntax",
+        		"vivaxy.vscode-conventional-commits",
+        		"fill-labs.dependi",
+        		"jscearcy.rust-doc-viewer"
+			]
+		}
+	}
+}
