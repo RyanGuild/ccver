@@ -2,6 +2,7 @@ name: Test Report
 
 on: 
   push:
+  check_suite: 
 
 permissions: 
   checks: write
