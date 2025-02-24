@@ -1,12 +1,10 @@
 name: Auto Tag
 
 on:
-  push:
-    branches: ["main", "master", "staging", "development", "next" ]
-    paths:
-      - 'Cargo.toml'
-      - 'src/**'
-      - '.github/workflows/**'
+  workflow_run: 
+    workflows: ["Cargo Assist"]
+    types:
+      - completed
   workflow_dispatch: {}
 
 jobs:
