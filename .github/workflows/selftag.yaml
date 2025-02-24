@@ -1,7 +1,10 @@
 name: Auto Tag
 
 on:
-  push: {}
+  workflow_run: 
+    workflows: ["Create Test Report"]
+    types:
+      - completed
   workflow_dispatch: {}
 
 jobs:
