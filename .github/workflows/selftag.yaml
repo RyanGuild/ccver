@@ -7,6 +7,8 @@ on:
       - completed
   workflow_dispatch: {}
 
+concurrency: tags
+
 jobs:
   tag:
     name: Create Tag
