@@ -99,10 +99,12 @@ jobs:
         with:
           tag_name: ${{ steps.get-latest-tag.outputs.tag }}
           files: |
-            ./ccver-linux-amd64
-            ./ccver-linux-arm64
-            ./ccver-windows-amd64.exe
-            ./ccver-macos-amd64
-            ./ccver-macos-arm64
+            **ccver-*
+            **/ccver-linux-amd64
+            **/ccver-linux-arm64
+            **/ccver-windows-amd64.exe
+            **/ccver-macos-amd64
+            **/ccver-macos-arm64
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
