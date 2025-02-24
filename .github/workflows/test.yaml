@@ -1,7 +1,10 @@
 name: Test Report
 
 on: 
-  push: 
+  push:
+
+permissions: 
+  checks: write
 
 jobs:
   test:
