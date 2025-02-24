@@ -1,16 +1,14 @@
 name: CI/CD
 
 on:
-  workflow_run: 
-    workflows: ["Auto Tag"]
-    types:
-      - completed
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch: {}
 
 env:
   CARGO_TERM_COLOR: always
 
-
-  
 jobs:
   test:
     name: Test
@@ -30,31 +28,30 @@ jobs:
             arch: x86_64-apple-darwin
           - runner: macos-latest
             arch: aarch64-apple-darwin
-          
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        fetch-tags: true
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
-        target:  ${{ matrix.target.arch }}
-    
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target.arch }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test --verbose
 
   build:
     name: Build Release
@@ -82,56 +79,56 @@ jobs:
             artifact_name: ccver-macos-arm64
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
-        targets: ${{ matrix.target.arch }}
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target.arch }}
 
-    - name: Install cross-compilation dependencies
-      if: matrix.target.arch == 'aarch64-unknown-linux-gnu'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Install cross-compilation dependencies
+        if: matrix.target.arch == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
 
-    - name: Install targets
-      run: rustup target add ${{ matrix.target.arch }}
+      - name: Install targets
+        run: rustup target add ${{ matrix.target.arch }}
 
-    - name: Build target
-      run: cargo build --release --target ${{ matrix.target.arch }}
+      - name: Build target
+        run: cargo build --release --target ${{ matrix.target.arch }}
 
-    - name: Prepare binary
-      shell: bash
-      run: |
-        if [ "${{ matrix.target.runner }}" = "windows-latest" ]; then
-          cp target/${{ matrix.target.arch }}/release/ccver.exe ${{ matrix.target.artifact_name }}
-        else
-          cp target/${{ matrix.target.arch }}/release/ccver ${{ matrix.target.artifact_name }}
-        fi
-        
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.target.artifact_name }}
-        path: ${{ matrix.target.artifact_name }}
+      - name: Prepare binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.target.runner }}" = "windows-latest" ]; then
+            cp target/${{ matrix.target.arch }}/release/ccver.exe ${{ matrix.target.artifact_name }}
+          else
+            cp target/${{ matrix.target.arch }}/release/ccver ${{ matrix.target.artifact_name }}
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target.artifact_name }}
+          path: ${{ matrix.target.artifact_name }}
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    
+    if: contains(github.ref, 'refs/tags/v')
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Download artifacts
-      uses: actions/download-artifact@v4
-      
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          ccver-*
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ccver-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
