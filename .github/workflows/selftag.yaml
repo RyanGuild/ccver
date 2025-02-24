@@ -1,10 +1,8 @@
 name: Auto Tag
 
 on:
-  workflow_run: 
-    workflows: ["Cargo Assist"]
-    types:
-      - completed
+  check_suite: 
+    types: [completed]
   workflow_dispatch: {}
 
 jobs:
