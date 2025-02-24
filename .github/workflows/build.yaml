@@ -98,6 +98,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get-latest-tag.outputs.tag }}
-          files: ${{ steps.download-artifacts.outputs.download-path }}/ccver-*
+          files: |
+            ccver-linux-amd64
+            ccver-linux-arm64
+            ccver-windows-amd64.exe
+            ccver-macos-amd64
+            ccver-macos-arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
