@@ -1,0 +1,11 @@
+{
+  "pestIdeTools.alwaysUsedRuleNames": [
+    "CCVER_VERSION",
+    "CCVER_VERSION_FORMAT",
+    "CCVER_LOG",
+    "CCVER_LOG_ENTRY"
+  ],
+  "[yaml]": {
+    "editor.tabSize": 2,
+  },
+}
