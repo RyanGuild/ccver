@@ -52,4 +52,3 @@ CCVer is a command-line tool designed for automating version management in git r
 
 This tool is ideal for projects that want to maintain a clear commit history and manage releases automatically, all while ensuring that commit messages and version tags meet established conventions.
 
-## Fake Pr Addition
