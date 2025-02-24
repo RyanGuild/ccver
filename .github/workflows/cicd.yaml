@@ -90,9 +90,11 @@ jobs:
       run: |
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
           ls target/
+          mkdir -p ${{ matrix.artifact_name }}
           cp target/${{ matrix.target }}/release/*.exe ${{ matrix.artifact_name }}
         else
-        ls target/
+          ls target/
+          mkdir -p ${{ matrix.artifact_name }}
           cp target/${{ matrix.target }}/release/* ${{ matrix.artifact_name }}
         fi
         
