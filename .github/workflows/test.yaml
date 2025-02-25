@@ -1,7 +1,10 @@
 name: Create Test Report
 
 on: 
-  push:
+  workflow_run: 
+    workflows: ["Build Binary"]
+    types:
+      - completed
 
 permissions: 
   checks: write

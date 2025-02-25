@@ -17,8 +17,6 @@ runs:
   steps:
     - name: Check Cache Environment
       uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ inputs.rust }}-${{inputs.runner}}-${{inputs.arch}}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Checkout
       if: steps.cache_check.outputs.cache-hit != 'true'
       uses: actions/checkout@v4
@@ -33,5 +31,3 @@ runs:
       run: rustup target add ${{ inputs.arch }}
     - name: Check Cache Environment
       uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ inputs.rust }}-${{inputs.runner}}-${{inputs.arch}}-cargo-${{ hashFiles('**/Cargo.lock') }}
