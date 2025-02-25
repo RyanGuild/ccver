@@ -1,0 +1,21 @@
+name: CI/CD
+
+on:
+  push:
+
+
+
+jobs:
+  build:
+    uses: "./.github/workflows/build.yaml"
+  selftag:
+    needs: build
+    uses: "./.github/workflows/selftag.yaml"
+  test:
+    needs: build
+    uses: "./.github/workflows/test.yaml"
+  release:
+    if: github.head_ref == 'refs/heads/master'
+    needs: [build, selftag, test]
+    uses: "./.github/workflows/release.yaml"
+

@@ -1,13 +1,7 @@
 name: Build Binary
 
 on:
-  push:
-    paths: 
-      - ".github/**"
-      - "src/**"
-      - "README.md"
-      - "Cargo.toml"
-      - "Cargo.lock"
+  workflow_call: {}
 
 permissions: 
   id-token: write
