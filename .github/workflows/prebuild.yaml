@@ -65,3 +65,38 @@ jobs:
       - name: Error if changes
         if: steps.git-diff.outputs.exit_code != 0
         run: exit 1
+
+
+  cargo_toml_version:
+    name: 📦 Update Cargo.toml Version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get Rust Cache
+        uses: ./.github/actions/rust_depcache
+        with:
+          runner: ubuntu-latest
+          arch: x86_64-unknown-linux-gnu
+          rust: nightly
+      - name: Get Version
+        id: get_version
+        run: echo "version=$(cargo run)" >> "$GITHUB_OUTPUT"
+      - name: Install Cargo Bump
+        run: cargo install cargo-bump
+      - name: Bump Version
+        run: cargo bump ${{ steps.get_version.outputs.version }}
+      - name: Check for changes
+        id: git-diff
+        run: git diff --exit-code
+        continue-on-error: true
+      - name: Commit changes
+        if: steps.git-diff.outputs.exit_code != 0
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git commit -m "chore: Update Cargo.toml version"
+          git push
+      - name: Error if changes
+        if: steps.git-diff.outputs.exit_code != 0
+        run: exit 1
