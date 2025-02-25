@@ -2,7 +2,7 @@ name: Create Test Report
 
 on: 
   workflow_run: 
-    workflows: ["Build Binary"]
+    workflows: ["Auto Tag"]
     types:
       - completed
 

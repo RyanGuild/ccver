@@ -10,7 +10,6 @@ on:
       - "Cargo.lock"
 
 permissions: 
-  contents: write
   id-token: write
   attestations: write
 

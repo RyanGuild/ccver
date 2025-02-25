@@ -2,7 +2,7 @@ name: Auto Tag
 
 on:
   workflow_run: 
-    workflows: ["Create Test Report"]
+    workflows: ["Build Binary"]
     types:
       - completed
   workflow_dispatch: {}
@@ -11,6 +11,7 @@ concurrency: tags
 
 jobs:
   tag:
+    if: github.event.workflow_run.conclusion == 'success'
     name: 🏷️ Create Tag
     runs-on: ${{ matrix.target.runner }}
     strategy:
