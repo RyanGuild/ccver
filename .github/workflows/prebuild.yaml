@@ -87,7 +87,11 @@ jobs:
       - name: Install Cargo Bump
         run: cargo install cargo-edit
       - name: Bump Version
-        run: cargo set-version "${"${{ steps.get_version.outputs.version }}"#"v"}"
+        run: |
+          prefix="v"
+          suffix="-*"
+          version=$(echo "${{ steps.get_version.outputs.version }}" | sed -e "s/^$prefix//" -e "s/$suffix$//")"
+          cargo set-version "$version"
       - name: Check for changes
         id: git-diff
         run: git diff --exit-code
