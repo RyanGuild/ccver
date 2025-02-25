@@ -60,7 +60,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           echo "Creating new tag $VERSION"
-          git tag -a "$VERSION" -m "Create version $VERSION"
+          git tag -a "$VERSION" -m "# CCVer Version $VERSION"
           git push origin "$VERSION"
         else
           echo "Tag $VERSION already exists, skipping"
