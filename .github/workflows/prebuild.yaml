@@ -86,9 +86,7 @@ jobs:
         run: echo "version=$(cargo run)" >> "$GITHUB_OUTPUT"
       - name: Bump Version
         run: |
-          prefix="v"
-          suffix="-*"
-          version="$(echo "${{ steps.get_version.outputs.version }}" | sed -e "s/^$prefix//" -e "s/$suffix$//")"
+          version="$(echo "${{ steps.get_version.outputs.version }}" | sed -e "s/^v//" -e "s/-*//")"
           cargo set-version "$version"
       - name: Check for changes
         id: git-diff
