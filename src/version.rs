@@ -25,7 +25,7 @@ impl Display for Version {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)?;
         match &self.prerelease {
             None => Ok(()),
-            Some(pre) => write!(f, "-{}", pre),
+            Some(pre) => write!(f, "{}", pre),
         }
     }
 }
@@ -276,13 +276,13 @@ pub enum PreTag {
 impl Display for PreTag {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            PreTag::Rc(v) => write!(f, "rc.{}", v),
-            PreTag::Beta(v) => write!(f, "beta.{}", v),
-            PreTag::Alpha(v) => write!(f, "alpha.{}", v),
-            PreTag::Build(v) => write!(f, "build.{}", v),
-            PreTag::Named(tag, v) => write!(f, "{}.{}", tag, v),
-            PreTag::Sha(s) => write!(f, "{}", s),
-            PreTag::ShortSha(s) => write!(f, "{}", s),
+            PreTag::Rc(v) => write!(f, "-rc.{}", v),
+            PreTag::Beta(v) => write!(f, "-beta.{}", v),
+            PreTag::Alpha(v) => write!(f, "-alpha.{}", v),
+            PreTag::Build(v) => write!(f, "-build.{}", v),
+            PreTag::Named(tag, v) => write!(f, "-{}.{}", tag, v),
+            PreTag::Sha(s) => write!(f, "+{}", s),
+            PreTag::ShortSha(s) => write!(f, "+{}", s),
         }
     }
 }

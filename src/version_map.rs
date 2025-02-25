@@ -89,11 +89,11 @@ impl VersionMapData {
                             _,
                         ) => max_parent.patch(commit),
                         (Subject::Conventional(_), "main" | "master", _) => {
-                            max_parent.build(commit)
+                            max_parent.short_sha(commit)
                         }
                         (
                             Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            "staging",
+                            "staging" | "rc",
                             _,
                         ) => max_parent.major(commit.clone()).rc(commit),
                         (
@@ -101,20 +101,20 @@ impl VersionMapData {
                                 commit_type: "feat",
                                 ..
                             }),
-                            "staging",
+                            "staging" | "rc",
                             _,
                         ) => max_parent.minor(commit.clone()).rc(commit),
                         (
                             Subject::Conventional(ConventionalSubject {
                                 commit_type: "fix", ..
                             }),
-                            "staging",
+                            "staging" | "rc",
                             _,
                         ) => max_parent.patch(commit.clone()).rc(commit),
                         (Subject::Conventional(_), "staging", _) => max_parent.rc(commit),
                         (
                             Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            "development",
+                            "development" | "beta",
                             _,
                         ) => max_parent.major(commit.clone()).beta(commit),
                         (
@@ -122,20 +122,20 @@ impl VersionMapData {
                                 commit_type: "feat",
                                 ..
                             }),
-                            "development",
+                            "development" | "beta",
                             _,
                         ) => max_parent.minor(commit.clone()).beta(commit),
                         (
                             Subject::Conventional(ConventionalSubject {
                                 commit_type: "fix", ..
                             }),
-                            "development",
+                            "development" | "beta",
                             _,
                         ) => max_parent.patch(commit.clone()).beta(commit),
                         (Subject::Conventional(_), "development", _) => max_parent.beta(commit),
                         (
                             Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            "next",
+                            "next" | "alpha",
                             _,
                         ) => max_parent.major(commit.clone()).alpha(commit),
                         (
@@ -143,14 +143,14 @@ impl VersionMapData {
                                 commit_type: "feat",
                                 ..
                             }),
-                            "next",
+                            "next" | "alpha",
                             _,
                         ) => max_parent.minor(commit.clone()).alpha(commit),
                         (
                             Subject::Conventional(ConventionalSubject {
                                 commit_type: "fix", ..
                             }),
-                            "next",
+                            "next" | "alpha",
                             _,
                         ) => max_parent.patch(commit.clone()).alpha(commit),
                         (Subject::Conventional(_), "next", _) => max_parent.alpha(commit),
@@ -176,7 +176,7 @@ impl VersionMapData {
                         ) => max_parent.patch(commit.clone()).named(commit),
                         (Subject::Conventional(_), _, _) => max_parent.named(commit),
                         (Subject::Text(_), "main" | "master", true) => max_parent.release(commit),
-                        (Subject::Text(_), "main" | "master", _) => max_parent.build(commit),
+                        (Subject::Text(_), "main" | "master", _) => max_parent.short_sha(commit),
                         (Subject::Text(_), "staging", _) => max_parent.rc(commit),
                         (Subject::Text(_), "development", _) => max_parent.beta(commit),
                         (Subject::Text(_), "next", _) => max_parent.alpha(commit),

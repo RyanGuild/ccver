@@ -175,10 +175,10 @@ impl<'a> Logs<'a> {
         self.get_latest_version().map(|version| {
             let branch = self.current_branch_name().unwrap();
             match branch.as_str() {
-                "main" | "master" => version.build(head),
-                "staging" => version.rc(head),
-                "development" => version.beta(head),
-                "next" => version.alpha(head),
+                "main" | "master" => version.short_sha(head),
+                "staging" | "rc" => version.rc(head),
+                "development" | "beta" => version.beta(head),
+                "next" | "alpha" => version.alpha(head),
                 _ => version.named(head),
             }
         })
