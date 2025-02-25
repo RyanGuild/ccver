@@ -17,6 +17,7 @@ panic = "abort"
 
 [dev-dependencies]
 indoc = "2"
+cargo-edit = "0.13.1"
 
 [dependencies]
 chrono = {version = "0.4.39", default-features = true}
