@@ -6,6 +6,7 @@ on:
   push:
     branches: ["master", "main"]
     paths: 
+      - ".github/workflows/docs.yaml"
       - "src/**"
       - "README.md"
       - "Cargo.toml"
@@ -30,7 +31,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ concat(steps.deployment.outputs.page_url, "/ccver/index.html") }}
+      url: ${{ format('{}/ccver/index.html', steps.deployment.outputs.page_url) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
