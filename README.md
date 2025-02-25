@@ -12,9 +12,6 @@ CCVer is a command-line tool designed for automating version management in git r
 - **Automate semantic versioning**  
   Extract version and tagging information from commits to automatically bump version numbers following [semver](https://semver.org/) principles.
 
-- **Manage git repository hooks and logs**  
-  Seamlessly initialize git hooks ([`src/args.rs`](src/args.rs)) and parse log entries with detailed commit information ([`src/logs.rs`](src/logs.rs)).  
-  **Graph Construction Process:**  
 
   ```mermaid
   flowchart TD
