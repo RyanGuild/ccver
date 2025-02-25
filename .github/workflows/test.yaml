@@ -28,6 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
       - name: Get Rust Cache
         uses: ./.github/actions/rust_depcache
         with:
@@ -45,3 +46,5 @@ jobs:
           name: ${{matrix.target.runner}} Tests          # Name of the check run which will be created
           path: tests/*.xml    # Path to test results
           reporter: java-junit
+          fail-on-error: false
+          fail-on-empty: true
