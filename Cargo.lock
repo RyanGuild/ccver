@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "ccver"
-version = "2.7.13"
+version = "2.7.16"
 dependencies = [
  "cargo-edit",
  "chrono",
