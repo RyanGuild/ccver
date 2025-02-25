@@ -85,9 +85,9 @@ jobs:
         id: get_version
         run: echo "version=$(cargo run)" >> "$GITHUB_OUTPUT"
       - name: Install Cargo Bump
-        run: cargo install cargo-bump
+        run: cargo install cargo-edit
       - name: Bump Version
-        run: cargo bump ${{ steps.get_version.outputs.version }}
+        run: cargo set-version ${{ steps.get_version.outputs.version }}
       - name: Check for changes
         id: git-diff
         run: git diff --exit-code
