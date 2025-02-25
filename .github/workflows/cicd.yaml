@@ -14,15 +14,19 @@ jobs:
   prebuild:
     uses: "./.github/workflows/prebuild.yaml"
   build:
+    name: Build
     needs: prebuild
     uses: "./.github/workflows/build.yaml"
   selftag:
+    name: Version
     needs: build
     uses: "./.github/workflows/selftag.yaml"
   test:
+    name: Test
     needs: build
     uses: "./.github/workflows/test.yaml"
   release:
+    name: Release
     if: github.head_ref == 'refs/heads/master'
     needs: [build, selftag, test]
     uses: "./.github/workflows/release.yaml"

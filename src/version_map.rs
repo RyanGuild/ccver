@@ -40,7 +40,7 @@ impl VersionMapData {
                 let existing = tagged.or(map.get(&idx).cloned());
 
                 let max_parent = graph
-                    .parents(idx)
+                    .all_parents(idx)
                     .iter()
                     .filter_map(|parent| {
                         let ver = map.get(parent).cloned().or(graph

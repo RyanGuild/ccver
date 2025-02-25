@@ -1,7 +1,8 @@
-name: Build Binary
+name: Build
 
 on:
   workflow_call: {}
+  workflow_dispatch: {}
 
 permissions: 
   id-token: write
@@ -12,7 +13,7 @@ env:
 
 jobs:
   build:
-    name: 🛠️ Build Release
+    name: 🛠️
     runs-on: ${{ matrix.target.runner }}
     strategy:
       matrix:

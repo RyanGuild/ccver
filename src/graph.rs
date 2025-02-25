@@ -320,6 +320,18 @@ impl CommitGraphData<'_> {
             (child, parents)
         })
     }
+
+    pub fn all_parents(&self, idx: NodeIndex) -> Vec<NodeIndex> {
+        let mut parents = vec![];
+        let mut stack = vec![idx];
+        while let Some(node) = stack.pop() {
+            let node_parents = self.parents(node);
+            stack.extend(node_parents.clone());
+            parents.push(node);
+            parents.extend(node_parents);
+        }
+        parents
+    }
 }
 
 #[cfg(test)]
