@@ -9,6 +9,8 @@ on:
 
 permissions: 
   contents: write
+  id-token: write
+  attestations: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -41,6 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Hash files
+        id: hash-files
+        run: echo "result=${{ hashFiles('**') }}" >> $GITHUB_OUTPUT
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -67,6 +73,12 @@ jobs:
           else
             cp target/${{ matrix.target.arch }}/release/ccver ${{ matrix.target.artifact_name }}
           fi
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ matrix.target.artifact_name }}
+
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
