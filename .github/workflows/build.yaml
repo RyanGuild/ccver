@@ -1,7 +1,17 @@
 name: Build
 
 on:
-  workflow_call: {}
+  workflow_call: 
+    secrets:
+      APPLE_CERTIFICATE_DATA:
+        description: 'The certificate data for signing the macOS binary'
+        required: true
+      APPLE_CERTIFICATE_PASSWORD:
+        description: 'The certificate password for signing the macOS binary'
+        required: false
+      APPLE_TEAM_ID:
+        description: 'The team ID for signing the macOS binary'
+        required: true
   workflow_dispatch: {}
 
 permissions: 
@@ -57,6 +67,15 @@ jobs:
           else
             cp target/${{ matrix.target.arch }}/release/ccver ${{ matrix.target.artifact_name }}
           fi
+
+      - name: Sign Apple binary
+        if: ${{ matrix.target.runner == 'macos-latest' || matrix.target.runner == 'macos-13' }}
+        uses: lando/code-sign-action@v3
+        with:
+          file: ${{ matrix.target.artifact_name }}
+          certificate-data: ${{ secrets.APPLE_CERTIFICATE_DATA }}
+          certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          certificate-id: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2

@@ -15,14 +15,7 @@ permissions:
 jobs:
   tag:
     name: 🏷️ Create Tag
-    runs-on: ${{ matrix.target.runner }}
-    strategy:
-      matrix:
-        rust:
-          - nightly
-        target:
-          - runner: ubuntu-latest
-            arch: x86_64-unknown-linux-gnu
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
@@ -38,9 +31,9 @@ jobs:
     - name: Get Rust Cache
       uses: ./.github/actions/rust_depcache
       with:
-        runner: ${{ matrix.target.runner }}
-        arch: ${{ matrix.target.arch }}
-        rust: ${{ matrix.rust }}
+        runner: ubuntu-latest
+        arch: x86_64-unknown-linux-gnu
+        rust: nightly
     
     - name: Get Version
       id: get_version
@@ -55,7 +48,7 @@ jobs:
         VERSION=${{ steps.get_version.outputs.version }}
         
         # Check if tag already exists
-        if ! git rev-parse "v$VERSION" >/dev/null 2>&1; then
+        if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
