@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   prebuild:
+    name: Prebuild
     uses: "./.github/workflows/prebuild.yaml"
   build:
     name: Build
@@ -29,7 +30,7 @@ jobs:
     name: Release
     needs: [build, selftag, test]
     uses: "./.github/workflows/release.yaml"
-    if: github.event.base_ref == 'refs/heads/main'
+    if: ${{!contains(needs.selftag.outputs.version, '-')}}
     with:
       tag: ${{ needs.selftag.outputs.version }}
 
