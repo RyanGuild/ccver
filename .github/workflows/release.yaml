@@ -1,0 +1,44 @@
+on:
+  workflow_run: 
+    workflows: ["Auto Tag"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+        default: 'v0.0.0'
+
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+      - name: Download artifacts
+        id: download-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ccver-*
+      - uses: actions-ecosystem/action-get-latest-tag@v1
+        id: get-latest-tag
+      - run: ls -al 
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get-latest-tag.outputs.tag }}
+          files: |
+            **ccver-*
+            **/ccver-linux-amd64
+            **/ccver-linux-arm64
+            **/ccver-windows-amd64.exe
+            **/ccver-macos-amd64
+            **/ccver-macos-arm64
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

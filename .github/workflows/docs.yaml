@@ -29,6 +29,14 @@ concurrency:
 jobs:
   # Single deploy job since we're just deploying
   deploy:
+    strategy:
+      matrix:
+        # Define the Rust version to use
+        rust: [nightly]
+        # Define the target runner and architecture
+        target:
+          - runner: ubuntu-latest
+            arch: x86_64-unknown-linux-gnu
     environment:
       name: github-pages
       url: ${{ format('{0}/ccver/index.html', steps.deployment.outputs.page_url) }}
@@ -36,10 +44,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Get Rust Cache
+        uses: ./.github/actions/rust_depcache
         with:
-          toolchain: "nightly"
+          runner: ${{ matrix.target.runner }}
+          arch: ${{ matrix.target.arch }}
+          rust: ${{ matrix.rust }}
       - name: Build Docs
         run: cargo doc
       - name: Setup Pages

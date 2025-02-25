@@ -9,17 +9,28 @@ permissions:
 jobs:
   test:
     name: Create Test Report
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.target.runner }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [nightly]
+        target:
+          - runner: ubuntu-latest
+            arch: x86_64-unknown-linux-gnu
+          - runner: windows-latest
+            arch: x86_64-pc-windows-msvc
+          - runner: macos-latest
+            arch: aarch64-apple-darwin
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@nightly
+      - name: Get Rust Cache
+        uses: ./.github/actions/rust_depcache
+        with:
+          runner: ${{ matrix.target.runner }}
+          arch: ${{ matrix.target.arch }}
+          rust: ${{ matrix.rust }}
       - name: Install Junitify
         run: cargo install junitify
       - name: Run Tests
@@ -28,6 +39,6 @@ jobs:
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: ${{matrix.os}} Tests            # Name of the check run which will be created
+          name: ${{matrix.target.runner}} Tests          # Name of the check run which will be created
           path: tests/*.xml    # Path to test results
           reporter: java-junit

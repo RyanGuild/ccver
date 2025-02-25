@@ -12,7 +12,14 @@ concurrency: tags
 jobs:
   tag:
     name: Create Tag
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      matrix:
+        rust:
+          - nightly
+        target:
+          - runner: ubuntu-latest
+            arch: x86_64-unknown-linux-gnu
     permissions:
       contents: write
     
@@ -21,8 +28,12 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@nightly
+    - name: Get Rust Cache
+      uses: ./.github/actions/rust_depcache
+      with:
+        runner: ${{ matrix.target.runner }}
+        arch: ${{ matrix.target.arch }}
+        rust: ${{ matrix.rust }}
     
     - name: Get Version
       id: get_version

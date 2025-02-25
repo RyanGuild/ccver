@@ -1,0 +1,37 @@
+name: Rust Dependency Cache
+description: Cache Rust dependencies for each runner, arch, and Rust version
+inputs:
+  runner:
+    description: 'The runner to use'
+    required: true
+  arch:
+    description: 'The architecture to use'
+    required: true
+  rust:
+    description: 'The Rust version to use'
+    required: true
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check Cache Environment
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.rust }}-${{inputs.runner}}-${{inputs.arch}}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Checkout
+      if: steps.cache_check.outputs.cache-hit != 'true'
+      uses: actions/checkout@v4
+    - name: Install Rust
+      if: steps.cache_check.outputs.cache-hit != 'true'
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ inputs.rust }}
+        targets: ${{ inputs.arch }}
+    - name: Install targets
+      shell: bash
+      run: rustup target add ${{ inputs.arch }}
+    - name: Check Cache Environment
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.rust }}-${{inputs.runner}}-${{inputs.arch}}-cargo-${{ hashFiles('**/Cargo.lock') }}

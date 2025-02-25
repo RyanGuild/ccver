@@ -1,11 +1,13 @@
 name: CI/CD
 
 on:
-  workflow_run: 
-    workflows: ["Auto Tag"]
-    types:
-      - completed
-  workflow_dispatch: {}
+  push:
+    paths: 
+      - ".github/workflows/build.yaml"
+      - "src/**"
+      - "README.md"
+      - "Cargo.toml"
+      - "Cargo.lock"
 
 permissions: 
   contents: write
@@ -43,24 +45,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Hash files
-        id: hash-files
-        run: echo "result=${{ hashFiles('**') }}" >> $GITHUB_OUTPUT
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Get Rust Cache
+        uses: ./.github/actions/rust_depcache
         with:
-          toolchain: ${{ matrix.rust }}
-          targets: ${{ matrix.target.arch }}
-
-      - name: Install cross-compilation dependencies
-        if: matrix.target.arch == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Install targets
-        run: rustup target add ${{ matrix.target.arch }}
+          runner: ${{ matrix.target.runner }}
+          arch: ${{ matrix.target.arch }}
+          rust: ${{ matrix.rust }} 
 
       - name: Build target
         run: cargo build --release --target ${{ matrix.target.arch }}
@@ -86,37 +76,4 @@ jobs:
           name: ${{ matrix.target.artifact_name }}
           path: ${{ matrix.target.artifact_name }}
 
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event.workflow_run.head_branch == 'master'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
-          fetch-depth: 0
 
-
-      - name: Download artifacts
-        id: download-artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: ccver-*
-      - uses: actions-ecosystem/action-get-latest-tag@v1
-        id: get-latest-tag
-      - run: ls -al 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.get-latest-tag.outputs.tag }}
-          files: |
-            **ccver-*
-            **/ccver-linux-amd64
-            **/ccver-linux-arm64
-            **/ccver-windows-amd64.exe
-            **/ccver-macos-amd64
-            **/ccver-macos-arm64
-
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
