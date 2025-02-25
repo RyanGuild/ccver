@@ -29,7 +29,6 @@ runs:
         toolchain: ${{ inputs.rust }}
         targets: ${{ inputs.arch }}
     - name: Install targets
+      if: steps.cache_check.outputs.cache-hit != 'true'
       shell: bash
       run: rustup target add ${{ inputs.arch }}
-    - name: Check Cache Environment
-      uses: Swatinem/rust-cache@v2
