@@ -44,7 +44,6 @@ use eyre::Result;
 use logs::Logs;
 
 fn main() -> Result<()> {
-
     Command::new("git")
         .arg("-v")
         .output()
