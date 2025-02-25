@@ -90,7 +90,7 @@ jobs:
         run: |
           prefix="v"
           suffix="-*"
-          version=$(echo "${{ steps.get_version.outputs.version }}" | sed -e "s/^$prefix//" -e "s/$suffix$//")"
+          version="$(echo "${{ steps.get_version.outputs.version }}" | sed -e "s/^$prefix//" -e "s/$suffix$//")"
           cargo set-version "$version"
       - name: Check for changes
         id: git-diff
