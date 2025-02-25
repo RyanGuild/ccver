@@ -27,9 +27,9 @@ jobs:
     uses: "./.github/workflows/test.yaml"
   release:
     name: Release
-    if: github.head_ref == 'refs/heads/master'
     needs: [build, selftag, test]
     uses: "./.github/workflows/release.yaml"
+    if: github.event.base_ref == 'refs/heads/main'
     with:
       tag: ${{ needs.selftag.outputs.version }}
 
