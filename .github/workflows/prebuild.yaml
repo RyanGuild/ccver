@@ -84,8 +84,6 @@ jobs:
       - name: Get Version
         id: get_version
         run: echo "version=$(cargo run)" >> "$GITHUB_OUTPUT"
-      - name: Install Cargo Bump
-        run: cargo install cargo-edit
       - name: Bump Version
         run: |
           prefix="v"
