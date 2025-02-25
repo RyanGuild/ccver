@@ -9,6 +9,9 @@ on:
 
 concurrency: tags
 
+permissions: 
+  contents: write
+
 jobs:
   tag:
     name: 🏷️ Create Tag

@@ -3,12 +3,17 @@ name: CI/CD
 on:
   push:
 
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
 
 
 jobs:
   prebuild:
     uses: "./.github/workflows/prebuild.yaml"
   build:
+    needs: prebuild
     uses: "./.github/workflows/build.yaml"
   selftag:
     needs: build
