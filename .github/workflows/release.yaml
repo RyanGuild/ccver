@@ -18,7 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: /refs/tags/${{ github.event.inputs.tag }}
           fetch-tags: true
           fetch-depth: 0
       - name: Download artifacts
