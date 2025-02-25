@@ -1,3 +1,5 @@
+name: Create Release
+
 on:
   workflow_run: 
     workflows: ["Auto Tag"]
@@ -7,7 +9,7 @@ on:
 
 jobs:
   release:
-    name: Create Release
+    name: 🚀 Create Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

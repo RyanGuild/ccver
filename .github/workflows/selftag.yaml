@@ -11,7 +11,7 @@ concurrency: tags
 
 jobs:
   tag:
-    name: Create Tag
+    name: 🏷️ Create Tag
     runs-on: ${{ matrix.target.runner }}
     strategy:
       matrix:

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    name: Create Test Report
+    name: ❓ Create Test Report
     runs-on: ${{ matrix.target.runner }}
     strategy:
       matrix:
