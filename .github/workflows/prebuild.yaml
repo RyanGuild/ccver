@@ -20,7 +20,7 @@ jobs:
           arch: x86_64-unknown-linux-gnu
           rust: nightly
       - name: Format Code
-        run: cargo fmt --all -- --check
+        run: cargo fmt --all
       - name: Check for changes
         id: git-diff
         run: git diff --exit-code
@@ -49,7 +49,7 @@ jobs:
           arch: x86_64-unknown-linux-gnu
           rust: nightly
       - name: Fix Code
-        run: cargo fix --allow-dirty --allow-staged
+        run: cargo fix
       - name: Check for changes
         id: git-diff
         run: git diff --exit-code
