@@ -1,7 +1,12 @@
 name: Create Release
 
 on:
-  workflow_call: {}
+  workflow_call: 
+    inputs:
+      tag:
+        description: 'The tag to use for the release'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: /refs/tags/${{ github.event.inputs.tag }}
           fetch-tags: true
           fetch-depth: 0
       - name: Download artifacts

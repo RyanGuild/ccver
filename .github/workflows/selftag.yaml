@@ -1,7 +1,11 @@
 name: Auto Tag
 
 on:
-  workflow_call: {}
+  workflow_call:
+    outputs:
+      version: 
+        value: ${{ jobs.tag.outputs.version }}
+        description: 'The version of the source code'
 
 concurrency: tags
 
@@ -18,6 +22,9 @@ jobs:
             arch: x86_64-unknown-linux-gnu
     permissions:
       contents: write
+
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     
     steps:
     - uses: actions/checkout@v4

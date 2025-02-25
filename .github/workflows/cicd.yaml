@@ -6,6 +6,8 @@ on:
 
 
 jobs:
+  prebuild:
+    uses: "./.github/workflows/prebuild.yaml"
   build:
     uses: "./.github/workflows/build.yaml"
   selftag:
@@ -18,4 +20,6 @@ jobs:
     if: github.head_ref == 'refs/heads/master'
     needs: [build, selftag, test]
     uses: "./.github/workflows/release.yaml"
+    with:
+      tag: ${{ needs.selftag.outputs.version }}
 
