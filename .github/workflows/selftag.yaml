@@ -44,6 +44,8 @@ jobs:
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
     
     - name: Create and Push Tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         VERSION=${{ steps.get_version.outputs.version }}
         
