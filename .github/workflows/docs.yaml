@@ -31,7 +31,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ format('{}/ccver/index.html', steps.deployment.outputs.page_url) }}
+      url: ${{ format('{0}/ccver/index.html', steps.deployment.outputs.page_url) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
