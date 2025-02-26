@@ -84,7 +84,6 @@ fn main() -> Result<()> {
             }
         }
         Some(command) => match command {
-            CCVerSubCommand::Tag(_) => {}
             CCVerSubCommand::ChangeLog => {
                 let changelog = logs.get_changelog()?;
                 format!("{}", changelog)
