@@ -58,7 +58,7 @@ jobs:
         CHANGELOG="${{ steps.get_changelog.outputs.changelog }}"
         
         # Check if tag already exists
-        if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+        if ! git rev-parse $VERSION >/dev/null 2>&1; then
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
