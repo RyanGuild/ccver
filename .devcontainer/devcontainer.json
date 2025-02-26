@@ -16,16 +16,17 @@
 		"vscode": {
 			"extensions": [
 				"redhat.vscode-yaml",
-        		"pest.pest-ide-tools",
-        		"rust-lang.rust-analyzer",
-        		"github.vscode-github-actions",
-        		"streetsidesoftware.code-spell-checker",
-        		"vadimcn.vscode-lldb",
-        		"swellaby.vscode-rust-test-adapter",
-        		"dustypomerleau.rust-syntax",
-        		"vivaxy.vscode-conventional-commits",
-        		"fill-labs.dependi",
-        		"jscearcy.rust-doc-viewer"
+				"pest.pest-ide-tools",
+				"rust-lang.rust-analyzer",
+				"github.vscode-github-actions",
+				"streetsidesoftware.code-spell-checker",
+				"vadimcn.vscode-lldb",
+				"swellaby.vscode-rust-test-adapter",
+				"dustypomerleau.rust-syntax",
+				"vivaxy.vscode-conventional-commits",
+				"fill-labs.dependi",
+				"jscearcy.rust-doc-viewer",
+				"tamasfe.even-better-toml"
 			]
 		}
 	}

@@ -86,7 +86,7 @@ jobs:
           rust: nightly
       - name: Get Version
         id: get_version
-        run: echo "version=$(cargo run)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(cargo run -- --format CC.CC.CC)" >> "$GITHUB_OUTPUT"
       - name: Bump Version
         uses: sandstromviktor/toml-editor@2.0.0
         with:

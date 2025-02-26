@@ -10,6 +10,7 @@
         "dustypomerleau.rust-syntax",
         "vivaxy.vscode-conventional-commits",
         "fill-labs.dependi",
-        "jscearcy.rust-doc-viewer"
+        "jscearcy.rust-doc-viewer",
+        "tamasfe.even-better-toml"
     ]
 }
