@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.8.4+0564e48"
+version = "v2.8.5"
 edition = "2021"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 
@@ -18,19 +18,23 @@ indoc = "2"
 pest_consume = "1.1.3"
 eyre = "0.6.12"
 
-[dependencies.chrono]
-version = "0.4.40"
-default-features = true
-[dependencies.pest_derive]
-version = "2.7.15"
-default-features = false
-[dependencies.pest]
-version = "2.7.15"
-default-features = false
-[dependencies.clap]
-version = "4.5.31"
-features = [ "derive" ]
-[dependencies.petgraph]
-version = "0.7.1"
-features = [ "graphmap" ]
-default-features = false
+  [dependencies.chrono]
+  version = "0.4.40"
+  default-features = true
+
+  [dependencies.pest_derive]
+  version = "2.7.15"
+  default-features = false
+
+  [dependencies.pest]
+  version = "2.7.15"
+  default-features = false
+
+  [dependencies.clap]
+  version = "4.5.31"
+  features = [ "derive" ]
+
+  [dependencies.petgraph]
+  version = "0.7.1"
+  features = [ "graphmap" ]
+  default-features = false
