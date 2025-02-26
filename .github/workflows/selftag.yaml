@@ -43,11 +43,19 @@ jobs:
         VERSION=$(cargo run | tr -d '\n')
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
     
+    - name: Get ChangeLog
+      id: get_changelog
+      run: |
+        # Get the changelog
+        CHANGELOG=$(cargo run -- change-log | tr -d '\n')
+        echo "changelog=$CHANGELOG" >> "$GITHUB_OUTPUT"
+    
     - name: Create and Push Tag
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        VERSION=${{ steps.get_version.outputs.version }}
+        VERSION="${{ steps.get_version.outputs.version }}"
+        CHANGELOG="${{ steps.get_changelog.outputs.changelog }}"
         
         # Check if tag already exists
         if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
@@ -55,7 +63,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           echo "Creating new tag $VERSION"
-          git tag -a "$VERSION" -m "# CCVer Version $VERSION"
+          git tag -a $VERSION -m $CHANGELOG
           git push origin "$VERSION"
         else
           echo "Tag $VERSION already exists, skipping"
