@@ -218,7 +218,6 @@ impl<'a> Logs<'a> {
             self.changelog = Some(changelog.clone());
             Ok(changelog)
         }
-        
     }
 }
 
