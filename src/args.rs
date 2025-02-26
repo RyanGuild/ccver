@@ -23,6 +23,9 @@ pub struct CCVerArgs {
 
     #[arg(long = "format", short = 'f')]
     pub format: Option<String>,
+
+    #[arg(long = "no-pre")]
+    pub no_pre: bool,
 }
 
 #[derive(Args, Debug)]

@@ -1,5 +1,6 @@
 #![feature(decl_macro, lock_value_accessors)]
 
+use chrono::format;
 /// The main entry point for the `ccver` application.
 ///
 /// This function parses command-line arguments, initializes logging, and
@@ -68,23 +69,31 @@ fn main() -> Result<()> {
         }
     }
 
-    match args.command {
+    let stdout = match args.command {
         None => {
-            if logs.is_dirty() {
-                println!("{}", logs.get_uncommited_version()?)
+            let ver = if logs.is_dirty() {
+                logs.get_uncommited_version()?
             } else {
-                println!("{}", logs.get_latest_version()?)
+                logs.get_latest_version()?
+            };
+
+            if args.no_pre {
+                format!("{}", ver.release(logs.get_graph()?.head())?)
+            } else {
+                format!("{}", ver)
             }
         }
         Some(command) => match command {
             CCVerSubCommand::Tag(_) => {}
             CCVerSubCommand::ChangeLog => {
                 let changelog = logs.get_changelog()?;
-                println!("{}", changelog)
+                format!("{}", changelog)
             }
             _ => todo!(),
         },
-    }
+    };
+
+    println!("{}", stdout);
 
     Ok(())
 }
