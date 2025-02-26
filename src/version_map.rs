@@ -6,7 +6,8 @@ use crate::{
     graph::CommitGraph,
     logs::Subject,
     pattern_macros::{
-        alpha_branches, beta_branches, major_subject, minor_subject, patch_subject, rc_branches, release_branches,
+        alpha_branches, beta_branches, major_subject, minor_subject, patch_subject, rc_branches,
+        release_branches,
     },
     version::Version,
     version_format::VERSION_FORMAT,
