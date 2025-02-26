@@ -78,7 +78,7 @@ fn main() -> Result<()> {
             };
 
             if args.no_pre {
-                format!("{}", ver.release(logs.get_graph()?.head())?)
+                format!("{}", ver.release(logs.get_graph()?.head()))
             } else {
                 format!("{}", ver)
             }
