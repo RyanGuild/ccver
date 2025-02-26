@@ -1,6 +1,5 @@
 #![feature(decl_macro, lock_value_accessors)]
 
-use chrono::format;
 /// The main entry point for the `ccver` application.
 ///
 /// This function parses command-line arguments, initializes logging, and
