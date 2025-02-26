@@ -1,15 +1,14 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::Display, rc::Rc, vec};
+use std::{cmp::Ordering, fmt::Display, rc::Rc, vec};
 
 use eyre::*;
 use petgraph::graph::NodeIndex;
 
 use crate::{
     graph::CommitGraph,
-    logs::{ConventionalSubject, LogEntry, Subject},
+    logs::{ConventionalSubject, Subject},
     pattern_macros::{
         major_commit_types, minor_commit_types, patch_commit_types, semver_advancing_subject,
     },
-    version::Version,
     version_map::VersionMap,
 };
 
