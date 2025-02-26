@@ -1,6 +1,4 @@
-use crate::logs::{Subject, ConventionalSubject};
-
-
+use crate::logs::{ConventionalSubject, Subject};
 
 pub macro release_branches() {
     "main" | "master" | "release"
@@ -31,15 +29,12 @@ pub macro major_commit_types() {
 }
 
 pub macro major_conventional_subject() {
-    ConventionalSubject {
-        breaking: true,
-        ..
-    } | ConventionalSubject {
-        commit_type: major_commit_types!(),
-        ..
-    }
+    ConventionalSubject { breaking: true, .. }
+        | ConventionalSubject {
+            commit_type: major_commit_types!(),
+            ..
+        }
 }
-
 
 pub macro major_subject() {
     Subject::Conventional(major_conventional_subject!())
@@ -67,15 +62,10 @@ pub macro minor_subject() {
     Subject::Conventional(minor_conventional_subject!())
 }
 
-
 pub macro semver_advancing_conventional_subject() {
-    major_conventional_subject!()
-    | minor_conventional_subject!()
-    | patch_conventional_subject!()
+    major_conventional_subject!() | minor_conventional_subject!() | patch_conventional_subject!()
 }
 
 pub macro semver_advancing_subject() {
     Subject::Conventional(semver_advancing_conventional_subject!())
 }
-
-

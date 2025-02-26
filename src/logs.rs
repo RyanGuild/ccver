@@ -1,10 +1,10 @@
+use crate::changelog::{ChangeLog, ChangeLogData};
 use crate::graph::{CommitGraph, CommitGraphData};
 use crate::parser::parse_log;
 use crate::pattern_macros::{alpha_branches, beta_branches, rc_branches, release_branches};
 use crate::version::Version;
 use crate::version_format::VERSION_FORMAT;
 use crate::version_map::{VersionMap, VersionMapData};
-use crate::changelog::{ChangeLog, ChangeLogData};
 use eyre::{eyre, Result, *};
 use std::rc::Rc;
 use std::sync::Arc;

@@ -6,7 +6,9 @@ use petgraph::graph::NodeIndex;
 use crate::{
     graph::CommitGraph,
     logs::{ConventionalSubject, LogEntry, Subject},
-    pattern_macros::{major_commit_types, minor_commit_types, patch_commit_types, semver_advancing_subject},
+    pattern_macros::{
+        major_commit_types, minor_commit_types, patch_commit_types, semver_advancing_subject,
+    },
     version::Version,
     version_map::VersionMap,
 };
@@ -29,64 +31,60 @@ impl Ord for ChangeScoped {
 impl Display for ChangeLogData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         assert!(self.0.is_sorted());
-        writeln!(f, "# ChangeLog", )?;
-        
+        writeln!(f, "# ChangeLog",)?;
+
         let mut current_scope: Option<String> = None;
         let mut last_level: Option<String> = None;
         for change in self.0.iter() {
             match change {
-                ChangeScoped::All(change) => {
-                    match change {
-                        Change::Breaking(desc, date) => {
-                            if last_level != "Breaking Changes".to_string().into() {
-                                writeln!(f, "## Breaking Changes")?;
-                                last_level = Some("Breaking Changes".to_string());
-                            };
+                ChangeScoped::All(change) => match change {
+                    Change::Breaking(desc, date) => {
+                        if last_level != "Breaking Changes".to_string().into() {
+                            writeln!(f, "## Breaking Changes")?;
+                            last_level = Some("Breaking Changes".to_string());
+                        };
 
+                        writeln!(f, "- ({}): {}", date, desc)?;
+                    }
+                    Change::Feature(desc, date) => {
+                        if last_level != "Features".to_string().into() {
+                            writeln!(f, "## Features")?;
+                            last_level = Some("Features".to_string());
+                        };
 
-                            writeln!(f, "- ({}): {}", date, desc)?;
-                        }
-                        Change::Feature(desc, date) => {
-                            if last_level != "Features".to_string().into() {
-                                writeln!(f, "## Features")?;
-                                last_level = Some("Features".to_string());
-                            };
+                        writeln!(f, "- ({}): {}", date, desc)?;
+                    }
+                    Change::Fix(desc, date) => {
+                        if last_level != "Fixes".to_string().into() {
+                            writeln!(f, "## Fixes")?;
+                            last_level = Some("Fixes".to_string());
+                        };
+                        writeln!(f, "- ({}): {}", date, desc)?;
+                    }
+                    Change::Named(name, desc, date) => {
+                        if last_level != name.to_string().into() {
+                            writeln!(f, "## {}", name)?;
+                            last_level = Some(name.to_string());
+                        };
 
-                            writeln!(f, "- ({}): {}", date, desc)?;
+                        writeln!(f, "- ({}): {}", date, desc)?;
+                    }
+                    Change::Misc(desc, date) => {
+                        if last_level != "Misc".to_string().into() {
+                            writeln!(f, "## Misc")?;
+                            last_level = Some("Misc".to_string());
                         }
-                        Change::Fix(desc, date) => {
-                            if last_level != "Fixes".to_string().into() {
-                                writeln!(f, "## Fixes")?;
-                                last_level = Some("Fixes".to_string());
-                            };
-                            writeln!(f, "- ({}): {}", date, desc)?;
-                        }
-                        Change::Named(name, desc, date) => {
-                            if last_level != name.to_string().into() {
-                                writeln!(f, "## {}", name)?;
-                                last_level = Some(name.to_string());
-                            };
 
-                            writeln!(f, "- ({}): {}", date, desc)?;
-                        }
-                        Change::Misc(desc, date) => {
-                            if last_level != "Misc".to_string().into() {
-                                writeln!(f, "## Misc")?;
-                                last_level = Some("Misc".to_string());
-                            }
-                            
-                            writeln!(f, "- ({}): {}", date, desc)?;
-                        }
+                        writeln!(f, "- ({}): {}", date, desc)?;
                     }
                 },
-                ChangeScoped::Scoped(scope, change) => {
-                  match change {
+                ChangeScoped::Scoped(scope, change) => match change {
                     Change::Breaking(desc, date) => {
                         if last_level != Some("Breaking Changes".to_string()) {
                             writeln!(f, "## Breaking Changes")?;
                             last_level = Some("Breaking Changes".to_string());
                         };
-                        
+
                         if current_scope != Some(scope.clone()) {
                             writeln!(f, "### {}", scope)?;
                             current_scope = Some(scope.clone());
@@ -142,14 +140,12 @@ impl Display for ChangeLogData {
                             writeln!(f, "### {}", scope)?;
                             current_scope = Some(scope.clone());
                         };
-                        
+
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
-                  }  
                 },
             }
-        };
-
+        }
 
         std::fmt::Result::Ok(())
     }
@@ -182,10 +178,16 @@ impl ChangeLogData {
         Self::from_index(graph, version_map, root)
     }
 
-    pub fn from_index(graph: CommitGraph, version_map: VersionMap, from: NodeIndex) -> Result<ChangeLog> {
+    pub fn from_index(
+        graph: CommitGraph,
+        version_map: VersionMap,
+        from: NodeIndex,
+    ) -> Result<ChangeLog> {
         let versions = {
             let mut stack = graph.parents(from);
-            let current_ver = graph.get(from).ok_or_eyre("Foreign NodeIndex detected please only input ")?;
+            let current_ver = graph
+                .get(from)
+                .ok_or_eyre("Foreign NodeIndex detected please only input ")?;
             let mut versions = vec![current_ver];
             while let Some(parent) = stack.pop() {
                 let parent_ver = version_map
@@ -194,7 +196,7 @@ impl ChangeLogData {
                 let parent_commit = graph.get(parent).expect("Idx Comes from graph source");
 
                 match parent_commit.subject {
-                    semver_advancing_subject!() => {},
+                    semver_advancing_subject!() => {}
                     _ => {
                         stack.extend(graph.parents(parent));
                         versions.push(parent_commit);
@@ -204,8 +206,9 @@ impl ChangeLogData {
             versions
         };
 
-        let mut changes = versions.iter().map(|commit| {
-            match &commit.subject {
+        let mut changes = versions
+            .iter()
+            .map(|commit| match &commit.subject {
                 Subject::Conventional(ConventionalSubject {
                     commit_type,
                     scope: None,
@@ -254,14 +257,14 @@ impl ChangeLogData {
                             commit_type.to_string(),
                             description.to_string(),
                             commit.commit_datetime,
-                        )
-                    )
+                        ),
+                    ),
                 },
                 Subject::Text(t) => {
                     ChangeScoped::All(Change::Misc(t.to_string(), commit.commit_datetime))
                 }
-            }
-        }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         changes.sort();
 
@@ -298,7 +301,6 @@ impl PartialOrd for Change {
     }
 }
 
-
 #[cfg(test)]
 mod changelog_tests {
     use std::rc::Rc;
@@ -312,14 +314,32 @@ mod changelog_tests {
     fn test_display_changelog() {
         let dummy_date = chrono::DateTime::from_timestamp(0, 0).unwrap();
         let cl = ChangeLogData(Rc::new([
-            ChangeScoped::All(Change::Breaking("Added Emojis".to_string(), dummy_date.with_hour(1).unwrap())),
-            ChangeScoped::All(Change::Feature("Temp Removed Emojis".to_string(), dummy_date.with_hour(2).unwrap())),
-            ChangeScoped::All(Change::Fix("Fixed Emojis".to_string(), dummy_date.with_hour(3).unwrap())),
-            ChangeScoped::Scoped("./src/emoji.rs".to_string(), Change::Named("docs".to_string(),"Documented Emojis".to_string(), dummy_date.with_hour(4).unwrap())),
+            ChangeScoped::All(Change::Breaking(
+                "Added Emojis".to_string(),
+                dummy_date.with_hour(1).unwrap(),
+            )),
+            ChangeScoped::All(Change::Feature(
+                "Temp Removed Emojis".to_string(),
+                dummy_date.with_hour(2).unwrap(),
+            )),
+            ChangeScoped::All(Change::Fix(
+                "Fixed Emojis".to_string(),
+                dummy_date.with_hour(3).unwrap(),
+            )),
+            ChangeScoped::Scoped(
+                "./src/emoji.rs".to_string(),
+                Change::Named(
+                    "docs".to_string(),
+                    "Documented Emojis".to_string(),
+                    dummy_date.with_hour(4).unwrap(),
+                ),
+            ),
         ]));
 
-        assert_eq!(format!("{}", cl), indoc! {
-           "
+        assert_eq!(
+            format!("{}", cl),
+            indoc! {
+               "
             # ChangeLog
             ## Breaking Changes
             - (1970-01-01 01:00:00 UTC): Added Emojis
@@ -331,6 +351,7 @@ mod changelog_tests {
             ### ./src/emoji.rs
             - (1970-01-01 04:00:00 UTC): Documented Emojis
             "
-        });
+            }
+        );
     }
 }
