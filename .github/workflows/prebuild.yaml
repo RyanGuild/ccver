@@ -87,12 +87,10 @@ jobs:
       - name: Get Version
         id: get_version
         run: echo "version=$(cargo run)" >> "$GITHUB_OUTPUT"
-      - name: Install cargo-edit
-        run: cargo install cargo-edit
       - name: Bump Version
         run: |
           version="$(echo "${{ steps.get_version.outputs.version }}" | sed -e "s/^v//" -e "s/-*//")"
-          cargo set-version "$version"
+          tomlq '.package.version = "'"$version"'"' Cargo.toml > Cargo.toml
       - name: Check for changes
         id: git-diff
         run: git diff --exit-code
