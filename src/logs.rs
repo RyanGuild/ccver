@@ -1,8 +1,10 @@
 use crate::graph::{CommitGraph, CommitGraphData};
 use crate::parser::parse_log;
+use crate::pattern_macros::{alpha_branches, beta_branches, rc_branches, release_branches};
 use crate::version::Version;
 use crate::version_format::VERSION_FORMAT;
 use crate::version_map::{VersionMap, VersionMapData};
+use crate::changelog::{ChangeLog, ChangeLogData};
 use eyre::{eyre, Result, *};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -94,6 +96,7 @@ pub struct Logs<'a> {
     parsed: Option<Log<'a>>,
     graph: Option<CommitGraph<'a>>,
     version_map: Option<VersionMap>,
+    changelog: Option<ChangeLog>,
 }
 
 impl<'a> Logs<'a> {
@@ -110,6 +113,7 @@ impl<'a> Logs<'a> {
             parsed: None,
             graph: None,
             version_map: None,
+            changelog: None,
         }
     }
 
@@ -175,10 +179,10 @@ impl<'a> Logs<'a> {
         self.get_latest_version().map(|version| {
             let branch = self.current_branch_name().unwrap();
             match branch.as_str() {
-                "main" | "master" => version.short_sha(head),
-                "staging" | "rc" => version.rc(head),
-                "development" | "beta" => version.beta(head),
-                "next" | "alpha" => version.alpha(head),
+                release_branches!() => version.short_sha(head),
+                rc_branches!() => version.rc(head),
+                beta_branches!() => version.beta(head),
+                alpha_branches!() => version.alpha(head),
                 _ => version.named(head),
             }
         })
@@ -202,6 +206,13 @@ impl<'a> Logs<'a> {
             .expect("error getting command output");
         let output_str = String::from_utf8(output.stdout).expect("error parsing utf8");
         !output_str.is_empty()
+    }
+
+    pub fn get_changelog(&mut self) -> Result<ChangeLog> {
+        let graph = self.get_graph()?;
+        let version_map = self.get_version_map()?;
+        let changelog = ChangeLogData::new(graph, version_map)?;
+        Ok(changelog)
     }
 }
 

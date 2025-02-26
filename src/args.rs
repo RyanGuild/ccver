@@ -48,4 +48,5 @@ pub enum CCVerSubCommand {
     Init(InitArgs),
     Install(InstallArgs),
     Tag(TagArgs),
+    ChangeLog
 }

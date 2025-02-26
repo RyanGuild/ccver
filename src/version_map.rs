@@ -5,6 +5,10 @@ use petgraph::graph::NodeIndex;
 use crate::{
     graph::CommitGraph,
     logs::{ConventionalSubject, Subject},
+    pattern_macros::{
+        alpha_branches, beta_branches, major_subject, minor_subject, patch_commit_types,
+        patch_subject, rc_branches, release_branches,
+    },
     version::Version,
     version_format::VERSION_FORMAT,
 };
@@ -68,118 +72,53 @@ impl VersionMapData {
                         commit.branch,
                         commit.parent_hashes.len() == 2,
                     ) {
-                        (
-                            Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            "main" | "master",
-                            _,
-                        ) => max_parent.major(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "feat",
-                                ..
-                            }),
-                            "main" | "master",
-                            _,
-                        ) => max_parent.minor(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "fix", ..
-                            }),
-                            "main" | "master",
-                            _,
-                        ) => max_parent.patch(commit),
-                        (Subject::Conventional(_), "main" | "master", _) => {
+                        (major_subject!(), release_branches!(), _) => max_parent.major(commit),
+                        (minor_subject!(), release_branches!(), _) => max_parent.minor(commit),
+                        (patch_subject!(), release_branches!(), _) => max_parent.patch(commit),
+                        (Subject::Conventional(_), release_branches!(), _) => {
                             max_parent.short_sha(commit)
                         }
-                        (
-                            Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            "staging" | "rc",
-                            _,
-                        ) => max_parent.major(commit.clone()).rc(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "feat",
-                                ..
-                            }),
-                            "staging" | "rc",
-                            _,
-                        ) => max_parent.minor(commit.clone()).rc(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "fix", ..
-                            }),
-                            "staging" | "rc",
-                            _,
-                        ) => max_parent.patch(commit.clone()).rc(commit),
-                        (Subject::Conventional(_), "staging", _) => max_parent.rc(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            "development" | "beta",
-                            _,
-                        ) => max_parent.major(commit.clone()).beta(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "feat",
-                                ..
-                            }),
-                            "development" | "beta",
-                            _,
-                        ) => max_parent.minor(commit.clone()).beta(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "fix", ..
-                            }),
-                            "development" | "beta",
-                            _,
-                        ) => max_parent.patch(commit.clone()).beta(commit),
-                        (Subject::Conventional(_), "development", _) => max_parent.beta(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            "next" | "alpha",
-                            _,
-                        ) => max_parent.major(commit.clone()).alpha(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "feat",
-                                ..
-                            }),
-                            "next" | "alpha",
-                            _,
-                        ) => max_parent.minor(commit.clone()).alpha(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "fix", ..
-                            }),
-                            "next" | "alpha",
-                            _,
-                        ) => max_parent.patch(commit.clone()).alpha(commit),
-                        (Subject::Conventional(_), "next", _) => max_parent.alpha(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject { breaking: true, .. }),
-                            _,
-                            _,
-                        ) => max_parent.major(commit.clone()).named(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "feat",
-                                ..
-                            }),
-                            _,
-                            _,
-                        ) => max_parent.minor(commit.clone()).named(commit),
-                        (
-                            Subject::Conventional(ConventionalSubject {
-                                commit_type: "fix", ..
-                            }),
-                            _,
-                            _,
-                        ) => max_parent.patch(commit.clone()).named(commit),
+                        (major_subject!(), rc_branches!(), _) => {
+                            max_parent.major(commit.clone()).rc(commit)
+                        }
+                        (minor_subject!(), rc_branches!(), _) => {
+                            max_parent.minor(commit.clone()).rc(commit)
+                        }
+                        (patch_subject!(), rc_branches!(), _) => {
+                            max_parent.patch(commit.clone()).rc(commit)
+                        }
+                        (Subject::Conventional(_), rc_branches!(), _) => max_parent.rc(commit),
+                        (major_subject!(), beta_branches!(), _) => {
+                            max_parent.major(commit.clone()).beta(commit)
+                        }
+                        (minor_subject!(), beta_branches!(), _) => {
+                            max_parent.minor(commit.clone()).beta(commit)
+                        }
+                        (patch_subject!(), beta_branches!(), _) => {
+                            max_parent.patch(commit.clone()).beta(commit)
+                        }
+                        (Subject::Conventional(_), beta_branches!(), _) => max_parent.beta(commit),
+                        (major_subject!(), alpha_branches!(), _) => {
+                            max_parent.major(commit.clone()).alpha(commit)
+                        }
+                        (minor_subject!(), alpha_branches!(), _) => {
+                            max_parent.minor(commit.clone()).alpha(commit)
+                        }
+                        (patch_subject!(), alpha_branches!(), _) => {
+                            max_parent.patch(commit.clone()).alpha(commit)
+                        }
+                        (Subject::Conventional(_), alpha_branches!(), _) => {
+                            max_parent.alpha(commit)
+                        }
+                        (major_subject!(), _, _) => max_parent.major(commit.clone()).named(commit),
+                        (minor_subject!(), _, _) => max_parent.minor(commit.clone()).named(commit),
+                        (patch_subject!(), _, _) => max_parent.patch(commit.clone()).named(commit),
                         (Subject::Conventional(_), _, _) => max_parent.named(commit),
-                        (Subject::Text(_), "main" | "master", true) => max_parent.release(commit),
-                        (Subject::Text(_), "main" | "master", _) => max_parent.short_sha(commit),
-                        (Subject::Text(_), "staging", _) => max_parent.rc(commit),
-                        (Subject::Text(_), "development", _) => max_parent.beta(commit),
-                        (Subject::Text(_), "next", _) => max_parent.alpha(commit),
+                        (Subject::Text(_), release_branches!(), true) => max_parent.release(commit),
+                        (Subject::Text(_), release_branches!(), _) => max_parent.short_sha(commit),
+                        (Subject::Text(_), rc_branches!(), _) => max_parent.rc(commit),
+                        (Subject::Text(_), beta_branches!(), _) => max_parent.beta(commit),
+                        (Subject::Text(_), alpha_branches!(), _) => max_parent.alpha(commit),
                         (Subject::Text(_), _, _) => max_parent.named(commit),
                     };
 
@@ -205,5 +144,11 @@ impl VersionMapData {
 
     pub fn set(&mut self, idx: NodeIndex, version: Version) {
         self.0.insert(idx, version);
+    }
+
+    pub fn get_key(&self, version: &Version) -> Option<NodeIndex> {
+        self.0
+            .iter()
+            .find_map(|(k, v)| if v == version { Some(k.clone()) } else { None })
     }
 }

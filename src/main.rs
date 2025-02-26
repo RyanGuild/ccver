@@ -38,6 +38,8 @@ pub mod parser;
 pub mod version;
 pub mod version_format;
 pub mod version_map;
+pub mod changelog;
+pub mod pattern_macros;
 
 use args::*;
 use eyre::Result;
@@ -76,6 +78,10 @@ fn main() -> Result<()> {
         }
         Some(command) => match command {
             CCVerSubCommand::Tag(_) => {}
+            CCVerSubCommand::ChangeLog => {
+                let changelog = logs.get_changelog()?;
+                println!("{}", changelog)
+            }
             _ => todo!(),
         },
     }
