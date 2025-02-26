@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     logs::LogEntry,
-    version_format::{CalVerFormat, CalVerFormatSegment, PRE_TAG_FORMAT},
+    version_format::{CalVerFormat, CalVerFormatSegment, PRE_TAG_FORMAT, VERSION_FORMAT},
 };
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -33,7 +33,7 @@ impl Display for Version {
 impl Version {
     pub fn major(&self, commit: LogEntry) -> Self {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.bump(commit.clone()),
             minor: self.minor.zero(commit.clone()),
             patch: self.patch.zero(commit.clone()),
@@ -43,7 +43,7 @@ impl Version {
 
     pub fn minor(&self, commit: LogEntry) -> Self {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.bump(commit.clone()),
             patch: self.minor.zero(commit),
@@ -53,7 +53,7 @@ impl Version {
 
     pub fn patch(&self, commit: LogEntry) -> Self {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.bump(commit),
@@ -63,7 +63,7 @@ impl Version {
 
     pub fn build(&self, commit: LogEntry) -> Self {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
@@ -91,7 +91,7 @@ impl Version {
 
     pub fn rc(&self, commit: LogEntry) -> Self {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
@@ -119,7 +119,7 @@ impl Version {
 
     pub fn beta(&self, commit: LogEntry) -> Self {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
@@ -148,7 +148,7 @@ impl Version {
     pub fn alpha(&self, commit: LogEntry) -> Version {
         let pre_version_format = PRE_TAG_FORMAT.lock().unwrap().version_format();
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
@@ -169,7 +169,7 @@ impl Version {
     pub fn named(&self, commit: LogEntry) -> Version {
         let pre_version_format = PRE_TAG_FORMAT.lock().unwrap().version_format();
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
@@ -197,7 +197,7 @@ impl Version {
 
     pub fn release(&self, commit: LogEntry) -> Version {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
@@ -207,7 +207,7 @@ impl Version {
 
     pub fn sha(&self, commit: LogEntry) -> Version {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
@@ -219,7 +219,7 @@ impl Version {
 
     pub fn short_sha(&self, commit: LogEntry) -> Version {
         Version {
-            v_prefix: self.v_prefix,
+            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
             major: self.major.peek(commit.clone()),
             minor: self.minor.peek(commit.clone()),
             patch: self.patch.peek(commit.clone()),
