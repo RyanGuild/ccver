@@ -34,6 +34,7 @@ jobs:
     name: Release
     needs: [build, selftag, test]
     uses: "./.github/workflows/release.yaml"
+    secrets: inherit
     if: ${{!contains(needs.selftag.outputs.version, '-')}}
     with:
       tag: ${{ needs.selftag.outputs.version }}
