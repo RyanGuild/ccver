@@ -209,10 +209,16 @@ impl<'a> Logs<'a> {
     }
 
     pub fn get_changelog(&mut self) -> Result<ChangeLog> {
-        let graph = self.get_graph()?;
-        let version_map = self.get_version_map()?;
-        let changelog = ChangeLogData::new(graph, version_map)?;
-        Ok(changelog)
+        if let Some(cl) = self.changelog {
+            Ok(cl.clone())
+        } else {
+            let graph = self.get_graph()?;
+            let version_map = self.get_version_map()?;
+            let changelog = ChangeLogData::new(graph, version_map)?;
+            self.changelog = Some(changelog.clone());
+            Ok(changelog)
+        }
+        
     }
 }
 
