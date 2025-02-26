@@ -301,6 +301,8 @@ impl PartialOrd for Change {
 
 #[cfg(test)]
 mod changelog_tests {
+    use std::rc::Rc;
+
     use chrono::Timelike;
     use indoc::*;
 
@@ -309,12 +311,12 @@ mod changelog_tests {
     #[test]
     fn test_display_changelog() {
         let dummy_date = chrono::DateTime::from_timestamp(0, 0).unwrap();
-        let cl = ChangeLogData(vec![
+        let cl = ChangeLogData(Rc::new([
             ChangeScoped::All(Change::Breaking("Added Emojis".to_string(), dummy_date.with_hour(1).unwrap())),
             ChangeScoped::All(Change::Feature("Temp Removed Emojis".to_string(), dummy_date.with_hour(2).unwrap())),
             ChangeScoped::All(Change::Fix("Fixed Emojis".to_string(), dummy_date.with_hour(3).unwrap())),
             ChangeScoped::Scoped("./src/emoji.rs".to_string(), Change::Named("docs".to_string(),"Documented Emojis".to_string(), dummy_date.with_hour(4).unwrap())),
-        ]);
+        ]));
 
         assert_eq!(format!("{}", cl), indoc! {
            "
