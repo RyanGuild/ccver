@@ -1,12 +1,24 @@
 use std::cmp::Ordering;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct VersionFormat<'ctx> {
     pub v_prefix: bool,
     pub major: VersionNumberFormat,
     pub minor: VersionNumberFormat,
     pub patch: VersionNumberFormat,
     pub prerelease: Option<PreTagFormat<'ctx>>,
+}
+
+impl Default for VersionFormat<'_> {
+    fn default() -> Self {
+        VersionFormat {
+            v_prefix: true,
+            major: VersionNumberFormat::default(),
+            minor: VersionNumberFormat::default(),
+            patch: VersionNumberFormat::default(),
+            prerelease: Some(PreTagFormat::default()),
+        }
+    }
 }
 
 impl VersionFormat<'_> {
