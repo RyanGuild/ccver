@@ -27,7 +27,11 @@ pub struct CCVerArgs {
     #[arg(long = "no-pre")]
     pub no_pre: bool,
 
-    #[arg(long = "raw", short = 'r', help = "Collect logs from stdin (must use --format=$(ccver git-format))")]
+    #[arg(
+        long = "raw",
+        short = 'r',
+        help = "Collect logs from stdin (must use --format=$(ccver git-format))"
+    )]
     pub raw: bool,
 }
 
