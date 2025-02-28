@@ -1,6 +1,6 @@
 use crate::git;
 use crate::parser::parse_log;
-use crate::pattern_macros::{major_subject, minor_subject, patch_subject, release_branches};
+use crate::pattern_macros::{major_subject, minor_subject, patch_subject};
 use crate::version::Version;
 use crate::version_format::VersionFormat;
 use eyre::*;
