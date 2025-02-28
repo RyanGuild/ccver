@@ -1,5 +1,6 @@
 use crate::{
-    graph::commit_graph,
+    graph::CommitGraph,
+    logs::Logs,
     parser::macros::{cc_parse_format, cc_parse_with_data},
     version::Version,
     version_format::VersionFormat,
@@ -7,36 +8,33 @@ use crate::{
 use eyre::Result;
 #[test]
 fn test_parsing() -> Result<()> {
-    let graph = commit_graph!();
-    dbg!(cc_parse_format!(
-        CCVER_VERSION_FORMAT,
-        "vCC.CC.CC",
-        graph.clone()
-    )?);
+    let logs = Logs::default();
+    let graph = CommitGraph::new(&logs)?;
+    dbg!(cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.CC.CC", &graph)?);
     dbg!(cc_parse_format!(
         CCVER_VERSION_FORMAT,
         "vCC.CC.CC-rc.CC",
-        graph.clone()
+        &graph
     )?);
     dbg!(cc_parse_format!(
         CCVER_VERSION_FORMAT,
         "YY.MM.DD-test.SS",
-        graph.clone()
+        &graph
     )?);
     dbg!(cc_parse_format!(
         CCVER_VERSION_FORMAT,
         "YYYY.CC.CC-<sha>",
-        graph.clone()
+        &graph
     )?);
     dbg!(cc_parse_format!(
         CCVER_VERSION_FORMAT,
         "vCC.CC.YYMMDD-beta.CC",
-        graph.clone()
+        &graph
     )?);
-    cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.MM.DD-rc.CC", graph.clone())
+    cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.MM.DD-rc.CC", &graph)
         .expect_err("Day before month will not monotonically increase");
 
-    cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.MM.DD-rc.CC", graph.clone())
+    cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.MM.DD-rc.CC", &graph)
         .expect_err("CalVer format segments must be proceeded by a year segment to maintain semver monotonic incresing versions");
     Ok(())
 }

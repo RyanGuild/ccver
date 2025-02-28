@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     logs::LogEntry,
-    version_format::{CalVerFormat, CalVerFormatSegment, PRE_TAG_FORMAT, VERSION_FORMAT},
+    version_format::{CalVerFormat, CalVerFormatSegment, VersionFormat},
 };
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -31,56 +31,54 @@ impl Display for Version {
 }
 
 impl Version {
-    pub fn major(&self, commit: LogEntry) -> Self {
+    pub fn major(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.bump(commit.clone()),
-            minor: self.minor.zero(commit.clone()),
-            patch: self.patch.zero(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.bump(commit),
+            minor: self.minor.zero(commit),
+            patch: self.patch.zero(commit),
             prerelease: None,
         }
     }
 
-    pub fn minor(&self, commit: LogEntry) -> Self {
+    pub fn minor(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.bump(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.bump(commit),
             patch: self.minor.zero(commit),
             prerelease: None,
         }
     }
 
-    pub fn patch(&self, commit: LogEntry) -> Self {
+    pub fn patch(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
             patch: self.patch.bump(commit),
             prerelease: None,
         }
     }
 
-    pub fn build(&self, commit: LogEntry) -> Self {
+    pub fn build(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
+        let pre_format = version_format.prerelease.as_ref().unwrap_or_default();
+
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: match &self.prerelease {
                 None => Some(PreTag::Build(
-                    PRE_TAG_FORMAT
-                        .lock()
-                        .unwrap()
+                    pre_format
                         .version_format()
                         .as_default_version_number(commit),
                 )),
                 Some(pre) => match pre {
                     PreTag::Build(v) => Some(PreTag::Build(v.bump(commit))),
                     _ => Some(PreTag::Build(
-                        PRE_TAG_FORMAT
-                            .lock()
-                            .unwrap()
+                        pre_format
                             .version_format()
                             .as_default_version_number(commit),
                     )),
@@ -89,140 +87,109 @@ impl Version {
         }
     }
 
-    pub fn rc(&self, commit: LogEntry) -> Self {
+    pub fn rc(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
+        let pre_format = version_format.prerelease.as_ref().unwrap_or_default();
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Rc(
-                    PRE_TAG_FORMAT
-                        .lock()
-                        .unwrap()
+                Some(PreTag::Rc(v)) => Some(PreTag::Rc(v.bump(commit))),
+                _ => Some(PreTag::Rc(
+                    pre_format
                         .version_format()
                         .as_default_version_number(commit),
                 )),
-                Some(pre) => match pre {
-                    PreTag::Rc(v) => Some(PreTag::Rc(v.bump(commit))),
-                    _ => Some(PreTag::Rc(
-                        PRE_TAG_FORMAT
-                            .lock()
-                            .unwrap()
-                            .version_format()
-                            .as_default_version_number(commit),
-                    )),
-                },
             },
         }
     }
 
-    pub fn beta(&self, commit: LogEntry) -> Self {
+    pub fn beta(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
+        let pre_format = version_format.prerelease.as_ref().unwrap_or_default();
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Beta(
-                    PRE_TAG_FORMAT
-                        .lock()
-                        .unwrap()
+                Some(PreTag::Beta(v)) => Some(PreTag::Beta(v.bump(commit))),
+                _ => Some(PreTag::Beta(
+                    pre_format
                         .version_format()
                         .as_default_version_number(commit),
                 )),
-                Some(pre) => match pre {
-                    PreTag::Beta(v) => Some(PreTag::Beta(v.bump(commit))),
-                    _ => Some(PreTag::Beta(
-                        PRE_TAG_FORMAT
-                            .lock()
-                            .unwrap()
-                            .version_format()
-                            .as_default_version_number(commit),
-                    )),
-                },
             },
         }
     }
 
-    pub fn alpha(&self, commit: LogEntry) -> Version {
-        let pre_version_format = PRE_TAG_FORMAT.lock().unwrap().version_format();
+    pub fn alpha(&self, commit: &LogEntry, version_format: &VersionFormat) -> Version {
+        let pre_format = version_format.prerelease.as_ref().unwrap_or_default();
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Alpha(
-                    pre_version_format.as_default_version_number(commit),
+                Some(PreTag::Alpha(v)) => Some(PreTag::Alpha(v.bump(commit))),
+                _ => Some(PreTag::Alpha(
+                    pre_format
+                        .version_format()
+                        .as_default_version_number(commit),
                 )),
-                Some(pre) => match pre {
-                    PreTag::Alpha(v) => Some(PreTag::Alpha(v.bump(commit))),
-                    _ => Some(PreTag::Alpha(
-                        pre_version_format.as_default_version_number(commit),
-                    )),
-                },
             },
         }
     }
 
-    pub fn named(&self, commit: LogEntry) -> Version {
-        let pre_version_format = PRE_TAG_FORMAT.lock().unwrap().version_format();
+    pub fn named(&self, commit: &LogEntry, version_format: &VersionFormat) -> Version {
+        let pre_format = version_format.prerelease.as_ref().unwrap_or_default();
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: match &self.prerelease {
-                None => Some(PreTag::Named(
+                Some(PreTag::Named(tag, v)) if tag.eq(commit.branch) => {
+                    Some(PreTag::Named(tag.to_string(), v.bump(commit)))
+                }
+                _ => Some(PreTag::Named(
                     commit.branch.to_string(),
-                    pre_version_format.as_default_version_number(commit),
+                    pre_format
+                        .version_format()
+                        .as_default_version_number(commit),
                 )),
-                Some(pre) => match pre {
-                    PreTag::Named(tag, v) if tag.eq(commit.branch) => {
-                        Some(PreTag::Named(tag.to_string(), v.bump(commit)))
-                    }
-                    PreTag::Named(_, _) => Some(PreTag::Named(
-                        commit.branch.to_string(),
-                        pre_version_format.as_default_version_number(commit),
-                    )),
-                    _ => Some(PreTag::Named(
-                        commit.branch.to_string(),
-                        pre_version_format.as_default_version_number(commit),
-                    )),
-                },
             },
         }
     }
 
-    pub fn release(&self, commit: LogEntry) -> Version {
+    pub fn release(&self, commit: &LogEntry, version_format: &VersionFormat) -> Version {
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: None,
         }
     }
 
-    pub fn sha(&self, commit: LogEntry) -> Version {
+    pub fn sha(&self, commit: &LogEntry, version_format: &VersionFormat) -> Version {
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: Some(PreTag::Sha(VersionNumber::Sha(
                 commit.commit_hash.to_string(),
             ))),
         }
     }
 
-    pub fn short_sha(&self, commit: LogEntry) -> Version {
+    pub fn short_sha(&self, commit: &LogEntry, version_format: &VersionFormat) -> Version {
         Version {
-            v_prefix: VERSION_FORMAT.lock().unwrap().v_prefix,
-            major: self.major.peek(commit.clone()),
-            minor: self.minor.peek(commit.clone()),
-            patch: self.patch.peek(commit.clone()),
+            v_prefix: version_format.v_prefix,
+            major: self.major.peek(commit),
+            minor: self.minor.peek(commit),
+            patch: self.patch.peek(commit),
             prerelease: Some(PreTag::ShortSha(VersionNumber::ShortSha(
                 commit.commit_hash[0..7].to_string(),
             ))),
@@ -336,7 +303,7 @@ pub enum VersionNumber {
 }
 
 impl VersionNumber {
-    pub fn bump(&self, commit: LogEntry) -> Self {
+    pub fn bump(&self, commit: &LogEntry) -> Self {
         match self {
             VersionNumber::CCVer(v) => VersionNumber::CCVer(*v + 1),
             VersionNumber::CalVer(format, _) => {
@@ -349,7 +316,7 @@ impl VersionNumber {
         }
     }
 
-    pub fn peek(&self, commit: LogEntry) -> Self {
+    pub fn peek(&self, commit: &LogEntry) -> Self {
         match self {
             VersionNumber::CCVer(v) => VersionNumber::CCVer(*v),
             VersionNumber::CalVer(format, _) => {
@@ -362,7 +329,7 @@ impl VersionNumber {
         }
     }
 
-    pub fn zero(&self, commit: LogEntry) -> Self {
+    pub fn zero(&self, commit: &LogEntry) -> Self {
         match self {
             VersionNumber::CCVer(_) => VersionNumber::CCVer(0),
             VersionNumber::CalVer(_, _) => self.bump(commit),

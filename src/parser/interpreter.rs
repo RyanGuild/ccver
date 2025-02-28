@@ -4,7 +4,7 @@ use std::sync::Arc;
 use pest_consume::{Node as PestNode, *};
 
 use crate::graph::CommitGraph;
-use crate::logs::{ConventionalSubject, Decoration, LogEntry, LogEntryData, Subject, Tag};
+use crate::logs::{ConventionalSubject, Decoration, LogEntry, Subject, Tag};
 use crate::version::{PreTag, VersionNumber};
 use crate::version_format::CalVerFormat;
 use crate::version_format::{
@@ -15,12 +15,12 @@ use crate::version_format::{
 
 use super::grammar::{Parser, Rule};
 use super::macros::parsing_error;
-use super::{Log, Version, VersionFormat};
+use super::{Logs, Version, VersionFormat};
 
 #[derive(Debug, Clone)]
-pub enum ParserInputs<'graph> {
-    LogParsing(Option<VersionFormat<'graph>>),
-    FormatParsing(CommitGraph<'graph>),
+pub enum ParserInputs<'ctx> {
+    LogParsing(Option<VersionFormat<'ctx>>),
+    FormatParsing(&'ctx CommitGraph<'ctx>),
 }
 macro log_parsing_context($input:expr) {{
     match $input.user_data() {
@@ -158,7 +158,7 @@ impl Parser {
 
             ] => {
                 Ok(
-                   Arc::new( LogEntryData {
+                   LogEntry {
                         name,
                         branch,
                         commit_hash,
@@ -168,7 +168,7 @@ impl Parser {
                         footers,
                         decorations,
                         subject
-                    })
+                    }
                 )
             },
             [
@@ -182,7 +182,7 @@ impl Parser {
 
             ] => {
                 Ok(
-                    Arc::new(LogEntryData {
+                    LogEntry {
                         name,
                         branch,
                         commit_hash,
@@ -192,7 +192,7 @@ impl Parser {
                         footers,
                         decorations: Arc::new([]),
                         subject
-                    })
+                    }
                 )
             }
         )
@@ -349,7 +349,7 @@ impl Parser {
         }
     }
 
-    pub fn CCVER_LOG<'a>(input: Node<'a, '_>) -> InterpreterResult<Log<'a>> {
+    pub fn CCVER_LOG<'a>(input: Node<'a, '_>) -> InterpreterResult<Logs<'a>> {
         match_nodes!(input.children();
             [CCVER_LOG_ENTRY(e).., EOI(_)] => Ok(e.collect())
         )
@@ -426,8 +426,8 @@ impl Parser {
     ) -> InterpreterResult<PreTagFormat<'ctx>> {
         let graph = format_parsing_context!(input);
         match_nodes!(input.children();
-            [SHA_FORMAT(_)] => Ok(PreTagFormat::Sha(graph.clone(), VersionNumberFormat::Sha)),
-            [SHORT_SHA_FORMAT(_)] => Ok(PreTagFormat::ShortSha(graph.clone(), VersionNumberFormat::ShortSha))
+            [SHA_FORMAT(_)] => Ok(PreTagFormat::Sha(graph, VersionNumberFormat::Sha)),
+            [SHORT_SHA_FORMAT(_)] => Ok(PreTagFormat::ShortSha(graph, VersionNumberFormat::ShortSha))
         )
     }
 

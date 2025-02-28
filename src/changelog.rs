@@ -9,7 +9,6 @@ use crate::{
     pattern_macros::{
         major_commit_types, minor_commit_types, patch_commit_types, semver_advancing_subject,
     },
-    version_map::VersionMap,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -172,16 +171,12 @@ enum Change {
 }
 
 impl ChangeLogData {
-    pub fn new(graph: CommitGraph, version_map: VersionMap) -> Result<ChangeLog> {
+    pub fn new(graph: &CommitGraph) -> Result<ChangeLog> {
         let root = graph.headidx();
-        Self::from_index(graph, version_map, root)
+        Self::from_index(graph, root)
     }
 
-    pub fn from_index(
-        graph: CommitGraph,
-        version_map: VersionMap,
-        from: NodeIndex,
-    ) -> Result<ChangeLog> {
+    pub fn from_index(graph: &CommitGraph, from: NodeIndex) -> Result<ChangeLog> {
         let versions = {
             let mut stack = graph.parents(from);
             let current_ver = graph
@@ -189,9 +184,6 @@ impl ChangeLogData {
                 .ok_or_eyre("Foreign NodeIndex detected please only input ")?;
             let mut versions = vec![current_ver];
             while let Some(parent) = stack.pop() {
-                let parent_ver = version_map
-                    .get(parent)
-                    .ok_or_eyre(eyre!("Could not find version for commit"))?;
                 let parent_commit = graph.get(parent).expect("Idx Comes from graph source");
 
                 match parent_commit.subject {

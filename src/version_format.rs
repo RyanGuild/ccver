@@ -1,13 +1,5 @@
 use std::cmp::Ordering;
 
-pub static VERSION_FORMAT: Mutex<VersionFormat> = Mutex::new(VersionFormat {
-    v_prefix: true,
-    major: VersionNumberFormat::CCVer,
-    minor: VersionNumberFormat::CCVer,
-    patch: VersionNumberFormat::CCVer,
-    prerelease: None,
-});
-
 #[derive(Debug, Clone, Default)]
 pub struct VersionFormat<'ctx> {
     pub v_prefix: bool,
@@ -18,12 +10,12 @@ pub struct VersionFormat<'ctx> {
 }
 
 impl VersionFormat<'_> {
-    pub fn as_default_version(&self, commit: LogEntry) -> Version {
+    pub fn as_default_version(&self, commit: &LogEntry) -> Version {
         Version {
             v_prefix: self.v_prefix,
-            major: self.major.as_default_version_number(commit.clone()),
-            minor: self.minor.as_default_version_number(commit.clone()),
-            patch: self.patch.as_default_version_number(commit.clone()),
+            major: self.major.as_default_version_number(commit),
+            minor: self.minor.as_default_version_number(commit),
+            patch: self.patch.as_default_version_number(commit),
             prerelease: self
                 .prerelease
                 .as_ref()
@@ -42,7 +34,7 @@ pub enum VersionNumberFormat {
 }
 
 impl VersionNumberFormat {
-    pub fn as_default_version_number(&self, commit: LogEntry) -> VersionNumber {
+    pub fn as_default_version_number(&self, commit: &LogEntry) -> VersionNumber {
         match self {
             VersionNumberFormat::CCVer => VersionNumber::CCVer(0),
             VersionNumberFormat::CalVer(calendar_parts) => {
@@ -85,7 +77,7 @@ impl PartialOrd for CalVerFormatSegment {
 
 use std::cmp::Ordering::*;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use CalVerFormatSegment::*;
 
 use crate::{
@@ -147,16 +139,19 @@ pub enum PreTagFormat<'ctx> {
     Alpha(VersionNumberFormat),
     Build(VersionNumberFormat),
     Named(String, VersionNumberFormat),
-    Sha(CommitGraph<'ctx>, VersionNumberFormat),
-    ShortSha(CommitGraph<'ctx>, VersionNumberFormat),
+    Sha(&'ctx CommitGraph<'ctx>, VersionNumberFormat),
+    ShortSha(&'ctx CommitGraph<'ctx>, VersionNumberFormat),
 }
-
-pub static PRE_TAG_FORMAT: Mutex<PreTagFormat> =
-    Mutex::new(PreTagFormat::Build(VersionNumberFormat::CCVer));
 
 impl Default for PreTagFormat<'_> {
     fn default() -> Self {
-        PRE_TAG_FORMAT.lock().unwrap().clone()
+        PreTagFormat::Build(VersionNumberFormat::CCVer)
+    }
+}
+
+impl Default for &PreTagFormat<'_> {
+    fn default() -> Self {
+        &PreTagFormat::Build(VersionNumberFormat::CCVer)
     }
 }
 
@@ -173,7 +168,7 @@ impl PreTagFormat<'_> {
         }
     }
 
-    pub fn as_default_pre_tag(&self, commit: LogEntry) -> PreTag {
+    pub fn as_default_pre_tag(&self, commit: &LogEntry) -> PreTag {
         match self {
             PreTagFormat::Rc(vf) => PreTag::Rc(vf.as_default_version_number(commit)),
             PreTagFormat::Beta(vf) => PreTag::Beta(vf.as_default_version_number(commit)),

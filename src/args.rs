@@ -26,6 +26,9 @@ pub struct CCVerArgs {
 
     #[arg(long = "no-pre")]
     pub no_pre: bool,
+
+    #[arg(long = "raw", short = 'r', help = "Collect logs from stdin (must use --format=$(ccver git-format))")]
+    pub raw: bool,
 }
 
 #[derive(Args, Debug)]
@@ -51,5 +54,8 @@ pub enum CCVerSubCommand {
     Init(InitArgs),
     Install(InstallArgs),
     Tag(TagArgs),
+    #[command(about = "Print the changelog")]
     ChangeLog,
+    #[command(about = "Print the git format string")]
+    GitFormat,
 }

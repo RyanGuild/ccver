@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use petgraph::graph::NodeIndex;
 
@@ -10,31 +10,25 @@ use crate::{
         release_branches,
     },
     version::Version,
-    version_format::VERSION_FORMAT,
+    version_format::VersionFormat,
 };
 use eyre::Result;
 
-pub type VersionMap = Rc<VersionMapData>;
-
 #[derive(Debug)]
-pub struct VersionMapData(HashMap<NodeIndex, Version>);
+pub struct VersionMap(HashMap<NodeIndex, Version>);
 
-impl VersionMapData {
-    pub fn new(graph: CommitGraph) -> Result<VersionMap> {
-        let graph = graph.clone();
+impl VersionMap {
+    pub fn new(graph: &CommitGraph, version_format: &VersionFormat) -> Result<VersionMap> {
         let mut map: HashMap<NodeIndex, Version> = HashMap::new();
 
         let tailidx = graph.tailidx();
         let tail = graph.tail();
-
-        let version_format = VERSION_FORMAT.lock().unwrap().clone();
-        let initial_version = version_format.as_default_version(tail.clone());
+        let initial_version = version_format.as_default_version(&tail);
         map.insert(tailidx, initial_version);
 
         let results = graph
             .dfs_postorder_history()
             .map(|(idx, commit)| {
-                let graph = graph.clone();
                 let tagged = commit.tagged_version();
                 if tagged.is_some() {
                     map.insert(idx, tagged.unwrap());
@@ -55,7 +49,7 @@ impl VersionMapData {
                         ver
                     })
                     .max()
-                    .unwrap_or(version_format.as_default_version(commit.clone()));
+                    .unwrap_or(version_format.as_default_version(commit));
 
                 if let Some(existing) = existing {
                     if existing < max_parent {
@@ -72,54 +66,82 @@ impl VersionMapData {
                         commit.branch,
                         commit.parent_hashes.len() == 2,
                     ) {
-                        (major_subject!(), release_branches!(), _) => max_parent.major(commit),
-                        (minor_subject!(), release_branches!(), _) => max_parent.minor(commit),
-                        (patch_subject!(), release_branches!(), _) => max_parent.patch(commit),
+                        (major_subject!(), release_branches!(), _) => {
+                            max_parent.major(commit, version_format)
+                        }
+                        (minor_subject!(), release_branches!(), _) => {
+                            max_parent.minor(commit, version_format)
+                        }
+                        (patch_subject!(), release_branches!(), _) => {
+                            max_parent.patch(commit, version_format)
+                        }
                         (Subject::Conventional(_), release_branches!(), _) => {
-                            max_parent.short_sha(commit)
+                            max_parent.short_sha(commit, version_format)
                         }
-                        (major_subject!(), rc_branches!(), _) => {
-                            max_parent.major(commit.clone()).rc(commit)
+                        (major_subject!(), rc_branches!(), _) => max_parent
+                            .major(commit, version_format)
+                            .rc(commit, version_format),
+                        (minor_subject!(), rc_branches!(), _) => max_parent
+                            .minor(commit, version_format)
+                            .rc(commit, version_format),
+                        (patch_subject!(), rc_branches!(), _) => max_parent
+                            .patch(commit, version_format)
+                            .rc(commit, version_format),
+                        (Subject::Conventional(_), rc_branches!(), _) => {
+                            max_parent.rc(commit, version_format)
                         }
-                        (minor_subject!(), rc_branches!(), _) => {
-                            max_parent.minor(commit.clone()).rc(commit)
+                        (major_subject!(), beta_branches!(), _) => max_parent
+                            .major(commit, version_format)
+                            .beta(commit, version_format),
+                        (minor_subject!(), beta_branches!(), _) => max_parent
+                            .minor(commit, version_format)
+                            .beta(commit, version_format),
+                        (patch_subject!(), beta_branches!(), _) => max_parent
+                            .patch(commit, version_format)
+                            .beta(commit, version_format),
+                        (Subject::Conventional(_), beta_branches!(), _) => {
+                            max_parent.beta(commit, version_format)
                         }
-                        (patch_subject!(), rc_branches!(), _) => {
-                            max_parent.patch(commit.clone()).rc(commit)
-                        }
-                        (Subject::Conventional(_), rc_branches!(), _) => max_parent.rc(commit),
-                        (major_subject!(), beta_branches!(), _) => {
-                            max_parent.major(commit.clone()).beta(commit)
-                        }
-                        (minor_subject!(), beta_branches!(), _) => {
-                            max_parent.minor(commit.clone()).beta(commit)
-                        }
-                        (patch_subject!(), beta_branches!(), _) => {
-                            max_parent.patch(commit.clone()).beta(commit)
-                        }
-                        (Subject::Conventional(_), beta_branches!(), _) => max_parent.beta(commit),
-                        (major_subject!(), alpha_branches!(), _) => {
-                            max_parent.major(commit.clone()).alpha(commit)
-                        }
-                        (minor_subject!(), alpha_branches!(), _) => {
-                            max_parent.minor(commit.clone()).alpha(commit)
-                        }
-                        (patch_subject!(), alpha_branches!(), _) => {
-                            max_parent.patch(commit.clone()).alpha(commit)
-                        }
+                        (major_subject!(), alpha_branches!(), _) => max_parent
+                            .major(commit, version_format)
+                            .alpha(commit, version_format),
+                        (minor_subject!(), alpha_branches!(), _) => max_parent
+                            .minor(commit, version_format)
+                            .alpha(commit, version_format),
+                        (patch_subject!(), alpha_branches!(), _) => max_parent
+                            .patch(commit, version_format)
+                            .alpha(commit, version_format),
                         (Subject::Conventional(_), alpha_branches!(), _) => {
-                            max_parent.alpha(commit)
+                            max_parent.alpha(commit, version_format)
                         }
-                        (major_subject!(), _, _) => max_parent.major(commit.clone()).named(commit),
-                        (minor_subject!(), _, _) => max_parent.minor(commit.clone()).named(commit),
-                        (patch_subject!(), _, _) => max_parent.patch(commit.clone()).named(commit),
-                        (Subject::Conventional(_), _, _) => max_parent.named(commit),
-                        (Subject::Text(_), release_branches!(), true) => max_parent.release(commit),
-                        (Subject::Text(_), release_branches!(), _) => max_parent.short_sha(commit),
-                        (Subject::Text(_), rc_branches!(), _) => max_parent.rc(commit),
-                        (Subject::Text(_), beta_branches!(), _) => max_parent.beta(commit),
-                        (Subject::Text(_), alpha_branches!(), _) => max_parent.alpha(commit),
-                        (Subject::Text(_), _, _) => max_parent.named(commit),
+                        (major_subject!(), _, _) => max_parent
+                            .major(commit, version_format)
+                            .named(commit, version_format),
+                        (minor_subject!(), _, _) => max_parent
+                            .minor(commit, version_format)
+                            .named(commit, version_format),
+                        (patch_subject!(), _, _) => max_parent
+                            .patch(commit, version_format)
+                            .named(commit, version_format),
+                        (Subject::Conventional(_), _, _) => {
+                            max_parent.named(commit, version_format)
+                        }
+                        (Subject::Text(_), release_branches!(), true) => {
+                            max_parent.release(commit, version_format)
+                        }
+                        (Subject::Text(_), release_branches!(), _) => {
+                            max_parent.short_sha(commit, version_format)
+                        }
+                        (Subject::Text(_), rc_branches!(), _) => {
+                            max_parent.rc(commit, version_format)
+                        }
+                        (Subject::Text(_), beta_branches!(), _) => {
+                            max_parent.beta(commit, version_format)
+                        }
+                        (Subject::Text(_), alpha_branches!(), _) => {
+                            max_parent.alpha(commit, version_format)
+                        }
+                        (Subject::Text(_), _, _) => max_parent.named(commit, version_format),
                     };
 
                     // dbg!(&next_version);
@@ -135,7 +157,7 @@ impl VersionMapData {
             .filter_map(|r| r.as_ref().err())
             .for_each(|e| eprintln!("{}", e));
 
-        Ok(Rc::new(Self(map)))
+        Ok(Self(map))
     }
 
     pub fn get(&self, idx: NodeIndex) -> Option<&Version> {
