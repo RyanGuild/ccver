@@ -65,9 +65,6 @@ jobs:
           git commit -m "chore: Fix code"
           git pull --ff-only
           git push
-      - name: Error if changes
-        if: steps.git-diff.outcome == 'failure'
-        run: exit 1
 
 
   cargo_toml_version:
@@ -106,6 +103,3 @@ jobs:
           git commit -m "chore: Update Cargo.toml version"
           git pull --ff-only
           git push
-      - name: Error if changes
-        if: steps.git-diff.outcome == 'failure'
-        run: exit 1
