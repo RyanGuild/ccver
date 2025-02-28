@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.12.3"
+version = "2.12.5"
 edition = "2021"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 
