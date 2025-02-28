@@ -52,8 +52,11 @@ impl Locations<'_> {
 }
 
 impl CommitGraph<'_> {
-    pub fn new<'a>(logs: &'a Logs<'a>) -> Result<CommitGraph<'a>> {
-        let mut petgraph: petgraph::Graph<&'a LogEntry<'a>, ()> = DiGraph::new();
+    pub fn new<'a, 'b>(logs: &'a Logs<'b>) -> Result<CommitGraph<'b>>
+    where
+        'a: 'b,
+    {
+        let mut petgraph: petgraph::Graph<&'b LogEntry<'b>, ()> = DiGraph::new();
         let commit_to_index: HashMap<&str, NodeIndex> = logs
             .iter()
             .map(|l| (l.commit_hash, petgraph.add_node(l)))
