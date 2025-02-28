@@ -9,7 +9,7 @@ pub macro rc_branches() {
 }
 
 pub macro beta_branches() {
-    "development" | "beta"
+    "development" | "develop" | "beta"
 }
 
 pub macro alpha_branches() {
