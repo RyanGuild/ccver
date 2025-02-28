@@ -41,7 +41,7 @@ jobs:
       run: |
         # Build and run the project to get the version
         cargo build --quiet
-        VERSION=$(cargo run | tr -d '\n')
+        VERSION=$(cargo run -- --ci | tr -d '\n')
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
     
     - name: Get ChangeLog

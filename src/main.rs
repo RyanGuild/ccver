@@ -84,11 +84,15 @@ fn main() -> Result<()> {
                     .get(graph.headidx())
                     .ok_or_eyre(eyre!("No version found"))?
             } else {
-                let commit = graph.head();
-                &version_map
-                    .get(graph.headidx())
-                    .ok_or_eyre(eyre!("No version found"))?
-                    .build(commit, &version_format)
+                &if args.ci {
+                    Err(eyre!("Working tree is dirty while running in CI mode"))?
+                } else {
+                    let commit = graph.head();
+                    Ok(version_map
+                        .get(graph.headidx())
+                        .ok_or_eyre(eyre!("No version found"))?
+                        .build(commit, &version_format))
+                }?
             };
 
             if args.no_pre {

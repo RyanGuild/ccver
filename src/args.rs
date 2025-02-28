@@ -33,6 +33,9 @@ pub struct CCVerArgs {
         help = "Collect logs from stdin (must use --format=$(ccver git-format))"
     )]
     pub raw: bool,
+
+    #[arg(long = "ci", help = "Throw an error if the repository is dirty")]
+    pub ci: bool,
 }
 
 #[derive(Args, Debug)]
