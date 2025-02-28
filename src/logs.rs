@@ -1,5 +1,6 @@
 use crate::git;
 use crate::parser::parse_log;
+use crate::pattern_macros::{major_subject, minor_subject, patch_subject, release_branches};
 use crate::version::Version;
 use crate::version_format::VersionFormat;
 use eyre::*;
@@ -31,12 +32,9 @@ pub enum Subject<'a> {
 impl Subject<'_> {
     pub fn as_initial_version(&self, commit: &LogEntry, format: &VersionFormat) -> Version {
         match self {
-            Subject::Conventional(sub) => match (sub.breaking, sub.commit_type) {
-                (true, _) => format.as_default_version(commit).major(commit, format),
-                (_, "feat") => format.as_default_version(commit).minor(commit, format),
-                (_, "fix") => format.as_default_version(commit).patch(commit, format),
-                _ => format.as_default_version(commit),
-            },
+            major_subject!() => format.as_default_version(commit).major(commit, format),
+            minor_subject!() => format.as_default_version(commit).minor(commit, format),
+            patch_subject!() => format.as_default_version(commit).patch(commit, format),
             _ => format.as_default_version(commit),
         }
     }
