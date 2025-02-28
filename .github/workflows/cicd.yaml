@@ -28,7 +28,7 @@ jobs:
     uses: "./.github/workflows/selftag.yaml"
   test:
     name: Test
-    needs: [prebuild, ]
+    needs: prebuild
     uses: "./.github/workflows/test.yaml"
   release:
     name: Release

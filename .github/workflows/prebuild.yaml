@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
       - name: Get Rust Cache
         uses: ./.github/actions/rust_depcache
         with:
@@ -44,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
       - name: Get Rust Cache
         uses: ./.github/actions/rust_depcache
         with:
@@ -68,11 +72,13 @@ jobs:
 
 
   cargo_toml_version:
+    needs: [fmt, fix]
     name: 📦 Update Cargo.toml Version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           fetch-tags: true
       - name: Get Rust Cache
