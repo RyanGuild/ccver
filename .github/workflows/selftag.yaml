@@ -48,6 +48,11 @@ jobs:
         cargo build --quiet
         VERSION=$(cargo run -- --ci | tr -d '\n')
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+    - name: Git Status 2
+      continue-on-error: true
+      run: |
+        git status
+        git diff --exit-code
     
     - name: Get ChangeLog
       id: get_changelog
