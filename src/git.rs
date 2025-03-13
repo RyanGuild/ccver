@@ -2,15 +2,23 @@ use crate::logs::GIT_FORMAT_ARGS;
 use eyre::*;
 use std::{path::Path, process::Command};
 
-pub fn is_dirty(path: &Path) -> Result<bool> {
-    Ok(Command::new("git")
+pub fn is_dirty(path: &Path) -> Result<()> {
+    let output = Command::new("git")
         .args(["diff", "--exit-code"])
         .current_dir(path)
-        .output()?
-        .status
+        .output()?;
+
+    let status = output.status;
+
+    let code = status
         .code()
-        .ok_or_eyre("could not get status code from git diff")?
-        != 0)
+        .ok_or_eyre("could not get status code from git diff")?;
+
+    if code != 0 {
+        Err(eyre!(String::from_utf8(output.stdout)?))
+    } else {
+        Ok(())
+    }
 }
 
 pub fn git_installed() -> Result<()> {

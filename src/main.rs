@@ -79,22 +79,22 @@ fn main() -> Result<()> {
 
     let stdout = match args.command {
         None => {
-            let ver = if is_dirty(&path)? {
-                version_map
+            let ver = match is_dirty(&path) {
+                Err(e) => {
+                    if args.ci {
+                        Err(e)
+                    } else {
+                        Ok(version_map
+                            .get(graph.headidx())
+                            .ok_or_eyre(eyre!("No version found"))?
+                            .build(graph.head(), &version_format))
+                    }
+                }
+                std::result::Result::Ok(_) => version_map
                     .get(graph.headidx())
-                    .ok_or_eyre(eyre!("No version found"))?
-            } else {
-                &if args.ci {
-                    Err(eyre!("Working tree is dirty while running in CI mode"))?
-                } else {
-                    let commit = graph.head();
-                    Ok(version_map
-                        .get(graph.headidx())
-                        .ok_or_eyre(eyre!("No version found"))?
-                        .build(commit, &version_format))
-                }?
-            };
-
+                    .ok_or_eyre(eyre!("No version found"))
+                    .map(|v| v.clone()),
+            }?;
             if args.no_pre {
                 format!("{}", ver.release(graph.head(), &version_format))
             } else {
