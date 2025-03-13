@@ -3,7 +3,6 @@
         "redhat.vscode-yaml",
         "pest.pest-ide-tools",
         "rust-lang.rust-analyzer",
-        "github.vscode-github-actions",
         "streetsidesoftware.code-spell-checker",
         "vadimcn.vscode-lldb",
         "swellaby.vscode-rust-test-adapter",
