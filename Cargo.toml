@@ -3,7 +3,6 @@ name = "ccver"
 version = "2.13.0"
 edition = "2021"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
-license = "MIT"
 license-file = "LICENSE"
 description = "a zero dependency tool for Conventional Commits"
 documentation = "https://ryanguild.github.io/ccver/ccver/index.html"

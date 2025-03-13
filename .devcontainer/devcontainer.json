@@ -3,13 +3,9 @@
 {
 	"name": "Ubuntu",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/base:jammy",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
 	"features": {
-		"ghcr.io/devcontainers/features/rust:1": {},
-		"ghcr.io/devcontainers/features/docker-outside-of-docker": {},
-		"ghcr.io/dhoeric/features/act": {
-			"version": "latest"
-		}
+		"ghcr.io/devcontainers/features/rust:1": {}
 	},
 
 	"customizations": {
