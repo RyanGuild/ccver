@@ -35,6 +35,11 @@ jobs:
         runner: ubuntu-latest
         arch: x86_64-unknown-linux-gnu
         rust: nightly
+    - name: Git Status
+      continue-on-error: true
+      run: |
+        git status
+        git diff --exit-code
     
     - name: Get Version
       id: get_version
