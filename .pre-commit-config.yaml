@@ -36,7 +36,8 @@ repos:
         description: Update Cargo.toml version using ccver with actual commit message
         entry: target/debug/update-cargo-toml-version
         language: rust
-        always_run: true
+        files: \.(rs|toml)$
+        pass_filenames: false
 
 
   # Additional useful hooks
