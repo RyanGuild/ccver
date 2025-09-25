@@ -2,8 +2,7 @@
 # Install with: pip install pre-commit && pre-commit install
 # Run manually: pre-commit run --all-files
 
-# Disabled during rebase to avoid conflicts
-default_install_hook_types: []
+
 
 repos:
   # Rust formatting and linting
