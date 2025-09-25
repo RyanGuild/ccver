@@ -16,12 +16,11 @@ COMMIT_MESSAGE=""
 # Try to get commit message from various sources
 if [ ! -z "$1" ]; then
     # If message passed as argument, use it
+    echo "Using commit message from argument: $1"
     COMMIT_MESSAGE="$1"
 elif [ -f ".git/COMMIT_EDITMSG" ]; then
+    echo "Using commit message from .git/COMMIT_EDITMSG"
     COMMIT_MESSAGE=$(cat .git/COMMIT_EDITMSG | head -n 1)
-else
-    # Fallback: try to get from git log if available
-    COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s" 2>/dev/null || echo "chore: update version")
 fi
 
 if [ -z "$COMMIT_MESSAGE" ]; then
