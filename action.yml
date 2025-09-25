@@ -41,4 +41,3 @@ runs:
     INPUT_NO_PRE: ${{ inputs.no-pre }}
     INPUT_CI: ${{ inputs.ci }}
     INPUT_COMMAND: ${{ inputs.command }}
-  entrypoint: '/entrypoint.sh'

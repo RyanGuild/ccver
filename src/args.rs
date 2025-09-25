@@ -66,3 +66,15 @@ pub enum CCVerSubCommand {
     #[command(about = "Print the git format string")]
     GitFormat,
 }
+
+impl From<&str> for CCVerSubCommand {
+    fn from(command: &str) -> Self {
+        match command {
+            "install" => CCVerSubCommand::Install(InstallArgs {}),
+            "tag" => CCVerSubCommand::Tag(TagArgs {}),
+            "changelog" => CCVerSubCommand::ChangeLog,
+            "git-format" => CCVerSubCommand::GitFormat,
+            _ => panic!("Invalid command: {}", command),
+        }
+    }
+}

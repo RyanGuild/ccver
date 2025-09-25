@@ -54,14 +54,50 @@ use version_map::VersionMap;
 fn main() -> Result<()> {
     git_installed()?;
 
-    let args = CCVerArgs::parse();
-    let path = args.path.map_or(
-        current_dir().expect("could not get current dir"),
-        PathBuf::from,
-    );
+    let parsed_args = CCVerArgs::parse();
+    let command = match parsed_args.command {
+        Some(command) => Some(command),
+        None => match std::env::var("INPUT_COMMAND") {
+            std::result::Result::Ok(command) => Some(CCVerSubCommand::from(command.as_str())),
+            Err(_) => None,
+        },
+    };
+
+    let no_pre = match parsed_args.no_pre {
+        true => true,
+        false => match std::env::var("INPUT_NO_PRE") {
+            std::result::Result::Ok(no_pre) => no_pre != "0" && no_pre != "false",
+            Err(_) => false,
+        },
+    };
+
+    let ci = match parsed_args.ci {
+        true => true,
+        false => match std::env::var("INPUT_CI") {
+            std::result::Result::Ok(ci) => ci != "0" && ci != "false",
+            Err(_) => false,
+        },
+    };
+
+    let format = match parsed_args.format {
+        Some(format) => Some(format),
+        None => match std::env::var("INPUT_FORMAT") {
+            std::result::Result::Ok(format) => Some(format),
+            Err(_) => None,
+        },
+    };
+
+    let path = match parsed_args.path {
+        Some(path) => PathBuf::from(path),
+        None => match std::env::var("INPUT_PATH") {
+            std::result::Result::Ok(path) => PathBuf::from(path),
+            Err(_) => current_dir().expect("could not get current dir"),
+        },
+    };
+
     let mut stdin_string = String::new();
 
-    let logs = if args.raw {
+    let logs = if parsed_args.raw {
         std::io::stdin().read_to_string(&mut stdin_string)?;
         Logs::from_str(&stdin_string)?
     } else {
@@ -70,7 +106,7 @@ fn main() -> Result<()> {
 
     let graph = CommitGraph::new(&logs)?;
 
-    let version_format = if let Some(format_str) = args.format {
+    let version_format = if let Some(format_str) = format {
         parser::parse_version_format(&format_str, &graph)?
     } else {
         VersionFormat::default()
@@ -78,11 +114,11 @@ fn main() -> Result<()> {
 
     let version_map = VersionMap::new(&graph, &version_format)?;
 
-    let stdout = match args.command {
+    let stdout = match command {
         None => {
             let ver = match is_dirty(&path) {
                 Err(e) => {
-                    if args.ci {
+                    if ci {
                         Err(e)
                     } else {
                         Ok(version_map
@@ -96,7 +132,7 @@ fn main() -> Result<()> {
                     .ok_or_eyre(eyre!("No version found"))
                     .cloned(),
             }?;
-            if args.no_pre {
+            if no_pre {
                 format!("{}", ver.release(graph.head(), &version_format))
             } else {
                 format!("{}", ver)
