@@ -17,8 +17,9 @@ if [ -z "$NEW_VERSION_WITH_V" ]; then
     exit 0
 fi
 
-# Strip the 'v' prefix
+# Strip the 'v' prefix and any build metadata (commit hash)
 NEW_VERSION=${NEW_VERSION_WITH_V#v}
+NEW_VERSION=${NEW_VERSION%+*}
 
 # Get current version from Cargo.toml
 CURRENT_VERSION=$(grep "^version" Cargo.toml | cut -d'"' -f2)
