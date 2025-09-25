@@ -40,7 +40,7 @@ RUN chmod +x /entrypoint.sh
 WORKDIR /github/workspace
 
 # Set the entrypoint to the ccver binary (can be overridden by action.yml)
-ENTRYPOINT ["/usr/local/bin/ccver"]
+ENTRYPOINT ["ccver"]
 
 # Default command (can be overridden)
 CMD ["--ci"]
