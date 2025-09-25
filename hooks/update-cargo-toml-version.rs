@@ -1,9 +1,9 @@
 use ccver::version_format::VersionFormat;
+use eyre::Result;
 use toml_edit::Document;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
-
-fn main() {
+fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
@@ -22,7 +22,7 @@ fn main() {
     info!("Commit message: {}", commit_message);
 
     let version_format = VersionFormat::default();
-    let next_version = ccver::peek(&cwd, &commit_message, &version_format).unwrap();
+    let next_version = ccver::peek(&cwd, &commit_message, &version_format)?;
 
     let next_version_string = next_version.to_string();
     let next_version_string = next_version_string.strip_prefix("v").unwrap();
@@ -35,4 +35,6 @@ fn main() {
     document["package"]["version"] = toml_edit::value(next_version_string);
 
     std::fs::write(&cargo_toml_path, document.to_string()).unwrap();
+
+    Ok(())
 }

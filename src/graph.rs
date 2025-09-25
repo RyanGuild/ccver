@@ -8,6 +8,7 @@ use tracing::{debug, info, instrument, warn};
 
 use crate::logs::{Decoration, LogEntry, Logs, Tag};
 use crate::parser;
+use crate::pattern_macros::{alpha_branches, beta_branches, rc_branches, release_branches};
 
 pub type PetGraph<'a> = DiGraph<&'a LogEntry<'a>, ()>;
 
@@ -129,7 +130,12 @@ impl CommitGraph<'_> {
                 let node = petgraph[*i];
                 for dec in node.decorations.iter() {
                     match dec {
-                        Decoration::HeadIndicator(_) => return true,
+                        Decoration::HeadIndicator(
+                            release_branches!()
+                            | rc_branches!()
+                            | alpha_branches!()
+                            | beta_branches!(),
+                        ) => return true,
                         _ => continue,
                     };
                 }
