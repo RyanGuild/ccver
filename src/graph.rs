@@ -113,7 +113,7 @@ impl CommitGraph<'_> {
         })
     }
 
-    pub fn get(&self, idx: NodeIndex) -> Option<&LogEntry> {
+    pub fn get(&'_ self, idx: NodeIndex) -> Option<&'_ LogEntry<'_>> {
         Some(self.petgraph[idx])
     }
 
@@ -140,7 +140,7 @@ impl CommitGraph<'_> {
             .ok_or_eyre("could not find commit in commit map")
     }
 
-    pub fn head(&self) -> &LogEntry {
+    pub fn head(&'_ self) -> &'_ LogEntry<'_> {
         self.petgraph[self.head_index]
     }
 
@@ -148,7 +148,7 @@ impl CommitGraph<'_> {
         self.head_index
     }
 
-    pub fn tail(&self) -> &LogEntry {
+    pub fn tail(&'_ self) -> &'_ LogEntry<'_> {
         self.petgraph[self.tail_index]
     }
 
@@ -156,7 +156,7 @@ impl CommitGraph<'_> {
         self.tail_index
     }
 
-    pub fn tag(&self, tag: &str) -> Result<&LogEntry> {
+    pub fn tag(&'_ self, tag: &str) -> Result<&'_ LogEntry<'_>> {
         Ok(self.petgraph[self.tagidx(tag)?])
     }
 
@@ -180,7 +180,7 @@ impl CommitGraph<'_> {
         Err(eyre!("tag not found in history"))
     }
 
-    pub fn branch(&self, branch: &str) -> Result<&LogEntry> {
+    pub fn branch(&'_ self, branch: &str) -> Result<&'_ LogEntry<'_>> {
         Ok(self.petgraph[self.branchidx(branch)?])
     }
 
@@ -204,7 +204,7 @@ impl CommitGraph<'_> {
         Err(eyre!("branch not found in history"))
     }
 
-    pub fn remote(&self, remote: &str, branch: &str) -> Result<&LogEntry> {
+    pub fn remote(&'_ self, remote: &str, branch: &str) -> Result<&'_ LogEntry<'_>> {
         Ok(self.petgraph[self.remoteidx(remote, branch)?])
     }
 
@@ -253,20 +253,20 @@ impl CommitGraph<'_> {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (NodeIndex, &LogEntry)> {
+    pub fn iter(&'_ self) -> impl Iterator<Item = (NodeIndex, &'_ LogEntry<'_>)> {
         self.petgraph
             .node_indices()
             .map(|idx| (idx, self.petgraph[idx]))
     }
 
-    pub fn dfs_postorder_history(&self) -> impl Iterator<Item = (NodeIndex, &LogEntry)> {
+    pub fn dfs_postorder_history(&'_ self) -> impl Iterator<Item = (NodeIndex, &'_ LogEntry<'_>)> {
         let start = self.headidx();
         DfsPostOrder::new(&self.petgraph, start)
             .iter(&self.petgraph)
             .map(|idx| (idx, self.petgraph[idx]))
     }
 
-    pub fn bfs_history(&self) -> impl Iterator<Item = (NodeIndex, &LogEntry)> {
+    pub fn bfs_history(&'_ self) -> impl Iterator<Item = (NodeIndex, &'_ LogEntry<'_>)> {
         let start = self.headidx();
         let graph = &self.petgraph;
         Bfs::new(graph, start)
@@ -274,7 +274,9 @@ impl CommitGraph<'_> {
             .map(|idx| (idx, self.petgraph[idx]))
     }
 
-    pub fn history_windowed_childeren(&self) -> impl Iterator<Item = (&LogEntry, Vec<&LogEntry>)> {
+    pub fn history_windowed_childeren(
+        &'_ self,
+    ) -> impl Iterator<Item = (&'_ LogEntry<'_>, Vec<&'_ LogEntry<'_>>)> {
         let history = self.dfs_postorder_history();
         let mut windows: Vec<(NodeIndex, Vec<NodeIndex>)> = vec![];
 
@@ -294,7 +296,9 @@ impl CommitGraph<'_> {
         })
     }
 
-    pub fn history_windowed_parents(&self) -> impl Iterator<Item = (&LogEntry, Vec<&LogEntry>)> {
+    pub fn history_windowed_parents(
+        &'_ self,
+    ) -> impl Iterator<Item = (&'_ LogEntry<'_>, Vec<&'_ LogEntry<'_>>)> {
         let history = self.dfs_postorder_history();
         let mut windows: Vec<(NodeIndex, Vec<NodeIndex>)> = vec![];
 

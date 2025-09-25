@@ -1,6 +1,5 @@
-#![feature(decl_macro, lock_value_accessors, result_flattening)]
+#![feature(decl_macro, lock_value_accessors)]
 
-use changelog::ChangeLogData;
 /// The main entry point for the `ccver` application.
 ///
 /// This function parses command-line arguments, initializes logging, and
@@ -26,15 +25,6 @@ use changelog::ChangeLogData;
 /// ```sh
 /// ccver --path /path/to/repo --format "vYY.CC.CC-pre.<short-sha>" tag
 /// ```
-use clap::Parser;
-use git::{git_installed, is_dirty};
-use graph::CommitGraph;
-use logs::GIT_FORMAT_ARGS;
-use std::path::PathBuf;
-use std::{env::current_dir, io::Read};
-use version_format::VersionFormat;
-use version_map::VersionMap;
-
 pub mod args;
 pub mod changelog;
 pub mod git;
@@ -46,9 +36,20 @@ pub mod version;
 pub mod version_format;
 pub mod version_map;
 
+use std::env::current_dir;
+use std::io::Read as _;
+use std::path::PathBuf;
+
 use args::*;
+use changelog::ChangeLogData;
+use clap::Parser;
 use eyre::*;
+use git::{git_installed, is_dirty};
+use graph::CommitGraph;
 use logs::Logs;
+use logs::GIT_FORMAT_ARGS;
+use version_format::VersionFormat;
+use version_map::VersionMap;
 
 fn main() -> Result<()> {
     git_installed()?;
@@ -90,7 +91,7 @@ fn main() -> Result<()> {
                             .build(graph.head(), &version_format))
                     }
                 }
-                std::result::Result::Ok(_) => version_map
+                Result::Ok(_) => version_map
                     .get(graph.headidx())
                     .ok_or_eyre(eyre!("No version found"))
                     .map(|v| v.clone()),

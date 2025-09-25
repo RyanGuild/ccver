@@ -80,7 +80,7 @@ impl LogEntry<'_> {
 pub struct Logs<'a>(&'a [LogEntry<'a>]);
 
 impl Logs<'_> {
-    pub fn iter(&self) -> impl Iterator<Item = &LogEntry> {
+    pub fn iter(&'_ self) -> impl Iterator<Item = &'_ LogEntry<'_>> {
         self.0.into_iter()
     }
 }

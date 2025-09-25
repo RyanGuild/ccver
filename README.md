@@ -49,3 +49,43 @@ CCVer is a command-line tool designed for automating version management in git r
 
 This tool is ideal for projects that want to maintain a clear commit history and manage releases automatically, all while ensuring that commit messages and version tags meet established conventions.
 
+## Installation & Usage
+
+### Local Installation
+
+```bash
+# Install from source
+git clone https://github.com/your-username/ccver.git
+cd ccver
+cargo install --path .
+```
+
+### Docker Usage
+
+```bash
+# Build the Docker image
+docker build -t ccver .
+
+# Run ccver in a container
+docker run --rm -v "$(pwd):/github/workspace" ccver
+```
+
+### GitHub Action Usage
+
+Use CCVer directly in your GitHub workflows:
+
+```yaml
+- name: Get Version
+  id: version
+  uses: your-username/ccver@v1
+  with:
+    format: 'v{major}.{minor}.{patch}'
+
+- name: Create Release
+  uses: actions/create-release@v1
+  with:
+    tag_name: ${{ steps.version.outputs.version }}
+```
+
+For detailed Docker and GitHub Action usage instructions, see [README-docker.md](README-docker.md).
+

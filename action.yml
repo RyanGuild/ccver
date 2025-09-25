@@ -1,0 +1,44 @@
+name: 'CCVer - Conventional Commits Versioning'
+description: 'A zero dependency tool for conventional commits and semantic versioning'
+author: 'Ryan Guild'
+
+branding:
+  icon: 'tag'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Path to the git repository'
+    required: false
+    default: '.'
+  format:
+    description: 'Version format string (e.g., "vYY.CC.CC-pre.<short-sha>")'
+    required: false
+  no-pre:
+    description: 'Exclude pre-release identifiers from version output'
+    required: false
+    default: 'false'
+  ci:
+    description: 'Throw an error if the repository is dirty'
+    required: false
+    default: 'true'
+  command:
+    description: 'CCVer subcommand to run (changelog, git-format, etc.)'
+    required: false
+
+outputs:
+  version:
+    description: 'The computed version string'
+  changelog:
+    description: 'Generated changelog (when command=changelog)'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    INPUT_PATH: ${{ inputs.path }}
+    INPUT_FORMAT: ${{ inputs.format }}
+    INPUT_NO_PRE: ${{ inputs.no-pre }}
+    INPUT_CI: ${{ inputs.ci }}
+    INPUT_COMMAND: ${{ inputs.command }}
+  entrypoint: '/entrypoint.sh'

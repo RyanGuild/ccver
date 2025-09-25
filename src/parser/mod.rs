@@ -16,7 +16,7 @@ use grammar::Rule;
 
 mod interpreter;
 
-pub fn parse_log(log: &str) -> InterpreterResult<Logs> {
+pub fn parse_log(log: &'_ str) -> InterpreterResult<Logs<'_>> {
     cc_parse!(CCVER_LOG, log)
 }
 

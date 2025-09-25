@@ -1,0 +1,60 @@
+name: Test CCVer Action
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-action:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for ccver to analyze commits
+
+    - name: Test CCVer Action - Get Version
+      id: version
+      uses: ./
+      with:
+        ci: 'false'  # Don't fail if repo is dirty during testing
+
+    - name: Test CCVer Action - Generate Changelog
+      id: changelog
+      uses: ./
+      with:
+        command: 'changelog'
+        ci: 'false'
+
+    - name: Test CCVer Action - Custom Format
+      id: custom
+      uses: ./
+      with:
+        format: 'v{major}.{minor}.{patch}'
+        ci: 'false'
+
+    - name: Display Results
+      run: |
+        echo "Default version: ${{ steps.version.outputs.version }}"
+        echo "Custom format version: ${{ steps.custom.outputs.version }}"
+        echo "Changelog:"
+        echo "${{ steps.changelog.outputs.changelog }}"
+
+  test-docker:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Build Docker Image
+      run: docker build -t ccver-test .
+
+    - name: Test Docker Image - Version
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ccver-test --help
+
+    - name: Test Docker Image - Get Version
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ccver-test
