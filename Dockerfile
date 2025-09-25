@@ -26,14 +26,18 @@ COPY hooks ./hooks
 # Build the application in release mode
 RUN cargo build --release
 
-# Start a new stage for the final image
-FROM alpine:latest
+RUN ls -la /usr/src/app/target/release
 
-# Install git (Alpine doesn't include git by default)
-RUN apk add --no-cache git
+# Start a new stage for the final image
+FROM ubuntu:latest AS runner
+
+# Install git (Ubuntu doesn't include git by default)
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /usr/src/app/target/release/ccver /usr/local/bin/ccver
+COPY --from=builder /usr/src/app/target/release/ccver /ccver
+
+RUN ls -la /
 
 ENV PATH="/usr/local/bin:${PATH}"
 
@@ -41,8 +45,6 @@ ENV PATH="/usr/local/bin:${PATH}"
 # Set the working directory to the workspace
 WORKDIR /github/workspace
 
-# Set the entrypoint to the ccver binary (can be overridden by action.yml)
-ENTRYPOINT ["ccver"]
 
-# Default command (can be overridden)
-CMD ["--ci"]
+# Set the entrypoint to the ccver binary (can be overridden by action.yml)
+ENTRYPOINT ["/ccver"]
