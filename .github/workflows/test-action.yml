@@ -3,13 +3,14 @@ name: Test CCVer Action on Docker Image
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [.github/workflows/docker.yml]
+    workflows: ["Build and Push Docker Image"]
     types: [completed]
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   test-action:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     steps:
     - name: Test CCVer Action - Get Version
       id: version
@@ -40,6 +41,7 @@ jobs:
 
   test-docker:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     steps:
     - name: Login to GHCR.io
       uses: docker/login-action@v3
@@ -48,13 +50,13 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Pull Docker Image
-      run: docker pull ghcr.io/ryanguild/ccver:${{ github.ref_name}}
+      run: docker pull ghcr.io/ryanguild/ccver:${{ github.ref_name }}
 
     - name: Test Docker Image - HELP
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name}} --help
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} --help
 
     - name: Test Docker Image - CHANGELOG
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name}} changelog
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} changelog
 
     - name: Test Docker Image - Version
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name}}
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }}
