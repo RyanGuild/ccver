@@ -32,6 +32,8 @@ RUN apk add --no-cache git
 # Copy the compiled binary from the builder stage
 COPY --from=builder /usr/src/app/target/release/ccver /usr/local/bin/ccver
 
+ENV PATH="/usr/local/bin:${PATH}"
+
 # Copy the entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
