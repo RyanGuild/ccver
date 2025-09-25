@@ -32,8 +32,8 @@ repos:
         description: Update version in Cargo.toml using ccver
         entry: ./scripts/update-version.sh
         language: system
-        files: (\.rs$|Cargo\.toml$)
         pass_filenames: false
+        always_run: true
 
   # Additional useful hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
