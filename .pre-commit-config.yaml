@@ -30,7 +30,7 @@ repos:
       - id: update-cargo-version
         name: Update Cargo.toml version
         description: Update version in Cargo.toml using ccver
-        entry: ./scripts/update-version.sh
+        entry: bash -c 'if [ -f .git/COMMIT_EDITMSG ]; then MSG=$(head -n 1 .git/COMMIT_EDITMSG); ./scripts/update-version.sh "$MSG"; else ./scripts/update-version.sh; fi'
         language: system
         pass_filenames: false
         always_run: true
