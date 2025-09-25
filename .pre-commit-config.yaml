@@ -53,9 +53,10 @@ repos:
       - id: check-toml
       # Trim trailing whitespace
       - id: trailing-whitespace
-        exclude: \.md$
+        exclude: \.(md|log)$
       # Ensure files end with newline
       - id: end-of-file-fixer
+        exclude: \.(log|map)$
       # Check for large files
       - id: check-added-large-files
         args: ['--maxkb=1000']
