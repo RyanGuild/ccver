@@ -63,9 +63,10 @@ impl LogEntry<'_> {
     pub fn tagged_version(&self) -> Option<Version> {
         for decoration in self.decorations.iter() {
             if let Decoration::Tag(tag) = decoration
-                && let Tag::Version(version) = tag {
-                    return Some(version.clone());
-                }
+                && let Tag::Version(version) = tag
+            {
+                return Some(version.clone());
+            }
         }
         None
     }
