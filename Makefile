@@ -36,11 +36,4 @@ install-hooks: ## Install pre-commit hooks (requires pre-commit to be installed)
 check: fmt clippy test ## Run format, clippy, and tests (same as pre-commit)
 
 update-version: ## Update version in Cargo.toml using ccver
-	@NEW_VERSION=$$(cargo run --quiet -- --format "{major}.{minor}.{patch}"); \
-	if [ "$$NEW_VERSION" != "" ] && [ "$$NEW_VERSION" != "$$(grep "^version" Cargo.toml | cut -d'"' -f2)" ]; then \
-		sed -i.bak "s/^version = \".*\"/version = \"$$NEW_VERSION\"/" Cargo.toml && \
-		rm -f Cargo.toml.bak && \
-		echo "Updated version to $$NEW_VERSION"; \
-	else \
-		echo "Version is up to date"; \
-	fi
+	@./scripts/update-version.sh

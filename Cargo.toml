@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.14.13"
+version = "2.14.14"
 edition = "2024"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 license-file = "LICENSE"

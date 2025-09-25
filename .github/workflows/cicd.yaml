@@ -38,4 +38,3 @@ jobs:
     if: ${{!contains(needs.selftag.outputs.version, '-')}}
     with:
       tag: ${{ needs.selftag.outputs.version }}
-

@@ -36,7 +36,7 @@ BRANCH_DEC = { SCOPE }
 SHA = @{ ('0'..'9' | 'a'..'f'){40} }
 SHORT_SHA = @{('0'..'9' | 'a'..'f'){7}}
 
-ISO8601_DATE = @{ 
+ISO8601_DATE = @{
     YEAR ~ "-" ~ MONTH ~ "-" ~ DAY ~ "T" ~ HOUR ~ ":" ~ MINUTE ~ ":" ~ SECOND ~ TIMEZONE
 }
 
@@ -98,13 +98,13 @@ NAMED_PRE_TAG = {("-" ~ NAME ~ "." ~ VERSION_NUMBER)}
 SHA_PRE_TAG = { "+" ~ (SHA | SHORT_SHA) }
 
 
-CCVER_VERSION_FORMAT = { 
-    V_PREFIX 
-    ~ VERSION_NUMBER_FORMAT 
-    ~ "." 
-    ~ VERSION_NUMBER_FORMAT 
-    ~ "." 
-    ~ VERSION_NUMBER_FORMAT 
+CCVER_VERSION_FORMAT = {
+    V_PREFIX
+    ~ VERSION_NUMBER_FORMAT
+    ~ "."
+    ~ VERSION_NUMBER_FORMAT
+    ~ "."
+    ~ VERSION_NUMBER_FORMAT
     ~ PRE_TAG_FORMAT?
 }
 
@@ -160,4 +160,3 @@ DOY_SEGMENT_FORMAT = @{ "DDD" }
 HOUR_SEGMENT_FORMAT = @{ "hh" }
 MINUTE_SEGMENT_FORMAT = @{ "mm" }
 SECOND_SEGMENT_FORMAT = @{ "ss" }
-

@@ -1,7 +1,7 @@
 name: Create Release
 
 on:
-  workflow_call: 
+  workflow_call:
     inputs:
       tag:
         description: 'The tag to use for the release'

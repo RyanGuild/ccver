@@ -1,6 +1,6 @@
 name: Prebuild
 
-on: 
+on:
   workflow_call: {}
 
 permissions:

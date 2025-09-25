@@ -3,13 +3,13 @@ name: Auto Tag
 on:
   workflow_call:
     outputs:
-      version: 
+      version:
         value: ${{ jobs.tag.outputs.version }}
         description: 'The version of the source code'
 
 concurrency: tags
 
-permissions: 
+permissions:
   contents: write
 
 jobs:
@@ -21,14 +21,14 @@ jobs:
 
     outputs:
       version: ${{ steps.get_version.outputs.version }}
-    
+
     steps:
     - uses: actions/checkout@v4
       with:
         ref: ${{ github.ref_name }}
         fetch-depth: 0
         fetch-tags: true
-    
+
     - name: Get Rust Cache
       uses: ./.github/actions/rust_depcache
       with:
@@ -40,7 +40,7 @@ jobs:
       run: |
         git status
         git diff --exit-code
-    
+
     - name: Get Version
       id: get_version
       run: |
@@ -53,26 +53,26 @@ jobs:
       run: |
         git status
         git diff --exit-code
-    
+
     - name: Get ChangeLog
       id: get_changelog
       run: |
         # Get the changelog
         CHANGELOG=$(cargo run -- change-log | tr -d '\n')
         echo "changelog=$CHANGELOG" >> "$GITHUB_OUTPUT"
-    
+
     - name: Create and Push Tag
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         VERSION="${{ steps.get_version.outputs.version }}"
         CHANGELOG="${{ steps.get_changelog.outputs.changelog }}"
-        
+
         # Check if tag already exists
         if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
+
           echo "Creating new tag $VERSION"
           git tag -a "$VERSION" -m "$CHANGELOG"
           git push origin "$VERSION"

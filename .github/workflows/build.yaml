@@ -1,7 +1,7 @@
 name: Build
 
 on:
-  workflow_call: 
+  workflow_call:
     secrets:
       APPLE_CERTIFICATE_DATA:
         description: 'The certificate data for signing the macOS binary'
@@ -14,7 +14,7 @@ on:
         required: true
   workflow_dispatch: {}
 
-permissions: 
+permissions:
   id-token: write
   attestations: write
 
@@ -56,7 +56,7 @@ jobs:
         with:
           runner: ${{ matrix.target.runner }}
           arch: ${{ matrix.target.arch }}
-          rust: ${{ matrix.rust }} 
+          rust: ${{ matrix.rust }}
 
       - name: Build target
         run: cargo build --release --target ${{ matrix.target.arch }}
@@ -90,5 +90,3 @@ jobs:
         with:
           name: ${{ matrix.target.artifact_name }}
           path: ${{ matrix.target.artifact_name }}
-
-
