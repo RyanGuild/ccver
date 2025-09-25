@@ -1,5 +1,5 @@
 # Use the official Rust image as the base image
-FROM rust:1.75 as builder
+FROM rust:latest AS builder
 
 # Install git (required for ccver to work)
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
@@ -24,12 +24,10 @@ COPY src ./src
 RUN cargo build --release
 
 # Start a new stage for the final image
-FROM debian:bookworm-slim
+FROM alpine:latest
 
-# Install git and ca-certificates (required for git operations)
-RUN apt-get update && \
-    apt-get install -y git ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+# Install git (Alpine doesn't include git by default)
+RUN apk add --no-cache git
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /usr/src/app/target/release/ccver /usr/local/bin/ccver
@@ -42,7 +40,7 @@ RUN chmod +x /entrypoint.sh
 WORKDIR /github/workspace
 
 # Set the entrypoint to the ccver binary (can be overridden by action.yml)
-ENTRYPOINT ["ccver"]
+ENTRYPOINT ["/usr/local/bin/ccver"]
 
 # Default command (can be overridden)
 CMD ["--help"]
