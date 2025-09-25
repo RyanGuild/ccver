@@ -1,6 +1,7 @@
 name: Test CCVer Action on Docker Image
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: [.github/workflows/docker.yml]
     types: [completed]
