@@ -14,27 +14,17 @@ permissions:
 
 
 jobs:
-  prebuild:
-    name: Prebuild
-    uses: "./.github/workflows/prebuild.yaml"
   build:
     name: Build
-    needs: prebuild
     secrets: inherit
     uses: "./.github/workflows/build.yaml"
-  selftag:
-    name: Version
-    needs: prebuild
-    uses: "./.github/workflows/selftag.yaml"
   test:
     name: Test
-    needs: prebuild
     uses: "./.github/workflows/test.yaml"
   release:
     name: Release
-    needs: [build, selftag, test]
+    needs: [build, test]
     uses: "./.github/workflows/release.yaml"
     secrets: inherit
-    if: ${{!contains(needs.selftag.outputs.version, '-')}}
     with:
-      tag: ${{ needs.selftag.outputs.version }}
+      tag: ${{ github.ref_name }}
