@@ -1,11 +1,12 @@
 [package]
 name = "ccver"
-version = "2.16.3"
+version = "2.16.3+5a37433"
 edition = "2024"
-authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
+authors = ["Ryan Guild <rdg27@pitt.edu>"]
 license-file = "LICENSE"
 description = "a zero dependency tool for Conventional Commits"
 documentation = "https://ryanguild.github.io/ccver/ccver/index.html"
+default-run = "ccver"
 
 [profile.release]
 strip = true
@@ -14,36 +15,41 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 
+[[bin]]
+name = "update-cargo-toml-version"
+path = "hooks/update-cargo-toml-version.rs"
+
 [dev-dependencies]
 indoc = "2"
 
 [dependencies]
+toml_edit = "0.23.6"
 pest_consume = "1.1.3"
 eyre = "0.6.12"
 tracing = "0.1.41"
 tracing-error = "0.2.0"
 
-  [dependencies.chrono]
-  version = "0.4.40"
-  default-features = true
+[dependencies.chrono]
+version = "0.4.40"
+default-features = true
 
-  [dependencies.pest_derive]
-  version = "2.7.15"
-  default-features = false
+[dependencies.pest_derive]
+version = "2.7.15"
+default-features = false
 
-  [dependencies.pest]
-  version = "2.7.15"
-  default-features = false
+[dependencies.pest]
+version = "2.7.15"
+default-features = false
 
-  [dependencies.clap]
-  version = "4.5.31"
-  features = [ "derive" ]
+[dependencies.clap]
+version = "4.5.31"
+features = ["derive"]
 
-  [dependencies.petgraph]
-  version = "0.8.2"
-  features = [ "graphmap" ]
-  default-features = false
+[dependencies.petgraph]
+version = "0.8.2"
+features = ["graphmap"]
+default-features = false
 
-  [dependencies.tracing-subscriber]
-  version = "0.3.20"
-  features = [ "env-filter" ]
+[dependencies.tracing-subscriber]
+version = "0.3.20"
+features = ["env-filter"]

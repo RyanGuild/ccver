@@ -3,6 +3,7 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
 use crate::logs::{Decoration, LogEntry, Logs, Tag};
@@ -70,7 +71,7 @@ impl<'a> CommitGraph<'a> {
             commit_timezone: chrono::Utc,
             commit_datetime: chrono::Utc::now(),
             parent_hashes: vec![head.commit_hash].into(),
-            decorations: head.decorations.clone(),
+            decorations: Arc::new([Decoration::HeadIndicator(head.branch)]),
             subject,
             footers: head.footers.clone(),
         })));

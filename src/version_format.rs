@@ -1,4 +1,7 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    fmt::{Display, Formatter},
+};
 
 #[derive(Debug, Clone)]
 pub struct VersionFormat<'ctx> {
@@ -155,6 +158,30 @@ pub enum PreTagFormat<'ctx> {
     ShortSha(&'ctx CommitGraph<'ctx>, VersionNumberFormat),
 }
 
+impl Display for PreTagFormat<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PreTagFormat::Rc(vf) => write!(f, "rc.{}", vf),
+            PreTagFormat::Beta(vf) => write!(f, "beta.{}", vf),
+            PreTagFormat::Alpha(version_number_format) => {
+                write!(f, "alpha.{}", version_number_format)
+            }
+            PreTagFormat::Build(version_number_format) => {
+                write!(f, "build.{}", version_number_format)
+            }
+            PreTagFormat::Named(name, version_number_format) => {
+                write!(f, "{}.{}", name, version_number_format)
+            }
+            PreTagFormat::Sha(_, version_number_format) => {
+                write!(f, "+{}", version_number_format)
+            }
+            PreTagFormat::ShortSha(_, version_number_format) => {
+                write!(f, "+{}", version_number_format)
+            }
+        }
+    }
+}
+
 impl Default for PreTagFormat<'_> {
     fn default() -> Self {
         PreTagFormat::Build(VersionNumberFormat::CCVer)
@@ -237,6 +264,49 @@ impl VersionNumberFormat {
             }
             VersionNumberFormat::Sha => VersionNumber::Sha(data.to_string()),
             VersionNumberFormat::ShortSha => VersionNumber::ShortSha(data.to_string()),
+        }
+    }
+}
+
+impl Display for VersionFormat<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let pre = match &self.prerelease {
+            Some(pre) => pre,
+            None => &PreTagFormat::default(),
+        };
+
+        write!(f, "{}.{}.{}-{}", self.major, self.minor, self.patch, pre)
+    }
+}
+
+impl Display for VersionNumberFormat {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            VersionNumberFormat::CCVer => write!(f, "CC"),
+            VersionNumberFormat::CalVer(format) => {
+                for seg in format.iter() {
+                    write!(f, "{}", seg)?;
+                }
+                std::fmt::Result::Ok(())
+            }
+            VersionNumberFormat::Sha => write!(f, "<sha>"),
+            VersionNumberFormat::ShortSha => write!(f, "<short-sha>"),
+        }
+    }
+}
+
+impl Display for CalVerFormatSegment {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            Year4 => write!(f, "YYYY"),
+            Year2 => write!(f, "YY"),
+            Epoch => write!(f, "E"),
+            Month => write!(f, "MM"),
+            Day => write!(f, "DD"),
+            DayOfYear => write!(f, "DDD"),
+            Hour => write!(f, "hh"),
+            Minute => write!(f, "mm"),
+            Second => write!(f, "ss"),
         }
     }
 }

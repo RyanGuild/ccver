@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use petgraph::graph::NodeIndex;
-use tracing::{debug, info, info_span, instrument, warn};
+use tracing::{Level, debug, info, info_span, instrument, span, warn};
 
 use crate::{
     graph::CommitGraph,
@@ -19,8 +19,9 @@ use eyre::Result;
 pub struct VersionMap(HashMap<NodeIndex, Version>);
 
 impl VersionMap {
-    #[instrument(skip(graph), name = "VersionMap::new")]
+    #[instrument(skip_all, name = "VersionMap::new")]
     pub fn new(graph: &CommitGraph, version_format: &VersionFormat) -> Result<VersionMap> {
+        let _span = span!(Level::INFO, "format", format = %version_format.clone()).entered();
         let start = std::time::Instant::now();
         let node_count = graph.node_count();
         info!(node_count = node_count, "Creating new version map");
