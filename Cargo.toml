@@ -20,11 +20,30 @@ indoc = "2"
 [dependencies]
 pest_consume = "1.1.3"
 eyre = "0.6.12"
-chrono = { version = "0.4.40", default-features = true }
-pest_derive = { version = "2.7.15", default-features = false }
-pest = { version = "2.7.15", default-features = false }
-clap = { version = "4.5.31", features = [ "derive" ] }
-petgraph = { version = "0.8.2", features = [ "graphmap" ], default-features = false }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tracing-error = "0.2.0"
+
+  [dependencies.chrono]
+  version = "0.4.40"
+  default-features = true
+
+  [dependencies.pest_derive]
+  version = "2.7.15"
+  default-features = false
+
+  [dependencies.pest]
+  version = "2.7.15"
+  default-features = false
+
+  [dependencies.clap]
+  version = "4.5.31"
+  features = [ "derive" ]
+
+  [dependencies.petgraph]
+  version = "0.8.2"
+  features = [ "graphmap" ]
+  default-features = false
+
+  [dependencies.tracing-subscriber]
+  version = "0.3.20"
+  features = [ "env-filter" ]
