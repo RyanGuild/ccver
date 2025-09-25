@@ -6,6 +6,7 @@ use crate::version_format::VersionFormat;
 use eyre::*;
 use std::sync::Arc;
 use std::{env::current_dir, path::Path};
+use tracing::{debug, info, instrument};
 
 #[derive(Debug)]
 pub enum Decoration<'a> {
@@ -15,7 +16,7 @@ pub enum Decoration<'a> {
     Branch(&'a str),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConventionalSubject<'a> {
     pub commit_type: &'a str,
     pub breaking: bool,
@@ -23,7 +24,7 @@ pub struct ConventionalSubject<'a> {
     pub description: &'a str,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Subject<'a> {
     Conventional(ConventionalSubject<'a>),
     Text(&'a str),
@@ -46,7 +47,7 @@ pub enum Tag<'input> {
     Version(Version),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LogEntry<'a> {
     pub name: &'a str,
     pub branch: &'a str,
@@ -77,7 +78,7 @@ impl LogEntry<'_> {
 }
 
 #[derive(Debug)]
-pub struct Logs<'a>(&'a [LogEntry<'a>]);
+pub struct Logs<'a>(Vec<LogEntry<'a>>);
 
 impl Logs<'_> {
     pub fn iter(&'_ self) -> impl Iterator<Item = &'_ LogEntry<'_>> {
@@ -88,7 +89,7 @@ impl Logs<'_> {
 impl<'a> FromIterator<LogEntry<'a>> for Logs<'a> {
     fn from_iter<T: IntoIterator<Item = LogEntry<'a>>>(iter: T) -> Self {
         let entries: Vec<LogEntry<'a>> = iter.into_iter().collect();
-        Logs(entries.leak())
+        Logs(entries)
     }
 }
 
@@ -101,13 +102,29 @@ pub const GIT_FORMAT_ARGS: [&str; 5] = [
 ];
 
 impl Logs<'_> {
+    #[instrument(skip(raw))]
     pub fn from_str<'a>(raw: &'a str) -> Result<Logs<'a>> {
-        Ok(parse_log(raw)?)
+        debug!("Parsing logs from string ({} chars)", raw.len());
+        let logs = parse_log(raw)?;
+        info!("Successfully parsed logs");
+        Ok(logs)
     }
 
+    #[instrument]
     pub fn from_path(path: &Path) -> Result<Logs<'static>> {
+        info!("Loading logs from path: {:?}", path);
         let raw = git::formatted_logs(path)?;
         Logs::from_str(raw)
+    }
+}
+
+impl<'a> Logs<'a> {
+    pub fn with_additional_log_entry<'b: 'a>(&self, log: LogEntry<'b>) -> Logs<'a> {
+        let mut next_logs = self.0.clone();
+
+        next_logs.push(log);
+
+        Logs(next_logs)
     }
 }
 

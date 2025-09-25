@@ -2,6 +2,7 @@ use core::str;
 use interpreter::InterpreterResult;
 
 use crate::graph::CommitGraph;
+use crate::logs::Subject;
 use crate::{logs::Logs, version::Version, version_format::VersionFormat};
 
 #[cfg(test)]
@@ -29,4 +30,8 @@ pub fn parse_version_format<'graph>(
 
 pub fn parse_version(version: &str, format: VersionFormat) -> InterpreterResult<Version> {
     cc_parse_with_data!(CCVER_VERSION, version, format)
+}
+
+pub fn parse_subject(subject: &'_ str) -> InterpreterResult<Subject<'_>> {
+    cc_parse!(SUBJECT, subject)
 }

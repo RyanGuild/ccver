@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use petgraph::graph::NodeIndex;
+use tracing::{debug, info, info_span, instrument, warn};
 
 use crate::{
     graph::CommitGraph,
@@ -18,17 +19,28 @@ use eyre::Result;
 pub struct VersionMap(HashMap<NodeIndex, Version>);
 
 impl VersionMap {
+    #[instrument(skip(graph), name = "VersionMap::new")]
     pub fn new(graph: &CommitGraph, version_format: &VersionFormat) -> Result<VersionMap> {
+        let start = std::time::Instant::now();
+        let node_count = graph.node_count();
+        info!(node_count = node_count, "Creating new version map");
         let mut map: HashMap<NodeIndex, Version> = HashMap::new();
 
         let tailidx = graph.tailidx();
         let tail = graph.tail();
         let initial_version = version_format.as_default_version(tail);
+        debug!("Initial version: {}", initial_version);
         map.insert(tailidx, initial_version);
+
+        let graph_len = graph.node_count();
+        let mut seen = std::collections::HashSet::new();
 
         let results = graph
             .dfs_postorder_history()
             .map(|(idx, commit)| {
+                let _debug_span = info_span!("dfs_postorder_history", idx = ?idx).entered();
+                info!("Processing commit: {:?}", commit);
+                seen.insert(idx);
                 let tagged = commit.tagged_version();
                 if let Some(tagged) = tagged {
                     map.insert(idx, tagged);
@@ -150,22 +162,50 @@ impl VersionMap {
             })
             .collect::<Vec<Result<()>>>();
 
-        results
-            .iter()
-            .filter_map(|r| r.as_ref().err())
-            .for_each(|e| eprintln!("{}", e));
+        assert_eq!(
+            seen.len(),
+            graph_len,
+            "Seen nodes should be equal to graph nodes"
+        );
 
+        let error_count = results.iter().filter_map(|r| r.as_ref().err()).count();
+
+        if error_count > 0 {
+            warn!("Version map creation had {} errors", error_count);
+            results
+                .iter()
+                .filter_map(|r| r.as_ref().err())
+                .for_each(|e| warn!("Version map error: {}", e));
+        }
+
+        let duration = start.elapsed();
+        info!(
+            duration_ms = duration.as_millis(),
+            map_entries = map.len(),
+            "Version map created successfully"
+        );
+        debug!(
+            "Version map created with {} entries in {:?}",
+            map.len(),
+            duration
+        );
         Ok(Self(map))
     }
 
+    #[instrument(skip(self))]
     pub fn get(&self, idx: NodeIndex) -> Option<&Version> {
-        self.0.get(&idx)
+        let version = self.0.get(&idx);
+        debug!(idx = ?idx, version = ?version, "Retrieved version for index");
+        version
     }
 
+    #[instrument(skip(self))]
     pub fn set(&mut self, idx: NodeIndex, version: Version) {
+        debug!(idx = ?idx, version = %version, "Setting version for index");
         self.0.insert(idx, version);
     }
 
+    #[instrument(skip(self))]
     pub fn get_key(&self, version: &Version) -> Option<NodeIndex> {
         self.0
             .iter()

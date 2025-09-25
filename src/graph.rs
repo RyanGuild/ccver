@@ -3,8 +3,10 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use tracing::{debug, info, instrument, warn};
 
 use crate::logs::{Decoration, LogEntry, Logs, Tag};
+use crate::parser;
 
 pub type PetGraph<'a> = DiGraph<&'a LogEntry<'a>, ()>;
 
@@ -51,11 +53,50 @@ impl Locations<'_> {
     }
 }
 
+impl<'a> CommitGraph<'a> {
+    #[instrument]
+    pub fn peek(&'a self, message: &'a str) -> Result<CommitGraph<'a>> {
+        let first_line = message.split('\n').next().unwrap();
+        let subject = parser::parse_subject(first_line)?;
+        let head = self.head();
+
+        let mut petgraph: petgraph::Graph<&LogEntry<'a>, ()> = self.petgraph.clone();
+        let mut commit_to_index: HashMap<&str, NodeIndex> = self.commit_to_index.clone();
+        // Intentionally leaking this reference as this code path is deterministic and will end affter the peak
+        let next_index = petgraph.add_node(Box::<LogEntry<'_>>::leak(Box::new(LogEntry {
+            name: "peek-next-commit",
+            branch: head.branch,
+            commit_hash: "0000000000000000000000000000000000000000",
+            commit_timezone: chrono::Utc,
+            commit_datetime: chrono::Utc::now(),
+            parent_hashes: vec![head.commit_hash].into(),
+            decorations: head.decorations.clone(),
+            subject,
+            footers: head.footers.clone(),
+        })));
+        petgraph.add_edge(next_index, self.head_index, ());
+        commit_to_index.insert("0000000000000000000000000000000000000000", next_index);
+
+        let result = CommitGraph {
+            petgraph,
+            head_index: next_index,
+            tail_index: self.tail_index,
+            commit_to_index,
+        };
+
+        Ok(result)
+    }
+}
+
 impl CommitGraph<'_> {
+    #[instrument(skip(logs))]
     pub fn new<'a, 'b>(logs: &'a Logs<'b>) -> Result<CommitGraph<'b>>
     where
         'a: 'b,
     {
+        let start = std::time::Instant::now();
+        let log_count = logs.iter().count();
+        info!(log_count = log_count, "Building commit graph from logs");
         let mut petgraph: petgraph::Graph<&'b LogEntry<'b>, ()> = DiGraph::new();
         let commit_to_index: HashMap<&str, NodeIndex> = logs
             .iter()
@@ -105,16 +146,39 @@ impl CommitGraph<'_> {
             .next()
             .ok_or_eyre("could not find initial commit circular history or no commits detected")?;
 
-        Ok(CommitGraph {
+        let graph = CommitGraph {
             petgraph,
             head_index,
             tail_index,
             commit_to_index,
-        })
+        };
+
+        let duration = start.elapsed();
+        info!(
+            duration_ms = duration.as_millis(),
+            node_count = graph.node_count(),
+            edge_count = graph.edge_count(),
+            "Commit graph built successfully"
+        );
+        debug!(
+            "Commit graph built with {} nodes and {} edges in {:?}",
+            graph.node_count(),
+            graph.edge_count(),
+            duration
+        );
+        Ok(graph)
     }
 
     pub fn get(&'_ self, idx: NodeIndex) -> Option<&'_ LogEntry<'_>> {
         Some(self.petgraph[idx])
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.petgraph.node_count()
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.petgraph.edge_count()
     }
 
     pub fn parents(&self, idx: NodeIndex) -> Vec<NodeIndex> {
@@ -204,6 +268,18 @@ impl CommitGraph<'_> {
         Err(eyre!("branch not found in history"))
     }
 
+    pub fn append_commit_to_head(&mut self, commit: &'static LogEntry<'static>) -> Result<()> {
+        let new_head_index = self.petgraph.add_node(commit);
+        let old_head_index = self.head_index;
+        // set the head index to the new commit
+        self.head_index = new_head_index;
+
+        // set an edge from the old head to the new head
+        self.petgraph.add_edge(old_head_index, new_head_index, ());
+
+        Ok(())
+    }
+
     pub fn remote(&'_ self, remote: &str, branch: &str) -> Result<&'_ LogEntry<'_>> {
         Ok(self.petgraph[self.remoteidx(remote, branch)?])
     }
@@ -259,6 +335,7 @@ impl CommitGraph<'_> {
             .map(|idx| (idx, self.petgraph[idx]))
     }
 
+    #[instrument(skip(self))]
     pub fn dfs_postorder_history(&'_ self) -> impl Iterator<Item = (NodeIndex, &'_ LogEntry<'_>)> {
         let start = self.headidx();
         DfsPostOrder::new(&self.petgraph, start)

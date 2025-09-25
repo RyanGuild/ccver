@@ -48,116 +48,244 @@ use git::{git_installed, is_dirty};
 use graph::CommitGraph;
 use logs::GIT_FORMAT_ARGS;
 use logs::Logs;
+use tracing::{Level, debug, error, info, instrument, span, warn};
+use tracing_error::ErrorLayer;
+use tracing_subscriber::Layer as _;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use version_format::VersionFormat;
 use version_map::VersionMap;
 
+#[instrument]
 fn main() -> Result<()> {
-    git_installed()?;
+    tracing_subscriber::registry()
+        .with(ErrorLayer::default())
+        .with(
+            fmt::layer()
+                .with_file(true)
+                .with_line_number(true)
+                .with_filter(tracing_subscriber::EnvFilter::from_default_env()),
+        )
+        .init();
+
+    let _main_span = span!(Level::INFO, "ccver_main").entered();
+    info!("Starting ccver application");
+
+    // Check git installation early
+    if let Err(e) = git_installed() {
+        error!(error = %e, "Git installation check failed");
+        return Err(e);
+    }
 
     let parsed_args = CCVerArgs::parse();
+    debug!("Parsed command line arguments: {:?}", parsed_args);
+
     let command = match parsed_args.command {
-        Some(command) => Some(command),
+        Some(command) => {
+            info!("Using command from args: {:?}", command);
+            Some(command)
+        }
         None => match std::env::var("INPUT_COMMAND") {
-            std::result::Result::Ok(command) => Some(CCVerSubCommand::from(command.as_str())),
-            Err(_) => None,
+            std::result::Result::Ok(command) => {
+                info!("Using command from environment: {}", command);
+                Some(CCVerSubCommand::from(command.as_str()))
+            }
+            Err(_) => {
+                debug!("No command specified, will generate version");
+                None
+            }
         },
     };
 
     let no_pre = match parsed_args.no_pre {
-        true => true,
+        true => {
+            info!("Using no pre from args: true");
+            true
+        }
         false => match std::env::var("INPUT_NO_PRE") {
-            std::result::Result::Ok(no_pre) => no_pre != "0" && no_pre != "false",
-            Err(_) => false,
+            std::result::Result::Ok(no_pre) => {
+                info!("Using no pre from environment: {}", no_pre);
+                no_pre != "0" && no_pre != "false"
+            }
+            Err(_) => {
+                info!("Using no pre: false");
+                false
+            }
         },
     };
 
     let ci = match parsed_args.ci {
-        true => true,
+        true => {
+            info!("Using ci from args: true");
+            true
+        }
         false => match std::env::var("INPUT_CI") {
-            std::result::Result::Ok(ci) => ci != "0" && ci != "false",
-            Err(_) => false,
+            std::result::Result::Ok(ci) => {
+                let ci = ci != "0" && ci != "false";
+                info!("Using ci from environment: {}", ci);
+                ci
+            }
+            Err(_) => {
+                info!("Using ci: false");
+                false
+            }
         },
     };
 
     let format = match parsed_args.format {
-        Some(format) => Some(format),
+        Some(format) => {
+            info!("Using format from args: {:?}", format);
+            Some(format)
+        }
         None => match std::env::var("INPUT_FORMAT") {
-            std::result::Result::Ok(format) => Some(format),
-            Err(_) => None,
+            std::result::Result::Ok(format) => {
+                info!("Using format from environment: {}", format);
+                Some(format)
+            }
+            Err(_) => {
+                info!("Using format: none");
+                None
+            }
         },
     };
 
     let path = match parsed_args.path {
-        Some(path) => PathBuf::from(path),
+        Some(path) => {
+            info!("Using path from args: {:?}", path);
+            PathBuf::from(path)
+        }
         None => match std::env::var("INPUT_PATH") {
-            std::result::Result::Ok(path) => PathBuf::from(path),
-            Err(_) => current_dir().expect("could not get current dir"),
+            std::result::Result::Ok(path) => {
+                info!("Using path from environment: {}", path);
+                PathBuf::from(path)
+            }
+            Err(_) => {
+                let current = current_dir().expect("could not get current dir");
+                debug!("Using current directory: {:?}", current);
+                current
+            }
         },
     };
 
     let mut stdin_string = String::new();
 
-    let logs = if parsed_args.raw {
-        std::io::stdin().read_to_string(&mut stdin_string)?;
-        Logs::from_str(&stdin_string)?
-    } else {
-        Logs::from_path(&path)?
-    };
-
-    let graph = CommitGraph::new(&logs)?;
-
-    let version_format = if let Some(format_str) = format {
-        parser::parse_version_format(&format_str, &graph)?
-    } else {
-        VersionFormat::default()
-    };
-
-    let version_map = VersionMap::new(&graph, &version_format)?;
-
-    let stdout = match command {
-        None => {
-            let ver = match is_dirty(&path) {
-                Err(e) => {
-                    if ci {
-                        Err(e)
-                    } else {
-                        Ok(version_map
-                            .get(graph.headidx())
-                            .ok_or_eyre(eyre!("No version found"))?
-                            .build(graph.head(), &version_format))
-                    }
-                }
-                Result::Ok(_) => version_map
-                    .get(graph.headidx())
-                    .ok_or_eyre(eyre!("No version found"))
-                    .cloned(),
-            }?;
-            if no_pre {
-                format!("{}", ver.release(graph.head(), &version_format))
-            } else {
-                format!("{}", ver)
-            }
+    let logs = {
+        let _logs_span = span!(Level::INFO, "load_logs", raw = parsed_args.raw).entered();
+        if parsed_args.raw {
+            info!("Reading logs from stdin");
+            std::io::stdin()
+                .read_to_string(&mut stdin_string)
+                .map_err(|e| {
+                    error!(error = %e, "Failed to read from stdin");
+                    e
+                })?;
+            Logs::from_str(&stdin_string)?
+        } else {
+            info!(path = ?path, "Reading logs from path");
+            Logs::from_path(&path)?
         }
-        Some(command) => match command {
-            CCVerSubCommand::ChangeLog => {
-                let changelog = ChangeLogData::new(&graph)?;
-                format!("{}", changelog)
+    };
+
+    let graph = {
+        let _graph_span = span!(Level::INFO, "build_commit_graph").entered();
+        info!("Building commit graph");
+        let graph = CommitGraph::new(&logs)?;
+        debug!("Commit graph created successfully");
+        graph
+    };
+
+    let version_format = {
+        let _format_span = span!(Level::INFO, "parse_version_format").entered();
+        if let Some(format_str) = format {
+            info!(format = %format_str, "Parsing custom version format");
+            parser::parse_version_format(&format_str, &graph).map_err(|e| {
+                error!(error = %e, format = %format_str, "Failed to parse version format");
+                e
+            })?
+        } else {
+            debug!("Using default version format");
+            VersionFormat::default()
+        }
+    };
+
+    let stdout = {
+        let _command_span = span!(Level::INFO, "execute_command").entered();
+        match command {
+            None => {
+                let _version_span = span!(Level::DEBUG, "get_current_version").entered();
+                debug!("Using default command to get current version");
+                let ver = match is_dirty(&path) {
+                    Err(e) => {
+                        if ci {
+                            Err(e)
+                        } else {
+                            let version_map = VersionMap::new(&graph, &version_format)?;
+                            Ok(version_map
+                                .get(graph.headidx())
+                                .ok_or_eyre(eyre!("No version found"))?
+                                .build(graph.head(), &version_format))
+                        }
+                    }
+                    Result::Ok(_) => {
+                        let version_map = VersionMap::new(&graph, &version_format)?;
+                        version_map
+                            .get(graph.headidx())
+                            .ok_or_eyre(eyre!("No version found"))
+                            .cloned()
+                    }
+                }?;
+                if no_pre {
+                    format!("{}", ver.release(graph.head(), &version_format))
+                } else {
+                    format!("{}", ver)
+                }
             }
-            CCVerSubCommand::GitFormat => {
-                format!(
-                    "{} {} {} {} {}",
-                    GIT_FORMAT_ARGS[0],
-                    GIT_FORMAT_ARGS[1],
-                    GIT_FORMAT_ARGS[2],
-                    GIT_FORMAT_ARGS[3],
-                    GIT_FORMAT_ARGS[4]
-                )
-            }
-            _ => todo!(),
-        },
+            Some(command) => match command {
+                CCVerSubCommand::Peek(args) => {
+                    let _peek_span =
+                        span!(Level::INFO, "peek_command", message = %args.message).entered();
+                    let graph = graph.peek(args.message.as_str()).map_err(|e| {
+                        error!(error = %e, message = %args.message, "Failed to peek with message");
+                        e
+                    })?;
+                    let next_version_map = VersionMap::new(&graph, &version_format)?;
+                    let version = next_version_map
+                        .get(graph.headidx())
+                        .ok_or_eyre(eyre!("No version found"))?;
+                    debug!(version = %version, "Peek result");
+                    format!("{}", version)
+                }
+                CCVerSubCommand::ChangeLog => {
+                    let _changelog_span = span!(Level::INFO, "changelog_command").entered();
+                    info!("Generating changelog");
+                    let changelog = ChangeLogData::new(&graph).map_err(|e| {
+                        error!(error = %e, "Failed to generate changelog");
+                        e
+                    })?;
+                    debug!("Changelog generated successfully");
+                    format!("{}", changelog)
+                }
+                CCVerSubCommand::GitFormat => {
+                    let _git_format_span = span!(Level::DEBUG, "git_format_command").entered();
+                    info!("Outputting git format args");
+                    format!(
+                        "{} {} {} {} {}",
+                        GIT_FORMAT_ARGS[0],
+                        GIT_FORMAT_ARGS[1],
+                        GIT_FORMAT_ARGS[2],
+                        GIT_FORMAT_ARGS[3],
+                        GIT_FORMAT_ARGS[4]
+                    )
+                }
+                _ => {
+                    warn!(command = ?command, "Unimplemented command");
+                    todo!()
+                }
+            },
+        }
     };
 
     println!("{}", stdout);
+    info!("ccver application completed successfully");
 
     Ok(())
 }

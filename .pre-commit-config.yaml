@@ -10,6 +10,7 @@ repos:
       # Format Rust code
       - id: fmt
         args: ['--all']
+        pass_filenames: false
       # Lint with Clippy (warn only, don't fail on existing issues)
       - id: clippy
         args: ['--all-targets', '--all-features']
