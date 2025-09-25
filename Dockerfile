@@ -20,6 +20,12 @@ COPY Cargo.toml Cargo.lock ./
 # Copy the source code
 COPY src ./src
 
+# Copy the hooks
+COPY hooks ./hooks
+
+# Copy the scripts
+COPY scripts ./scripts
+
 # Build the application in release mode
 RUN cargo build --release
 
