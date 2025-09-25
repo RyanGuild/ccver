@@ -27,6 +27,14 @@ repos:
         files: \.rs$
         pass_filenames: false
 
+      - id: cargo-toml-matches-ccver
+        name: Check if Cargo.toml matches ccver
+        description: Check if Cargo.toml matches ccver
+        entry: bash -c 'VERSION=$(cat Cargo.toml | grep "version" | cut -d"\"" -f2 | head -n 1); CCVER_OUTPUT=$(cargo run); test "$CCVER_OUTPUT" = "v$VERSION"'
+        language: system
+        files: "[Cargo\\.toml$|.*\\.rs$]"
+        always_run: true
+
       # Update Cargo.toml version using ccver itself
       - id: commit-msg-version-update
         name: Update version with commit message
