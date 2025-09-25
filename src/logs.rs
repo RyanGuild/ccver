@@ -92,7 +92,13 @@ impl<'a> FromIterator<LogEntry<'a>> for Logs<'a> {
     }
 }
 
-pub const GIT_FORMAT_ARGS: [&str;5] = ["log", "--full-history", "--source", "--branches","--format=name=%n%f%nbranch=%n%S%ncommit=%n%H%ncommit-time=%n%cI%ndec=%n%d%nparent=%n%P%nsub=%n%s%ntrailers=%n%(trailers:only)%n"];
+pub const GIT_FORMAT_ARGS: [&str; 5] = [
+    "log",
+    "--full-history",
+    "--source",
+    "--branches",
+    "--format=name=%n%f%nbranch=%n%S%ncommit=%n%H%ncommit-time=%n%cI%ndec=%n%d%nparent=%n%P%nsub=%n%s%ntrailers=%n%(trailers:only)%n",
+];
 
 impl Logs<'_> {
     pub fn from_str<'a>(raw: &'a str) -> Result<Logs<'a>> {

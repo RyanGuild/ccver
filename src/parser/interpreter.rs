@@ -399,9 +399,12 @@ impl Parser {
         };
 
         match first_calver {
-            Some(Year4 | Year2) |  None => {},
+            Some(Year4 | Year2) | None => {}
             _ => {
-                return Err(parsing_error!(input, "The first CalVer format segment must be YY (Year4) or yy (Year2) to maintain semver monotonic incresing versions"))
+                return Err(parsing_error!(
+                    input,
+                    "The first CalVer format segment must be YY (Year4) or yy (Year2) to maintain semver monotonic incresing versions"
+                ));
             }
         };
 

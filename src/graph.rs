@@ -1,4 +1,4 @@
-use eyre::{eyre, OptionExt, Result};
+use eyre::{OptionExt, Result, eyre};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
 use std::collections::HashMap;

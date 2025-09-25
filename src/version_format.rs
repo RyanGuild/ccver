@@ -87,10 +87,10 @@ impl PartialOrd for CalVerFormatSegment {
     }
 }
 
+use CalVerFormatSegment::*;
 use std::cmp::Ordering::*;
 use std::str::FromStr;
 use std::sync::Arc;
-use CalVerFormatSegment::*;
 
 use crate::{
     graph::CommitGraph,

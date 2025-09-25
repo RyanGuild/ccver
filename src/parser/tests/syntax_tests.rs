@@ -1,8 +1,8 @@
 use indoc::indoc;
 
 use crate::logs::Tag;
-use crate::parser::macros::cc_parse;
 use crate::parser::InterpreterResult;
+use crate::parser::macros::cc_parse;
 use crate::version::{Version, VersionNumber};
 
 #[test]

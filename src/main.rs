@@ -46,8 +46,8 @@ use clap::Parser;
 use eyre::*;
 use git::{git_installed, is_dirty};
 use graph::CommitGraph;
-use logs::Logs;
 use logs::GIT_FORMAT_ARGS;
+use logs::Logs;
 use version_format::VersionFormat;
 use version_map::VersionMap;
 
