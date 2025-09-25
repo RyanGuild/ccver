@@ -1,36 +1,31 @@
-name: Test CCVer Action
+name: Test CCVer Action on Docker Image
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
+  workflow_run:
+    workflows: [.github/workflows/docker.yml]
+    types: [completed]
     branches: [ main, master ]
 
 jobs:
   test-action:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Fetch full history for ccver to analyze commits
-
     - name: Test CCVer Action - Get Version
       id: version
-      uses: ./
+      uses: ryanguild/ccver@master
       with:
-        ci: 'false'  # Don't fail if repo is dirty during testing
+        ci: 'false'
 
     - name: Test CCVer Action - Generate Changelog
       id: changelog
-      uses: ./
+      uses: ryanguild/ccver@master
       with:
         command: 'changelog'
         ci: 'false'
 
     - name: Test CCVer Action - Custom Format
       id: custom
-      uses: ./
+      uses: ryanguild/ccver@master
       with:
         format: 'v{major}.{minor}.{patch}'
         ci: 'false'
@@ -45,16 +40,8 @@ jobs:
   test-docker:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Build Docker Image
-      run: docker build -t ccver-test .
-
     - name: Test Docker Image - Version
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ccver-test --help
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver --help
 
     - name: Test Docker Image - Get Version
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ccver-test
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver
