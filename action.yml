@@ -34,7 +34,7 @@ outputs:
 
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  image: ghcr.io/ryanguild/ccver:latest
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FORMAT: ${{ inputs.format }}

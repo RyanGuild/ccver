@@ -1,0 +1,67 @@
+# Pre-commit hooks configuration for ccver
+# Install with: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Rust formatting and linting
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      # Format Rust code
+      - id: fmt
+        name: Rust fmt
+        description: Format Rust code with cargo fmt
+        entry: cargo fmt --all --
+        language: system
+        files: \.rs$
+        pass_filenames: false
+
+      # Lint with Clippy
+      - id: clippy
+        name: Rust clippy
+        description: Lint Rust code with cargo clippy
+        entry: cargo clippy --all-targets --all-features -- -D warnings
+        language: system
+        files: \.rs$
+        pass_filenames: false
+
+  # Custom hooks for testing and version management
+  - repo: local
+    hooks:
+      # Run tests
+      - id: cargo-test
+        name: Cargo test
+        description: Run all Rust tests
+        entry: cargo test --all-features
+        language: system
+        files: \.rs$
+        pass_filenames: false
+
+      # Update Cargo.toml version using ccver itself
+      - id: update-cargo-version
+        name: Update Cargo.toml version
+        description: Update version in Cargo.toml using ccver
+        entry: bash -c 'if [ -f target/debug/ccver ] || [ -f target/release/ccver ]; then NEW_VERSION=$(cargo run --quiet -- --format "{major}.{minor}.{patch}"); if [ "$NEW_VERSION" != "" ] && [ "$NEW_VERSION" != "$(grep "^version" Cargo.toml | cut -d'"' -f2)" ]; then sed -i.bak "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak && echo "Updated version to $NEW_VERSION"; fi; fi'
+        language: system
+        files: (\.rs$|Cargo\.toml$)
+        pass_filenames: false
+
+  # Additional useful hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      # Check for merge conflicts
+      - id: check-merge-conflict
+      # Check YAML syntax
+      - id: check-yaml
+        exclude: \.github/workflows/.*\.yml$
+      # Check TOML syntax
+      - id: check-toml
+      # Trim trailing whitespace
+      - id: trailing-whitespace
+        exclude: \.md$
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+      # Check for large files
+      - id: check-added-large-files
+        args: ['--maxkb=1000']

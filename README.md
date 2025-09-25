@@ -60,6 +60,27 @@ cd ccver
 cargo install --path .
 ```
 
+### Development Setup
+
+For contributors, set up pre-commit hooks to ensure code quality:
+
+```bash
+# Quick setup (installs pre-commit and configures hooks)
+./setup-precommit.sh
+
+# Manual setup
+pip install pre-commit
+pre-commit install
+cargo build  # Build ccver for version management hook
+```
+
+The pre-commit hooks will automatically run on each commit and include:
+- `cargo fmt` - Code formatting
+- `cargo clippy` - Linting with warnings as errors
+- `cargo test` - Run all tests
+- Version update - Update `Cargo.toml` version using ccver itself
+- YAML/TOML validation and other file checks
+
 ### Docker Usage
 
 ```bash
@@ -88,4 +109,3 @@ Use CCVer directly in your GitHub workflows:
 ```
 
 For detailed Docker and GitHub Action usage instructions, see [README-docker.md](README-docker.md).
-
