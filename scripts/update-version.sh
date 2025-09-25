@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to update Cargo.toml version using ccver output
+# Script to update Cargo.toml version using ccver peek command
 
 set -e
 
@@ -9,8 +9,29 @@ if [ ! -f target/debug/ccver ] && [ ! -f target/release/ccver ]; then
     exit 0
 fi
 
-# Get version from ccver (with 'v' prefix)
-NEW_VERSION_WITH_V=$(cargo run --quiet 2>/dev/null || echo "")
+# Get the commit message from git (staged commit)
+# In pre-commit context, we need to get the message from the commit being made
+COMMIT_MESSAGE=""
+
+# Try to get commit message from various sources
+if [ ! -z "$1" ]; then
+    # If message passed as argument, use it
+    COMMIT_MESSAGE="$1"
+elif [ -f ".git/COMMIT_EDITMSG" ]; then
+    COMMIT_MESSAGE=$(cat .git/COMMIT_EDITMSG | head -n 1)
+else
+    # Fallback: try to get from git log if available
+    COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s" 2>/dev/null || echo "chore: update version")
+fi
+
+if [ -z "$COMMIT_MESSAGE" ]; then
+    echo "Could not determine commit message, using current version"
+    NEW_VERSION_WITH_V=$(cargo run --quiet 2>/dev/null || echo "")
+else
+    echo "Using commit message: $COMMIT_MESSAGE"
+    # Use peek command to get version for this commit message
+    NEW_VERSION_WITH_V=$(cargo run --quiet -- peek --message "$COMMIT_MESSAGE" 2>/dev/null || echo "")
+fi
 
 if [ -z "$NEW_VERSION_WITH_V" ]; then
     echo "Failed to get version from ccver"

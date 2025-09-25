@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.14.16"
+version = "2.14.18"
 edition = "2024"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 license-file = "LICENSE"
@@ -25,3 +25,6 @@ pest_derive = { version = "2.7.15", default-features = false }
 pest = { version = "2.7.15", default-features = false }
 clap = { version = "4.5.31", features = [ "derive" ] }
 petgraph = { version = "0.8.2", features = [ "graphmap" ], default-features = false }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing-error = "0.2.0"
