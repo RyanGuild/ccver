@@ -28,12 +28,12 @@ repos:
         pass_filenames: false
 
       # Update Cargo.toml version using ccver itself
-      - id: update-cargo-version
-        name: Update Cargo.toml version
-        description: Update version in Cargo.toml using ccver
-        entry: ./scripts/update-version.sh
+      - id: commit-msg-version-update
+        name: Update version with commit message
+        description: Update Cargo.toml version using ccver with actual commit message
+        entry: bash -c 'cargo run -- peek --message "$(cat "$1")"'
         language: system
-        pass_filenames: false
+        stages: [commit-msg]
         always_run: true
 
   # Additional useful hooks
