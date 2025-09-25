@@ -62,11 +62,10 @@ pub struct LogEntry<'a> {
 impl LogEntry<'_> {
     pub fn tagged_version(&self) -> Option<Version> {
         for decoration in self.decorations.iter() {
-            if let Decoration::Tag(tag) = decoration {
-                if let Tag::Version(version) = tag {
+            if let Decoration::Tag(tag) = decoration
+                && let Tag::Version(version) = tag {
                     return Some(version.clone());
                 }
-            }
         }
         None
     }
@@ -81,7 +80,7 @@ pub struct Logs<'a>(&'a [LogEntry<'a>]);
 
 impl Logs<'_> {
     pub fn iter(&'_ self) -> impl Iterator<Item = &'_ LogEntry<'_>> {
-        self.0.into_iter()
+        self.0.iter()
     }
 }
 

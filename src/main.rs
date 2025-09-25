@@ -93,8 +93,7 @@ fn main() -> Result<()> {
                 }
                 Result::Ok(_) => version_map
                     .get(graph.headidx())
-                    .ok_or_eyre(eyre!("No version found"))
-                    .map(|v| v.clone()),
+                    .ok_or_eyre(eyre!("No version found")).cloned(),
             }?;
             if args.no_pre {
                 format!("{}", ver.release(graph.head(), &version_format))

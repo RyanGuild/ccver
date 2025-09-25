@@ -23,15 +23,15 @@ impl VersionMap {
 
         let tailidx = graph.tailidx();
         let tail = graph.tail();
-        let initial_version = version_format.as_default_version(&tail);
+        let initial_version = version_format.as_default_version(tail);
         map.insert(tailidx, initial_version);
 
         let results = graph
             .dfs_postorder_history()
             .map(|(idx, commit)| {
                 let tagged = commit.tagged_version();
-                if tagged.is_some() {
-                    map.insert(idx, tagged.unwrap());
+                if let Some(tagged) = tagged {
+                    map.insert(idx, tagged);
                     return Ok(());
                 };
 
@@ -41,12 +41,10 @@ impl VersionMap {
                     .all_parents(idx)
                     .iter()
                     .filter_map(|parent| {
-                        let ver = map.get(parent).cloned().or(graph
+                        map.get(parent).cloned().or(graph
                             .get(idx)
                             .expect("Idx Comes from graph source")
-                            .tagged_version());
-
-                        ver
+                            .tagged_version())
                     })
                     .max()
                     .unwrap_or(version_format.as_default_version(commit));
@@ -171,6 +169,6 @@ impl VersionMap {
     pub fn get_key(&self, version: &Version) -> Option<NodeIndex> {
         self.0
             .iter()
-            .find_map(|(k, v)| if v == version { Some(k.clone()) } else { None })
+            .find_map(|(k, v)| if v == version { Some(*k) } else { None })
     }
 }
