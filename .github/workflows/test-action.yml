@@ -48,13 +48,13 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Pull Docker Image
-      run: docker pull ghcr.io/ryanguild/ccver:latest
+      run: docker pull ghcr.io/ryanguild/ccver:${{ github.ref_name}}
 
     - name: Test Docker Image - HELP
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:latest --help
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name}} --help
 
     - name: Test Docker Image - CHANGELOG
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:latest changelog
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name}} changelog
 
     - name: Test Docker Image - Version
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:latest
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name}}
