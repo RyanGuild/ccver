@@ -26,7 +26,7 @@ repos:
         description: Run all Rust tests
         entry: bash -c 'cargo test --all-features -- --skip test_is_dirty || true'
         language: system
-        files: \.rs$
+        files: \.(rs|toml)$
         pass_filenames: false
 
       # Update Cargo.toml version using ccver itself
