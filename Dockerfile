@@ -43,4 +43,4 @@ WORKDIR /github/workspace
 ENTRYPOINT ["/usr/local/bin/ccver"]
 
 # Default command (can be overridden)
-CMD ["--help"]
+CMD ["--ci"]
