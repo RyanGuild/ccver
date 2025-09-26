@@ -60,7 +60,7 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
     - name: Test Docker Image - CHANGELOG
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} change-log
+      run: docker run --rm -v ".:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} change-log
 
     - name: Test Docker Image - Version
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }}
+      run: docker run --rm -v ".:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }}
