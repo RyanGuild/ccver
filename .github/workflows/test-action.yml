@@ -56,7 +56,7 @@ jobs:
       run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} --help
 
     - name: Test Docker Image - CHANGELOG
-      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} changelog
+      run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} change-log
 
     - name: Test Docker Image - Version
       run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }}
