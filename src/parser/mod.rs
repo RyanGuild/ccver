@@ -1,7 +1,6 @@
 use core::str;
 use interpreter::InterpreterResult;
 
-use crate::graph::CommitGraph;
 use crate::logs::Subject;
 use crate::{logs::Logs, version::Version, version_format::VersionFormat};
 
@@ -17,21 +16,22 @@ use grammar::Rule;
 
 mod interpreter;
 
+#[allow(clippy::result_large_err)]
 pub fn parse_log(log: &'_ str) -> InterpreterResult<Logs<'_>> {
     cc_parse!(CCVER_LOG, log)
 }
 
-pub fn parse_version_format<'graph>(
-    format: &str,
-    graph: &'graph CommitGraph<'graph>,
-) -> InterpreterResult<VersionFormat<'graph>> {
-    cc_parse_format!(CCVER_VERSION_FORMAT, format, graph)
+#[allow(clippy::result_large_err)]
+pub fn parse_version_format(format: &str) -> InterpreterResult<VersionFormat> {
+    cc_parse_format!(CCVER_VERSION_FORMAT, format)
 }
 
+#[allow(clippy::result_large_err)]
 pub fn parse_version(version: &str, format: VersionFormat) -> InterpreterResult<Version> {
     cc_parse_with_data!(CCVER_VERSION, version, format)
 }
 
+#[allow(clippy::result_large_err)]
 pub fn parse_subject(subject: &'_ str) -> InterpreterResult<Subject<'_>> {
     cc_parse!(SUBJECT, subject)
 }

@@ -186,11 +186,11 @@ impl ChangeLogData {
             while let Some(parent) = stack.pop() {
                 let parent_commit = graph.get(parent).expect("Idx Comes from graph source");
 
-                match parent_commit.subject {
+                match parent_commit.lock().unwrap().log_entry.subject {
                     semver_advancing_subject!() => {}
                     _ => {
                         stack.extend(graph.parents(parent));
-                        versions.push(parent_commit);
+                        versions.push(parent_commit.clone());
                     }
                 };
             }
@@ -199,60 +199,66 @@ impl ChangeLogData {
 
         let mut changes = versions
             .iter()
-            .map(|commit| match &commit.subject {
+            .map(|commit| match &commit.lock().unwrap().log_entry.subject {
                 Subject::Conventional(ConventionalSubject {
                     commit_type,
                     scope: None,
                     description,
                     ..
-                }) => match *commit_type {
-                    major_commit_types!() => ChangeScoped::All(Change::Breaking(
-                        description.to_string(),
-                        commit.commit_datetime,
-                    )),
-                    minor_commit_types!() => ChangeScoped::All(Change::Feature(
-                        description.to_string(),
-                        commit.commit_datetime,
-                    )),
-                    patch_commit_types!() => ChangeScoped::All(Change::Fix(
-                        description.to_string(),
-                        commit.commit_datetime,
-                    )),
-                    _ => ChangeScoped::All(Change::Named(
-                        commit_type.to_string(),
-                        description.to_string(),
-                        commit.commit_datetime,
-                    )),
-                },
+                }) => {
+                    let commit_datetime = commit.lock().unwrap().log_entry.commit_datetime;
+                    match *commit_type {
+                        major_commit_types!() => ChangeScoped::All(Change::Breaking(
+                            description.to_string(),
+                            commit_datetime,
+                        )),
+                        minor_commit_types!() => ChangeScoped::All(Change::Feature(
+                            description.to_string(),
+                            commit_datetime,
+                        )),
+                        patch_commit_types!() => {
+                            ChangeScoped::All(Change::Fix(description.to_string(), commit_datetime))
+                        }
+                        _ => ChangeScoped::All(Change::Named(
+                            commit_type.to_string(),
+                            description.to_string(),
+                            commit_datetime,
+                        )),
+                    }
+                }
                 Subject::Conventional(ConventionalSubject {
                     commit_type,
                     scope: Some(scope),
                     description,
                     ..
-                }) => match *commit_type {
-                    major_commit_types!() => ChangeScoped::Scoped(
-                        scope.to_string(),
-                        Change::Breaking(description.to_string(), commit.commit_datetime),
-                    ),
-                    minor_commit_types!() => ChangeScoped::Scoped(
-                        scope.to_string(),
-                        Change::Feature(description.to_string(), commit.commit_datetime),
-                    ),
-                    patch_commit_types!() => ChangeScoped::Scoped(
-                        scope.to_string(),
-                        Change::Fix(description.to_string(), commit.commit_datetime),
-                    ),
-                    _ => ChangeScoped::Scoped(
-                        scope.to_string(),
-                        Change::Named(
-                            commit_type.to_string(),
-                            description.to_string(),
-                            commit.commit_datetime,
+                }) => {
+                    let commit_datetime = commit.lock().unwrap().log_entry.commit_datetime;
+                    match *commit_type {
+                        major_commit_types!() => ChangeScoped::Scoped(
+                            scope.to_string(),
+                            Change::Breaking(description.to_string(), commit_datetime),
                         ),
-                    ),
-                },
+                        minor_commit_types!() => ChangeScoped::Scoped(
+                            scope.to_string(),
+                            Change::Feature(description.to_string(), commit_datetime),
+                        ),
+                        patch_commit_types!() => ChangeScoped::Scoped(
+                            scope.to_string(),
+                            Change::Fix(description.to_string(), commit_datetime),
+                        ),
+                        _ => ChangeScoped::Scoped(
+                            scope.to_string(),
+                            Change::Named(
+                                commit_type.to_string(),
+                                description.to_string(),
+                                commit_datetime,
+                            ),
+                        ),
+                    }
+                }
                 Subject::Text(t) => {
-                    ChangeScoped::All(Change::Misc(t.to_string(), commit.commit_datetime))
+                    let commit_datetime = commit.lock().unwrap().log_entry.commit_datetime;
+                    ChangeScoped::All(Change::Misc(t.to_string(), commit_datetime))
                 }
             })
             .collect::<Vec<_>>();

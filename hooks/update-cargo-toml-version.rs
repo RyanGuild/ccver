@@ -1,4 +1,7 @@
-use ccver::version_format::VersionFormat;
+use ccver::{
+    logs::PeekLogEntry,
+    version_format::{PreTagFormat, VersionFormat, VersionNumberFormat},
+};
 use eyre::Result;
 use toml_edit::Document;
 use tracing::{error, info};
@@ -11,21 +14,31 @@ fn main() -> Result<()> {
                 .with_writer(std::fs::File::create("update-cargo-toml-version.log").unwrap()),
         )
         .init();
-    let cwd = std::env::current_dir().unwrap();
-    let git_path = cwd.join(".git");
-    if !git_path.exists() {
-        error!("Not a git repository");
+
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        error!("Usage: {} <commit-message-file>", args[0]);
         std::process::exit(1);
     }
 
-    let commit_message = std::fs::read_to_string(git_path.join("COMMIT_EDITMSG")).unwrap();
+    let commit_message_file = &args[1];
+    let commit_message = std::fs::read_to_string(commit_message_file).unwrap();
     info!("Commit message: {}", commit_message);
 
-    let version_format = VersionFormat::default();
-    let next_version = ccver::peek(&cwd, &commit_message, &version_format)?;
+    let cwd = std::env::current_dir().unwrap();
+    let next_version = ccver::peek(
+        &cwd,
+        &commit_message,
+        &VersionFormat {
+            v_prefix: false,
+            major: VersionNumberFormat::CCVer,
+            minor: VersionNumberFormat::CCVer,
+            patch: VersionNumberFormat::CCVer,
+            prerelease: Some(PreTagFormat::Build(VersionNumberFormat::CCVer)),
+        },
+    )?;
 
     let next_version_string = next_version.to_string();
-    let next_version_string = next_version_string.strip_prefix("v").unwrap();
     info!("Next version: {}", next_version_string);
 
     let cargo_toml_path = cwd.join("Cargo.toml");

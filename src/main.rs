@@ -1,4 +1,4 @@
-#![feature(decl_macro, lock_value_accessors)]
+#![feature(decl_macro, lock_value_accessors, iterator_try_collect)]
 
 /// The main entry point for the `ccver` application.
 ///
@@ -34,7 +34,6 @@ pub mod parser;
 pub mod pattern_macros;
 pub mod version;
 pub mod version_format;
-pub mod version_map;
 
 use std::env::current_dir;
 use std::io::Read as _;
@@ -52,8 +51,8 @@ use tracing::{Level, debug, error, info, instrument, span, warn};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::Layer as _;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use version_format::VersionFormat;
-use version_map::VersionMap;
+
+use crate::logs::InfersVersionFormat as _;
 
 #[instrument]
 fn main() -> Result<()> {
@@ -77,6 +76,7 @@ fn main() -> Result<()> {
     }
 
     let parsed_args = CCVerArgs::parse();
+    dbg!(&parsed_args);
     debug!("Parsed command line arguments: {:?}", parsed_args);
 
     let command = match parsed_args.command {
@@ -178,33 +178,33 @@ fn main() -> Result<()> {
                     error!(error = %e, "Failed to read from stdin");
                     e
                 })?;
-            Logs::from_str(&stdin_string)?
+            Logs::from_log_str(&stdin_string)?
         } else {
             info!(path = ?path, "Reading logs from path");
             Logs::from_path(&path)?
         }
     };
 
-    let graph = {
-        let _graph_span = span!(Level::INFO, "build_commit_graph").entered();
-        info!("Building commit graph");
-        let graph = CommitGraph::new(&logs)?;
-        debug!("Commit graph created successfully");
-        graph
-    };
-
     let version_format = {
         let _format_span = span!(Level::INFO, "parse_version_format").entered();
         if let Some(format_str) = format {
             info!(format = %format_str, "Parsing custom version format");
-            parser::parse_version_format(&format_str, &graph).map_err(|e| {
+            parser::parse_version_format(&format_str).map_err(|e| {
                 error!(error = %e, format = %format_str, "Failed to parse version format");
                 e
             })?
         } else {
             debug!("Using default version format");
-            VersionFormat::default()
+            logs.infer_version_format()
         }
+    };
+
+    let graph = {
+        let _graph_span = span!(Level::INFO, "build_commit_graph").entered();
+        info!("Building commit graph");
+        let graph = CommitGraph::new(&logs, &version_format)?;
+        debug!("Commit graph created successfully");
+        graph
     };
 
     let stdout = {
@@ -218,23 +218,29 @@ fn main() -> Result<()> {
                         if ci {
                             Err(e)
                         } else {
-                            let version_map = VersionMap::new(&graph, &version_format)?;
-                            Ok(version_map
-                                .get(graph.headidx())
-                                .ok_or_eyre(eyre!("No version found"))?
-                                .build(graph.head(), &version_format))
+                            let head = graph.head();
+                            let head = head.lock().unwrap();
+                            let version = head.version.clone().ok_or_eyre(eyre!(
+                                "Current Branch Head Was Not Assigned a Version"
+                            ))?;
+                            Ok(version.build(&head.log_entry, &version_format))
                         }
                     }
                     Result::Ok(_) => {
-                        let version_map = VersionMap::new(&graph, &version_format)?;
-                        version_map
-                            .get(graph.headidx())
-                            .ok_or_eyre(eyre!("No version found"))
-                            .cloned()
+                        let head = graph.head();
+                        let head = head.lock().unwrap();
+                        let version = head
+                            .version
+                            .clone()
+                            .ok_or_eyre(eyre!("Current Branch Head Was Not Assigned a Version"))?;
+                        Ok(version)
                     }
                 }?;
                 if no_pre {
-                    format!("{}", ver.release(graph.head(), &version_format))
+                    format!(
+                        "{}",
+                        ver.release(&graph.head().lock().unwrap().log_entry, &version_format)
+                    )
                 } else {
                     format!("{}", ver)
                 }
@@ -243,16 +249,22 @@ fn main() -> Result<()> {
                 CCVerSubCommand::Peek(args) => {
                     let _peek_span =
                         span!(Level::INFO, "peek_command", message = %args.message).entered();
-                    let graph = graph.peek(args.message.as_str()).map_err(|e| {
+                    let graph = graph.peek(args.message.as_str(), &version_format).map_err(|e| {
                         error!(error = %e, message = %args.message, "Failed to peek with message");
                         e
                     })?;
-                    let next_version_map = VersionMap::new(&graph, &version_format)?;
-                    let version = next_version_map
-                        .get(graph.headidx())
+                    let new_head = graph.head();
+                    let new_head = new_head.lock().unwrap();
+                    let version = new_head
+                        .version
+                        .clone()
                         .ok_or_eyre(eyre!("No version found"))?;
                     debug!(version = %version, "Peek result");
-                    format!("{}", version)
+                    if no_pre {
+                        format!("{}", version.no_pre())
+                    } else {
+                        format!("{}", version)
+                    }
                 }
                 CCVerSubCommand::ChangeLog => {
                     let _changelog_span = span!(Level::INFO, "changelog_command").entered();

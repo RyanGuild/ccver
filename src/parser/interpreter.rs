@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use pest_consume::{Node as PestNode, *};
 
-use crate::graph::CommitGraph;
 use crate::logs::{ConventionalSubject, Decoration, LogEntry, Subject, Tag};
 use crate::version::{PreTag, VersionNumber};
 use crate::version_format::CalVerFormat;
@@ -18,25 +17,18 @@ use super::macros::parsing_error;
 use super::{Logs, Version, VersionFormat};
 
 #[derive(Debug, Clone)]
-pub enum ParserInputs<'ctx> {
-    LogParsing(Option<VersionFormat<'ctx>>),
-    FormatParsing(&'ctx CommitGraph<'ctx>),
+pub enum ParserInputs {
+    LogParsing(Option<VersionFormat>),
+    FormatParsing,
 }
 macro log_parsing_context($input:expr) {{
     match $input.user_data() {
         ParserInputs::LogParsing(v) => v.clone(),
-        ParserInputs::FormatParsing(_) => panic!("expected log parsing context"),
+        ParserInputs::FormatParsing => panic!("expected log parsing context"),
     }
 }}
 
-macro format_parsing_context($input:expr) {{
-    match $input.user_data() {
-        ParserInputs::LogParsing(_) => panic!("expected format parsing context"),
-        ParserInputs::FormatParsing(v) => v.clone(),
-    }
-}}
-
-pub type Node<'input, 'ctx> = PestNode<'input, Rule, ParserInputs<'ctx>>;
+pub type Node<'input> = PestNode<'input, Rule, ParserInputs>;
 
 pub type InterpreterResult<T> = eyre::Result<T, pest_consume::Error<Rule>>;
 
@@ -70,7 +62,7 @@ impl Parser {
         )
     }
 
-    pub fn PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
+    pub fn PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         match_nodes!(input.children();
             [SHA_PRE_TAG(s)] => Ok(s),
             [RC_PRE_TAG(r)] => Ok(r),
@@ -81,22 +73,22 @@ impl Parser {
         )
     }
 
-    pub fn SHA_PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
+    pub fn SHA_PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         match_nodes!(input.children();
             [SHA(s)] => Ok(PreTag::Sha(VersionNumber::Sha(s.to_string()))),
             [SHORT_SHA(s)] => Ok(PreTag::ShortSha(VersionNumber::ShortSha(s.to_string())))
         )
     }
 
-    pub fn SHORT_SHA<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn SHORT_SHA<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
-    pub fn VERSION_NUMBER<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn VERSION_NUMBER<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
-    pub fn RC_PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
+    pub fn RC_PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         let pre_format = pre_format!(input);
 
         match_nodes!(input.children();
@@ -104,14 +96,14 @@ impl Parser {
         )
     }
 
-    pub fn BETA_PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
+    pub fn BETA_PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         let pre_format = pre_format!(input);
         match_nodes!(input.children();
             [VERSION_NUMBER(v)] => Ok(PreTag::Beta(pre_format.parse(v)))
         )
     }
 
-    pub fn ALPHA_PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
+    pub fn ALPHA_PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         let pre_format = pre_format!(input);
 
         match_nodes!(input.children();
@@ -119,7 +111,7 @@ impl Parser {
         )
     }
 
-    pub fn BUILD_PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
+    pub fn BUILD_PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         let pre_format = pre_format!(input);
 
         match_nodes!(input.children();
@@ -127,7 +119,7 @@ impl Parser {
         )
     }
 
-    pub fn NAMED_PRE_TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<PreTag> {
+    pub fn NAMED_PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         let pre_format = pre_format!(input);
 
         match_nodes!(input.children();
@@ -140,11 +132,11 @@ impl Parser {
         )
     }
 
-    pub fn NAME<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn NAME<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
-    pub fn CCVER_LOG_ENTRY<'a>(input: Node<'a, '_>) -> InterpreterResult<LogEntry<'a>> {
+    pub fn CCVER_LOG_ENTRY<'a>(input: Node<'a>) -> InterpreterResult<LogEntry<'a>> {
         match_nodes!(input.children();
             [
                 SCOPE(name),
@@ -208,24 +200,24 @@ impl Parser {
         Ok(())
     }
 
-    pub fn TAG<'a>(input: Node<'a, '_>) -> InterpreterResult<(&'a str, Option<&'a str>, bool)> {
+    pub fn TAG<'a>(input: Node<'a>) -> InterpreterResult<(&'a str, Option<&'a str>, bool)> {
         match_nodes!(input.into_children();
             [TYPE(t), BREAKING_BANG(b)] => Ok((t, None, b)),
             [TYPE(t), SCOPE_SECTION(s), BREAKING_BANG(b)] => Ok((t, Some(s), b)),
         )
     }
 
-    pub fn SCOPE_SECTION<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn SCOPE_SECTION<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         match_nodes!(input.into_children();
             [SCOPE(s)] => Ok(s)
         )
     }
 
-    pub fn TYPE<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn TYPE<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
-    pub fn SCOPE<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn SCOPE<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
@@ -233,27 +225,27 @@ impl Parser {
         Ok(input.as_str() == "!")
     }
 
-    pub fn DESCRIPTION<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn DESCRIPTION<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
-    pub fn BODY<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn BODY<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str().trim())
     }
 
-    pub fn BODY_SECTION<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn BODY_SECTION<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         match_nodes!(input.children();
             [BODY(b)] => Ok(b)
         )
     }
 
-    pub fn FOOTER<'a>(input: Node<'a, '_>) -> InterpreterResult<(&'a str, &'a str)> {
+    pub fn FOOTER<'a>(input: Node<'a>) -> InterpreterResult<(&'a str, &'a str)> {
         match_nodes!(input.children();
             [SCOPE(k),DESCRIPTION(v)] => Ok((k, v))
         )
     }
 
-    pub fn FOOTER_SECTION<'a>(input: Node<'a, '_>) -> InterpreterResult<HashMap<&'a str, &'a str>> {
+    pub fn FOOTER_SECTION<'a>(input: Node<'a>) -> InterpreterResult<HashMap<&'a str, &'a str>> {
         if input.children().count() == 0 {
             return Ok(HashMap::new());
         } else {
@@ -265,25 +257,23 @@ impl Parser {
         }
     }
 
-    pub fn COMMIT_HASHLINE<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn COMMIT_HASHLINE<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         match_nodes!(input.children();
             [SHA(s)] => Ok(s)
         )
     }
 
-    pub fn SHA<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn SHA<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
-    pub fn PARENT_HASHLINE<'a>(input: Node<'a, '_>) -> InterpreterResult<Arc<[&'a str]>> {
+    pub fn PARENT_HASHLINE<'a>(input: Node<'a>) -> InterpreterResult<Arc<[&'a str]>> {
         match_nodes!(input.children();
             [SHA(s)..] => Ok(s.collect())
         )
     }
 
-    pub fn CONVENTIONAL_SUBJECT<'a>(
-        input: Node<'a, '_>,
-    ) -> InterpreterResult<ConventionalSubject<'a>> {
+    pub fn CONVENTIONAL_SUBJECT<'a>(input: Node<'a>) -> InterpreterResult<ConventionalSubject<'a>> {
         match_nodes!(input.children();
             [TAG((commit_type, scope, breaking)), DESCRIPTION(description)] => Ok(
                 ConventionalSubject {
@@ -296,43 +286,43 @@ impl Parser {
         )
     }
 
-    pub fn SUBJECT<'a>(input: Node<'a, '_>) -> InterpreterResult<Subject<'a>> {
+    pub fn SUBJECT<'a>(input: Node<'a>) -> InterpreterResult<Subject<'a>> {
         match_nodes!(input.children();
             [CONVENTIONAL_SUBJECT(s)] => Ok(Subject::Conventional(s)),
             [DESCRIPTION(t)] => Ok(Subject::Text(t)),
         )
     }
 
-    pub fn HEAD_DEC<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn HEAD_DEC<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         match_nodes!(input.children();
             [SCOPE(s)] => Ok(s)
         )
     }
 
-    pub fn TAG_DEC<'a>(input: Node<'a, '_>) -> InterpreterResult<Tag<'a>> {
+    pub fn TAG_DEC<'a>(input: Node<'a>) -> InterpreterResult<Tag<'a>> {
         match_nodes!(input.children();
             [SCOPE(s)] => Ok(Tag::Text(s)),
             [CCVER_VERSION(v)] => Ok(Tag::Version(v))
         )
     }
 
-    pub fn BRANCH_DEC<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn BRANCH_DEC<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         match_nodes!(input.children();
             [SCOPE(s)] => Ok(s)
         )
     }
 
-    pub fn FNAME<'a>(input: Node<'a, '_>) -> InterpreterResult<&'a str> {
+    pub fn FNAME<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
-    pub fn REMOTE_DEC<'a>(input: Node<'a, '_>) -> InterpreterResult<(&'a str, &'a str)> {
+    pub fn REMOTE_DEC<'a>(input: Node<'a>) -> InterpreterResult<(&'a str, &'a str)> {
         match_nodes!(input.children();
             [FNAME(o), SCOPE(s)] => Ok((o,s))
         )
     }
 
-    pub fn DECORATION<'a>(input: Node<'a, '_>) -> InterpreterResult<Decoration<'a>> {
+    pub fn DECORATION<'a>(input: Node<'a>) -> InterpreterResult<Decoration<'a>> {
         match_nodes!(input.children();
             [HEAD_DEC(h)] =>Ok(Decoration::HeadIndicator(h)),
             [TAG_DEC(t)] => Ok(Decoration::Tag(t)),
@@ -341,7 +331,7 @@ impl Parser {
         )
     }
 
-    pub fn DECORATIONS_LINE<'a>(input: Node<'a, '_>) -> InterpreterResult<Arc<[Decoration<'a>]>> {
+    pub fn DECORATIONS_LINE<'a>(input: Node<'a>) -> InterpreterResult<Arc<[Decoration<'a>]>> {
         if input.children().count() == 0 {
             return Ok(Arc::new([]));
         } else {
@@ -349,15 +339,13 @@ impl Parser {
         }
     }
 
-    pub fn CCVER_LOG<'a>(input: Node<'a, '_>) -> InterpreterResult<Logs<'a>> {
+    pub fn CCVER_LOG<'a>(input: Node<'a>) -> InterpreterResult<Logs<'a>> {
         match_nodes!(input.children();
             [CCVER_LOG_ENTRY(e).., EOI(_)] => Ok(e.collect())
         )
     }
 
-    pub fn CCVER_VERSION_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<VersionFormat<'ctx>> {
+    pub fn CCVER_VERSION_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<VersionFormat> {
         let version_format = match_nodes!(input.children();
             [V_PREFIX(v_prefix), VERSION_NUMBER_FORMAT(major), VERSION_NUMBER_FORMAT(minor), VERSION_NUMBER_FORMAT(patch)] => {
                 VersionFormat {
@@ -394,7 +382,7 @@ impl Parser {
                         None
                     }
                 }
-                Some(Sha(_, _) | ShortSha(_, _)) | None => None,
+                Some(Sha | ShortSha) | None => None,
             }
         };
 
@@ -411,9 +399,7 @@ impl Parser {
         Ok(version_format)
     }
 
-    pub fn PRE_TAG_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<PreTagFormat<'ctx>> {
+    pub fn PRE_TAG_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<PreTagFormat> {
         match_nodes!(input.children();
             [SHA_PRE_TAG_FORMAT(s)] => Ok(s),
             [RC_PRE_TAG_FORMAT(r)] => Ok(r),
@@ -424,13 +410,10 @@ impl Parser {
         )
     }
 
-    pub fn SHA_PRE_TAG_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<PreTagFormat<'ctx>> {
-        let graph = format_parsing_context!(input);
+    pub fn SHA_PRE_TAG_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<PreTagFormat> {
         match_nodes!(input.children();
-            [SHA_FORMAT(_)] => Ok(PreTagFormat::Sha(graph, VersionNumberFormat::Sha)),
-            [SHORT_SHA_FORMAT(_)] => Ok(PreTagFormat::ShortSha(graph, VersionNumberFormat::ShortSha))
+            [SHA_FORMAT(_)] => Ok(PreTagFormat::Sha),
+            [SHORT_SHA_FORMAT(_)] => Ok(PreTagFormat::ShortSha)
         )
     }
 
@@ -442,41 +425,31 @@ impl Parser {
         Ok(())
     }
 
-    pub fn RC_PRE_TAG_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<PreTagFormat<'ctx>> {
+    pub fn RC_PRE_TAG_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<PreTagFormat> {
         match_nodes!(input.children();
             [VERSION_NUMBER_FORMAT(v)] => Ok(PreTagFormat::Rc(v))
         )
     }
 
-    pub fn BETA_PRE_TAG_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<PreTagFormat<'ctx>> {
+    pub fn BETA_PRE_TAG_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<PreTagFormat> {
         match_nodes!(input.children();
             [VERSION_NUMBER_FORMAT(v)] => Ok(PreTagFormat::Beta(v))
         )
     }
 
-    pub fn ALPHA_PRE_TAG_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<PreTagFormat<'ctx>> {
+    pub fn ALPHA_PRE_TAG_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<PreTagFormat> {
         match_nodes!(input.children();
             [VERSION_NUMBER_FORMAT(v)] => Ok(PreTagFormat::Alpha(v))
         )
     }
 
-    pub fn BUILD_PRE_TAG_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<PreTagFormat<'ctx>> {
+    pub fn BUILD_PRE_TAG_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<PreTagFormat> {
         match_nodes!(input.children();
             [VERSION_NUMBER_FORMAT(v)] => Ok(PreTagFormat::Build(v))
         )
     }
 
-    pub fn NAMED_PRE_TAG_FORMAT<'a, 'ctx>(
-        input: Node<'a, 'ctx>,
-    ) -> InterpreterResult<PreTagFormat<'ctx>> {
+    pub fn NAMED_PRE_TAG_FORMAT<'a>(input: Node<'a>) -> InterpreterResult<PreTagFormat> {
         match_nodes!(input.children();
             [NAME(n), VERSION_NUMBER_FORMAT(v)] => Ok(PreTagFormat::Named(n.to_string(), v))
         )

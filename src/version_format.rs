@@ -4,15 +4,15 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
-pub struct VersionFormat<'ctx> {
+pub struct VersionFormat {
     pub v_prefix: bool,
     pub major: VersionNumberFormat,
     pub minor: VersionNumberFormat,
     pub patch: VersionNumberFormat,
-    pub prerelease: Option<PreTagFormat<'ctx>>,
+    pub prerelease: Option<PreTagFormat>,
 }
 
-impl Default for VersionFormat<'_> {
+impl Default for VersionFormat {
     fn default() -> Self {
         VersionFormat {
             v_prefix: true,
@@ -24,7 +24,7 @@ impl Default for VersionFormat<'_> {
     }
 }
 
-impl VersionFormat<'_> {
+impl VersionFormat {
     pub fn as_default_version(&self, commit: &LogEntry) -> Version {
         Version {
             v_prefix: self.v_prefix,
@@ -96,7 +96,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::{
-    graph::CommitGraph,
     logs::LogEntry,
     version::{PreTag, Version, VersionNumber},
 };
@@ -148,17 +147,17 @@ impl Ord for CalVerFormatSegment {
 }
 
 #[derive(Debug, Clone)]
-pub enum PreTagFormat<'ctx> {
+pub enum PreTagFormat {
     Rc(VersionNumberFormat),
     Beta(VersionNumberFormat),
     Alpha(VersionNumberFormat),
     Build(VersionNumberFormat),
     Named(String, VersionNumberFormat),
-    Sha(&'ctx CommitGraph<'ctx>, VersionNumberFormat),
-    ShortSha(&'ctx CommitGraph<'ctx>, VersionNumberFormat),
+    Sha,
+    ShortSha,
 }
 
-impl Display for PreTagFormat<'_> {
+impl Display for PreTagFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             PreTagFormat::Rc(vf) => write!(f, "rc.{}", vf),
@@ -172,41 +171,24 @@ impl Display for PreTagFormat<'_> {
             PreTagFormat::Named(name, version_number_format) => {
                 write!(f, "{}.{}", name, version_number_format)
             }
-            PreTagFormat::Sha(_, version_number_format) => {
-                write!(f, "+{}", version_number_format)
-            }
-            PreTagFormat::ShortSha(_, version_number_format) => {
-                write!(f, "+{}", version_number_format)
-            }
+            sha => write!(f, "+{}", sha),
         }
     }
 }
 
-impl Default for PreTagFormat<'_> {
+impl Default for PreTagFormat {
     fn default() -> Self {
         PreTagFormat::Build(VersionNumberFormat::CCVer)
     }
 }
 
-impl Default for &PreTagFormat<'_> {
+impl Default for &PreTagFormat {
     fn default() -> Self {
         &PreTagFormat::Build(VersionNumberFormat::CCVer)
     }
 }
 
-impl PreTagFormat<'_> {
-    pub fn version_format(&self) -> VersionNumberFormat {
-        match self {
-            PreTagFormat::Rc(vf)
-            | PreTagFormat::Beta(vf)
-            | PreTagFormat::Alpha(vf)
-            | PreTagFormat::Build(vf)
-            | PreTagFormat::Sha(_, vf)
-            | PreTagFormat::ShortSha(_, vf)
-            | PreTagFormat::Named(_, vf) => vf.clone(),
-        }
-    }
-
+impl PreTagFormat {
     pub fn as_default_pre_tag(&self, commit: &LogEntry) -> PreTag {
         match self {
             PreTagFormat::Rc(vf) => PreTag::Rc(vf.as_default_version_number(commit)),
@@ -216,12 +198,24 @@ impl PreTagFormat<'_> {
             PreTagFormat::Named(name, vf) => {
                 PreTag::Named(name.clone(), vf.as_default_version_number(commit))
             }
-            PreTagFormat::Sha(graph, _) => PreTag::Sha(VersionNumber::ShortSha(
-                graph.tail().commit_hash.to_string(),
+            PreTagFormat::Sha => {
+                PreTag::Sha(VersionNumber::ShortSha(commit.commit_hash.to_string()))
+            }
+            PreTagFormat::ShortSha => PreTag::ShortSha(VersionNumber::ShortSha(
+                commit.commit_hash[0..7].to_string(),
             )),
-            PreTagFormat::ShortSha(graph, _) => PreTag::ShortSha(VersionNumber::ShortSha(
-                graph.tail().commit_hash[0..7].to_string(),
-            )),
+        }
+    }
+
+    pub fn version_format(&self) -> VersionNumberFormat {
+        match self {
+            PreTagFormat::Rc(vf) => vf.clone(),
+            PreTagFormat::Beta(vf) => vf.clone(),
+            PreTagFormat::Alpha(vf) => vf.clone(),
+            PreTagFormat::Build(vf) => vf.clone(),
+            PreTagFormat::Named(_, vf) => vf.clone(),
+            PreTagFormat::Sha => VersionNumberFormat::Sha,
+            PreTagFormat::ShortSha => VersionNumberFormat::ShortSha,
         }
     }
 
@@ -232,8 +226,10 @@ impl PreTagFormat<'_> {
             PreTagFormat::Alpha(vf) => PreTag::Alpha(vf.parse(data)),
             PreTagFormat::Build(vf) => PreTag::Build(vf.parse(data)),
             PreTagFormat::Named(name, vf) => PreTag::Named(name.clone(), vf.parse(data)),
-            PreTagFormat::Sha(_, vf) => PreTag::Sha(vf.parse(data)),
-            PreTagFormat::ShortSha(_, vf) => PreTag::ShortSha(vf.parse(data)),
+            PreTagFormat::Sha => PreTag::Sha(VersionNumber::Sha(data.to_string())),
+            PreTagFormat::ShortSha => {
+                PreTag::ShortSha(VersionNumber::ShortSha(data[0..7].to_string()))
+            }
         }
     }
 }
@@ -263,12 +259,12 @@ impl VersionNumberFormat {
                 VersionNumber::CalVer(calendar_parts.clone(), date.to_utc())
             }
             VersionNumberFormat::Sha => VersionNumber::Sha(data.to_string()),
-            VersionNumberFormat::ShortSha => VersionNumber::ShortSha(data.to_string()),
+            VersionNumberFormat::ShortSha => VersionNumber::ShortSha(data[0..7].to_string()),
         }
     }
 }
 
-impl Display for VersionFormat<'_> {
+impl Display for VersionFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pre = match &self.prerelease {
             Some(pre) => pre,
