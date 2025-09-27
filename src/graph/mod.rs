@@ -1,4 +1,3 @@
-use chrono::naive;
 use eyre::{OptionExt, Result, eyre};
 
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -6,7 +5,7 @@ use petgraph::visit::{Bfs, DfsPostOrder, Reversed, Walker};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
-use tracing::{instrument, warn};
+use tracing::{debug, instrument, warn};
 pub mod assign_edges;
 mod assign_versions;
 pub mod branch_heads;
@@ -133,15 +132,15 @@ impl<'a> CommitGraph<'a> {
         'b: 'a,
     {
         let head = self.head().clone();
-        dbg!(&head);
+        debug!("head: {:?}", &head);
         let next_log_entry = message.as_peek_log_entry(head.clone());
-        dbg!(&next_log_entry);
+        debug!("next_log_entry: {:?}", &next_log_entry);
         let head = head.lock().unwrap();
         let head_version = head
             .version
             .clone()
             .unwrap_or(version_format.as_default_version(&head.log_entry));
-        dbg!(&head_version);
+        debug!("head_version: {:?}", &head_version);
 
         // Clone the existing graph structure
         let mut petgraph = self.petgraph.clone();
@@ -154,10 +153,10 @@ impl<'a> CommitGraph<'a> {
             log_entry: next_log_entry.clone(),
             version: Some(head_version.next_version(&next_log_entry, version_format)),
         };
-        dbg!(&next_node_data);
+        debug!("next_node_data: {:?}", &next_node_data);
 
         let next_index = petgraph.add_node(Arc::new(Mutex::new(next_node_data)));
-        dbg!(&next_index);
+        debug!("next_index: {:?}", &next_index);
 
         let mut next_branch_heads = self.branch_heads.clone();
 

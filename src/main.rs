@@ -76,7 +76,6 @@ fn main() -> Result<()> {
     }
 
     let parsed_args = CCVerArgs::parse();
-    dbg!(&parsed_args);
     debug!("Parsed command line arguments: {:?}", parsed_args);
 
     let command = match parsed_args.command {
