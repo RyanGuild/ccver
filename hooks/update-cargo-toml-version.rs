@@ -1,7 +1,4 @@
-use ccver::{
-    logs::PeekLogEntry,
-    version_format::{PreTagFormat, VersionFormat, VersionNumberFormat},
-};
+use ccver::version_format::{PreTagFormat, VersionFormat, VersionNumberFormat};
 use eyre::Result;
 use toml_edit::Document;
 use tracing::{error, info};
