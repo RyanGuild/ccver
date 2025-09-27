@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.16.18"
+version = "2.22.3"
 edition = "2024"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 license-file = "LICENSE"
@@ -17,7 +17,7 @@ panic = "abort"
 
 [[bin]]
 name = "update-cargo-toml-version"
-path = "hooks/update-cargo-toml-version.rs"
+path = "bin/update-cargo-toml-version/main.rs"
 
 [dev-dependencies]
 indoc = "2"

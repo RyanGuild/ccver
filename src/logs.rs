@@ -1,9 +1,11 @@
-use crate::git;
+use crate::graph::CommitGraphNodeWeight;
 use crate::parser::parse_log;
 use crate::pattern_macros::{major_subject, minor_subject, patch_subject};
 use crate::version::Version;
 use crate::version_format::VersionFormat;
+use crate::{git, parser};
 use eyre::*;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::{env::current_dir, path::Path};
 use tracing::{debug, info, instrument};
@@ -61,19 +63,59 @@ pub struct LogEntry<'a> {
 }
 
 impl LogEntry<'_> {
-    pub fn tagged_version(&self) -> Option<Version> {
-        for decoration in self.decorations.iter() {
-            if let Decoration::Tag(tag) = decoration
-                && let Tag::Version(version) = tag
-            {
-                return Some(version.clone());
-            }
-        }
-        None
-    }
-
     pub fn as_initial_version(&self, commit: &LogEntry, version_format: &VersionFormat) -> Version {
         self.subject.as_initial_version(commit, version_format)
+    }
+}
+
+pub trait PeekLogEntry {
+    fn as_peek_log_entry<'a>(&self, parent: CommitGraphNodeWeight<'a>) -> LogEntry<'a>;
+}
+
+impl<T> PeekLogEntry for T
+where
+    T: AsRef<str>,
+{
+    fn as_peek_log_entry<'a>(&self, parent: CommitGraphNodeWeight<'a>) -> LogEntry<'a> {
+        let parent = parent.lock().unwrap();
+        let parsed_subject = parser::parse_subject(self.as_ref()).unwrap();
+
+        // For peek entries, we need to convert the subject to use the parent's lifetime
+        // Since this is a preview operation, we'll create a simplified subject
+        let subject = match parsed_subject {
+            Subject::Conventional(conv) => {
+                // Leak the strings to get 'static lifetime, then coerce to 'a
+                let commit_type: &'a str = Box::leak(conv.commit_type.to_string().into_boxed_str());
+                let description: &'a str = Box::leak(conv.description.to_string().into_boxed_str());
+                let scope: Option<&'a str> = conv.scope.map(|s| {
+                    let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
+                    leaked
+                });
+
+                Subject::Conventional(ConventionalSubject {
+                    commit_type,
+                    breaking: conv.breaking,
+                    scope,
+                    description,
+                })
+            }
+            Subject::Text(text) => {
+                let leaked_text: &'a str = Box::leak(text.to_string().into_boxed_str());
+                Subject::Text(leaked_text)
+            }
+        };
+
+        LogEntry {
+            name: "peek-next-commit",
+            branch: parent.log_entry.branch,
+            commit_hash: "0000000000000000000000000000000000000000",
+            commit_timezone: chrono::Utc,
+            commit_datetime: chrono::Utc::now(),
+            parent_hashes: vec![parent.log_entry.commit_hash].into(),
+            decorations: Arc::new([Decoration::HeadIndicator(parent.log_entry.branch)]),
+            subject,
+            footers: HashMap::new(),
+        }
     }
 }
 
@@ -103,7 +145,7 @@ pub const GIT_FORMAT_ARGS: [&str; 5] = [
 
 impl Logs<'_> {
     #[instrument(skip(raw))]
-    pub fn from_str<'a>(raw: &'a str) -> Result<Logs<'a>> {
+    pub fn from_log_str<'a>(raw: &'a str) -> Result<Logs<'a>> {
         debug!("Parsing logs from string ({} chars)", raw.len());
         let logs = parse_log(raw)?;
         info!("Successfully parsed logs");
@@ -114,7 +156,7 @@ impl Logs<'_> {
     pub fn from_path(path: &Path) -> Result<Logs<'static>> {
         info!("Loading logs from path: {:?}", path);
         let raw = git::formatted_logs(path)?;
-        Logs::from_str(raw)
+        Logs::from_log_str(raw)
     }
 }
 
@@ -142,5 +184,28 @@ mod logs_tests {
     #[test]
     fn test_logs_parsed() {
         let _logs = Logs::default();
+    }
+}
+
+pub trait InfersVersionFormat {
+    fn infer_version_format(&self) -> VersionFormat;
+}
+
+impl<'a> InfersVersionFormat for Logs<'a> {
+    fn infer_version_format(&self) -> VersionFormat {
+        let mut log_entries: Vec<_> = self.iter().collect();
+        log_entries.sort_by(|a, b| a.commit_datetime.cmp(&b.commit_datetime));
+
+        log_entries
+            .into_iter()
+            .flat_map(|log| {
+                log.decorations.iter().find_map(|d| match d {
+                    Decoration::Tag(Tag::Version(version)) => Some(version.clone()),
+                    _ => None,
+                })
+            })
+            .map(Into::<VersionFormat>::into)
+            .next()
+            .unwrap_or_default()
     }
 }

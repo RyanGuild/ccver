@@ -23,6 +23,7 @@ jobs:
     uses: "./.github/workflows/test.yaml"
   release:
     name: Release
+    if: github.ref_name == 'main' || github.ref_name == 'master'
     needs: [build, test]
     uses: "./.github/workflows/release.yaml"
     secrets: inherit

@@ -4,8 +4,11 @@ use std::{
 };
 
 use crate::{
-    logs::LogEntry,
-    version_format::{CalVerFormat, CalVerFormatSegment, VersionFormat},
+    logs::{LogEntry, Subject},
+    pattern_macros::*,
+    version_format::{
+        CalVerFormat, CalVerFormatSegment, PreTagFormat, VersionFormat, VersionNumberFormat,
+    },
 };
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -31,6 +34,84 @@ impl Display for Version {
 }
 
 impl Version {
+    pub fn no_pre(&self) -> Version {
+        Version {
+            v_prefix: self.v_prefix,
+            major: self.major.clone(),
+            minor: self.minor.clone(),
+            patch: self.patch.clone(),
+            prerelease: None,
+        }
+    }
+    pub fn next_version<'a>(
+        &self,
+        log_entry: &LogEntry<'a>,
+        version_format: &VersionFormat,
+    ) -> Version {
+        match (
+            &log_entry.subject,
+            log_entry.branch,
+            log_entry.parent_hashes.len() == 2,
+        ) {
+            (major_subject!(), release_branches!(), _) => self.major(log_entry, version_format),
+            (minor_subject!(), release_branches!(), _) => self.minor(log_entry, version_format),
+            (patch_subject!(), release_branches!(), _) => self.patch(log_entry, version_format),
+            (Subject::Conventional(_), release_branches!(), _) => {
+                self.short_sha(log_entry, version_format)
+            }
+            (major_subject!(), rc_branches!(), _) => self
+                .major(log_entry, version_format)
+                .rc(log_entry, version_format),
+            (minor_subject!(), rc_branches!(), _) => self
+                .minor(log_entry, version_format)
+                .rc(log_entry, version_format),
+            (patch_subject!(), rc_branches!(), _) => self
+                .patch(log_entry, version_format)
+                .rc(log_entry, version_format),
+            (Subject::Conventional(_), rc_branches!(), _) => self.rc(log_entry, version_format),
+            (major_subject!(), beta_branches!(), _) => self
+                .major(log_entry, version_format)
+                .beta(log_entry, version_format),
+            (minor_subject!(), beta_branches!(), _) => self
+                .minor(log_entry, version_format)
+                .beta(log_entry, version_format),
+            (patch_subject!(), beta_branches!(), _) => self
+                .patch(log_entry, version_format)
+                .beta(log_entry, version_format),
+            (Subject::Conventional(_), beta_branches!(), _) => self.beta(log_entry, version_format),
+            (major_subject!(), alpha_branches!(), _) => self
+                .major(log_entry, version_format)
+                .alpha(log_entry, version_format),
+            (minor_subject!(), alpha_branches!(), _) => self
+                .minor(log_entry, version_format)
+                .alpha(log_entry, version_format),
+            (patch_subject!(), alpha_branches!(), _) => self
+                .patch(log_entry, version_format)
+                .alpha(log_entry, version_format),
+            (Subject::Conventional(_), alpha_branches!(), _) => {
+                self.alpha(log_entry, version_format)
+            }
+            (major_subject!(), _, _) => self
+                .major(log_entry, version_format)
+                .named(log_entry, version_format),
+            (minor_subject!(), _, _) => self
+                .minor(log_entry, version_format)
+                .named(log_entry, version_format),
+            (patch_subject!(), _, _) => self
+                .patch(log_entry, version_format)
+                .named(log_entry, version_format),
+            (Subject::Conventional(_), _, _) => self.named(log_entry, version_format),
+            (Subject::Text(_), release_branches!(), true) => {
+                self.release(log_entry, version_format)
+            }
+            (Subject::Text(_), release_branches!(), _) => self.short_sha(log_entry, version_format),
+            (Subject::Text(_), rc_branches!(), _) => self.rc(log_entry, version_format),
+            (Subject::Text(_), beta_branches!(), _) => self.beta(log_entry, version_format),
+            (Subject::Text(_), alpha_branches!(), _) => self.alpha(log_entry, version_format),
+            (Subject::Text(_), _, _) => self.named(log_entry, version_format),
+        }
+    }
+
     pub fn major(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
         Version {
             v_prefix: version_format.v_prefix,
@@ -75,14 +156,12 @@ impl Version {
                         .version_format()
                         .as_default_version_number(commit),
                 )),
-                Some(pre) => match pre {
-                    PreTag::Build(v) => Some(PreTag::Build(v.bump(commit))),
-                    _ => Some(PreTag::Build(
-                        pre_format
-                            .version_format()
-                            .as_default_version_number(commit),
-                    )),
-                },
+                Some(PreTag::Build(v)) => Some(PreTag::Build(v.bump(commit))),
+                Some(_) => Some(PreTag::Build(
+                    pre_format
+                        .version_format()
+                        .as_default_version_number(commit),
+                )),
             },
         }
     }
@@ -294,12 +373,49 @@ impl PartialOrd for PreTag {
     }
 }
 
+impl From<PreTag> for PreTagFormat {
+    fn from(val: PreTag) -> Self {
+        match val {
+            PreTag::Rc(v) => PreTagFormat::Rc(v.into()),
+            PreTag::Beta(v) => PreTagFormat::Beta(v.into()),
+            PreTag::Alpha(v) => PreTagFormat::Alpha(v.into()),
+            PreTag::Build(v) => PreTagFormat::Build(v.into()),
+            PreTag::Named(tag, v) => PreTagFormat::Named(tag, v.into()),
+            PreTag::Sha(_) => PreTagFormat::Sha,
+            PreTag::ShortSha(_) => PreTagFormat::ShortSha,
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum VersionNumber {
     CCVer(usize),
     CalVer(CalVerFormat, chrono::DateTime<chrono::Utc>),
     Sha(String),
     ShortSha(String),
+}
+
+impl From<Version> for VersionFormat {
+    fn from(val: Version) -> Self {
+        VersionFormat {
+            v_prefix: val.v_prefix,
+            major: val.major.into(),
+            minor: val.minor.into(),
+            patch: val.patch.into(),
+            prerelease: val.prerelease.map(|p| p.into()),
+        }
+    }
+}
+
+impl From<VersionNumber> for VersionNumberFormat {
+    fn from(val: VersionNumber) -> Self {
+        match val {
+            VersionNumber::CCVer(_) => VersionNumberFormat::CCVer,
+            VersionNumber::CalVer(format, _) => VersionNumberFormat::CalVer(format),
+            VersionNumber::Sha(_) => VersionNumberFormat::Sha,
+            VersionNumber::ShortSha(_) => VersionNumberFormat::ShortSha,
+        }
+    }
 }
 
 impl VersionNumber {
@@ -374,6 +490,7 @@ impl Ord for VersionNumber {
 }
 
 impl PartialOrd for VersionNumber {
+    #[allow(clippy::non_canonical_partial_ord_impl)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self {
             VersionNumber::CCVer(ver) => match other {

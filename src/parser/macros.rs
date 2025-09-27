@@ -30,8 +30,8 @@ pub macro cc_parse_with_data($rule:ident, $str_ref:expr, $data:expr) {
     }
 }
 
-pub macro cc_parse_format($rule:ident, $str_ref:expr, $data:expr) {
-    match Parser::parse_with_userdata(Rule::$rule, $str_ref, ParserInputs::FormatParsing($data)) {
+pub macro cc_parse_format($rule:ident, $str_ref:expr) {
+    match Parser::parse_with_userdata(Rule::$rule, $str_ref, ParserInputs::FormatParsing) {
         Err(e) => Err(e),
         Ok(parsed) => match parsed.single() {
             Err(e) => Err(e),
