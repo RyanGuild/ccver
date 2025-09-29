@@ -80,7 +80,7 @@ jobs:
           certificate-id: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: ${{ matrix.target.artifact_name }}
 
