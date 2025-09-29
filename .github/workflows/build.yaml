@@ -47,7 +47,7 @@ jobs:
             artifact_name: ccver-macos-arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.ref_name }}
 
