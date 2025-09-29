@@ -43,7 +43,7 @@ jobs:
           fetch-depth: 0
       - name: Download artifacts
         id: download-artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: ccver-*
       - uses: actions-ecosystem/action-get-latest-tag@v1
