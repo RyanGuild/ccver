@@ -359,7 +359,7 @@ fn get_current_version(
                 Err(eyre!("Repo is dirty while ci is true"))
             } else {
                 let head = graph.head();
-                info!("Head: {:#?}", head);
+                debug!("Head: {:#?}", head);
                 let head = head.unwrap().lock().unwrap();
                 let version = head
                     .version
