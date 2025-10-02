@@ -39,12 +39,12 @@ use std::env::current_dir;
 use std::io::Read as _;
 use std::path::PathBuf;
 
+use crate::logs::PeekLogEntry;
 use args::*;
 use changelog::ChangeLogData;
 use clap::Parser;
 use eyre::*;
 use git::{git_installed, is_dirty};
-use graph::CommitGraph;
 use logs::GIT_FORMAT_ARGS;
 use logs::Logs;
 use tracing::{Level, debug, error, info, instrument, span, warn};
@@ -52,6 +52,8 @@ use tracing_error::ErrorLayer;
 use tracing_subscriber::Layer as _;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
+use crate::graph::MemoizedCommitGraph;
+use crate::graph::version::ExistingVersionExt;
 use crate::logs::InfersVersionFormat as _;
 
 #[instrument]
@@ -177,12 +179,14 @@ fn main() -> Result<()> {
                     error!(error = %e, "Failed to read from stdin");
                     e
                 })?;
-            Logs::from_log_str(&stdin_string)?
+            Logs::from_log_str(stdin_string.leak())?
         } else {
             info!(path = ?path, "Reading logs from path");
             Logs::from_path(&path)?
         }
     };
+
+    info!("Logs count: {}", logs.len());
 
     let version_format = {
         let _format_span = span!(Level::INFO, "parse_version_format").entered();
@@ -201,7 +205,12 @@ fn main() -> Result<()> {
     let graph = {
         let _graph_span = span!(Level::INFO, "build_commit_graph").entered();
         info!("Building commit graph");
-        let graph = CommitGraph::new(&logs, &version_format)?;
+        let graph = MemoizedCommitGraph::new(logs.clone(), &version_format);
+        info!(
+            "Commit graph node count: {} edge count: {}",
+            graph.node_count(),
+            graph.edge_count()
+        );
         debug!("Commit graph created successfully");
         graph
     };
@@ -210,65 +219,71 @@ fn main() -> Result<()> {
         let _command_span = span!(Level::INFO, "execute_command").entered();
         match command {
             None => {
-                let _version_span = span!(Level::DEBUG, "get_current_version").entered();
-                debug!("Using default command to get current version");
-                let ver = match is_dirty(&path) {
-                    Err(e) => {
-                        if ci {
-                            Err(e)
+                let _version_span = span!(Level::INFO, "get_current_version").entered();
+                info!("Using default command to get current version");
+                match is_dirty(&path) {
+                    Result::Ok(dirty) => {
+                        if ci && dirty {
+                            Err(eyre!("Repo is dirty while ci is true"))
                         } else {
                             let head = graph.head();
-                            let head = head.lock().unwrap();
+                            info!("Head: {:#?}", head);
+                            let head = head.unwrap().lock().unwrap();
                             let version = head.version.clone().ok_or_eyre(eyre!(
                                 "Current Branch Head Was Not Assigned a Version"
-                            ))?;
-                            Ok(version.build(&head.log_entry, &version_format))
+                            ));
+                            version.map(|v| v.build(&head.log_entry, &version_format))
                         }
                     }
-                    Result::Ok(_) => {
-                        let head = graph.head();
-                        let head = head.lock().unwrap();
-                        let version = head
-                            .version
-                            .clone()
-                            .ok_or_eyre(eyre!("Current Branch Head Was Not Assigned a Version"))?;
-                        Ok(version)
-                    }
-                }?;
-                if no_pre {
-                    format!(
-                        "{}",
-                        ver.release(&graph.head().lock().unwrap().log_entry, &version_format)
-                    )
-                } else {
-                    format!("{}", ver)
+                    Err(e) => Err(e),
                 }
+                .map(|v| {
+                    info!("Version: {:?}", v);
+                    if no_pre {
+                        format!(
+                            "{}",
+                            v.release(
+                                &graph.head().unwrap().lock().unwrap().log_entry,
+                                &version_format
+                            )
+                        )
+                    } else {
+                        format!("{}", v)
+                    }
+                })
+                .map_err(|e| {
+                    error!(error = %e, "Failed to get current version");
+                    e
+                })?
             }
             Some(command) => match command {
                 CCVerSubCommand::Peek(args) => {
                     let _peek_span =
                         span!(Level::INFO, "peek_command", message = %args.message).entered();
-                    let graph = graph.peek(args.message.as_str(), &version_format).map_err(|e| {
-                        error!(error = %e, message = %args.message, "Failed to peek with message");
-                        e
-                    })?;
-                    let new_head = graph.head();
-                    let new_head = new_head.lock().unwrap();
-                    let version = new_head
-                        .version
-                        .clone()
-                        .ok_or_eyre(eyre!("No version found"))?;
-                    debug!(version = %version, "Peek result");
+                    let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.commit_hash;
+                    let branch = graph.head().unwrap().lock().unwrap().log_entry.branch;
+                    let next_entry = args
+                        .message
+                        .leak()
+                        .into_peek_log_entry(parent_commit, branch);
+                    let next_version = graph
+                        .head()
+                        .unwrap()
+                        .as_existing_version()
+                        .map(|v| v.next_version(&next_entry, &version_format))
+                        .unwrap_or_else(|| version_format.as_default_version(&next_entry));
+
+                    debug!(version = %next_version, "Peek result");
                     if no_pre {
-                        format!("{}", version.no_pre())
+                        format!("{}", next_version.no_pre())
                     } else {
-                        format!("{}", version)
+                        format!("{}", next_version)
                     }
                 }
                 CCVerSubCommand::ChangeLog => {
                     let _changelog_span = span!(Level::INFO, "changelog_command").entered();
                     info!("Generating changelog");
-                    let changelog = ChangeLogData::new(&graph).map_err(|e| {
+                    let changelog = ChangeLogData::new(graph).map_err(|e| {
                         error!(error = %e, "Failed to generate changelog");
                         e
                     })?;

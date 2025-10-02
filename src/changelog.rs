@@ -4,7 +4,10 @@ use eyre::*;
 use petgraph::graph::NodeIndex;
 
 use crate::{
-    graph::CommitGraph,
+    graph::{
+        GraphOps, assign_versions::AsLogEntry, head::HasHead,
+        parents_and_children::HasParentsAndChildren, version::ExistingVersionExt,
+    },
     logs::{ConventionalSubject, Subject},
     pattern_macros::{
         major_commit_types, minor_commit_types, patch_commit_types, semver_advancing_subject,
@@ -171,26 +174,33 @@ enum Change {
 }
 
 impl ChangeLogData {
-    pub fn new(graph: &CommitGraph) -> Result<ChangeLog> {
-        let root = graph.headidx();
+    pub fn new<'a, N, E, Ty, Ix, T>(graph: T) -> Result<ChangeLog>
+    where
+        T: GraphOps<N, E, Ty, Ix> + HasHead<N, E, Ty, Ix> + HasParentsAndChildren<N, E, Ty, Ix>,
+        N: AsLogEntry + ExistingVersionExt,
+        Ix: Copy,
+    {
+        let root = graph.headidx().ok_or_eyre("No head index found in graph")?;
         Self::from_index(graph, root)
     }
 
-    pub fn from_index(graph: &CommitGraph, from: NodeIndex) -> Result<ChangeLog> {
+    pub fn from_index<'a, N, E, Ty, Ix, T>(graph: T, from: NodeIndex<Ix>) -> Result<ChangeLog>
+    where
+        T: GraphOps<N, E, Ty, Ix> + HasParentsAndChildren<N, E, Ty, Ix>,
+        N: AsLogEntry + ExistingVersionExt,
+        Ix: Copy,
+    {
         let versions = {
-            let mut stack = graph.parents(from);
-            let current_ver = graph
-                .get(from)
-                .ok_or_eyre("Foreign NodeIndex detected please only input ")?;
+            let mut stack = graph.parentidxs(from);
+            let current_ver = graph.node_weight(from).unwrap();
             let mut versions = vec![current_ver];
-            while let Some(parent) = stack.pop() {
-                let parent_commit = graph.get(parent).expect("Idx Comes from graph source");
-
-                match parent_commit.lock().unwrap().log_entry.subject {
+            while let Some(parent_idx) = stack.pop() {
+                let parent = graph.node_weight(parent_idx).unwrap();
+                match parent.as_log_entry().subject {
                     semver_advancing_subject!() => {}
                     _ => {
-                        stack.extend(graph.parents(parent));
-                        versions.push(parent_commit.clone());
+                        stack.extend(graph.parentidxs(parent_idx));
+                        versions.push(parent);
                     }
                 };
             }
@@ -199,14 +209,14 @@ impl ChangeLogData {
 
         let mut changes = versions
             .iter()
-            .map(|commit| match &commit.lock().unwrap().log_entry.subject {
+            .map(|commit| match &commit.as_log_entry().subject {
                 Subject::Conventional(ConventionalSubject {
                     commit_type,
                     scope: None,
                     description,
                     ..
                 }) => {
-                    let commit_datetime = commit.lock().unwrap().log_entry.commit_datetime;
+                    let commit_datetime = commit.as_log_entry().commit_datetime;
                     match *commit_type {
                         major_commit_types!() => ChangeScoped::All(Change::Breaking(
                             description.to_string(),
@@ -232,7 +242,7 @@ impl ChangeLogData {
                     description,
                     ..
                 }) => {
-                    let commit_datetime = commit.lock().unwrap().log_entry.commit_datetime;
+                    let commit_datetime = commit.as_log_entry().commit_datetime;
                     match *commit_type {
                         major_commit_types!() => ChangeScoped::Scoped(
                             scope.to_string(),
@@ -257,7 +267,7 @@ impl ChangeLogData {
                     }
                 }
                 Subject::Text(t) => {
-                    let commit_datetime = commit.lock().unwrap().log_entry.commit_datetime;
+                    let commit_datetime = commit.as_log_entry().commit_datetime;
                     ChangeScoped::All(Change::Misc(t.to_string(), commit_datetime))
                 }
             })

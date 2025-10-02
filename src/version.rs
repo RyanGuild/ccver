@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub struct Version {
     pub v_prefix: bool,
     pub major: VersionNumber,
@@ -232,7 +232,11 @@ impl Version {
                     Some(PreTag::Named(tag.to_string(), v.bump(commit)))
                 }
                 _ => Some(PreTag::Named(
-                    commit.branch.to_string(),
+                    commit
+                        .branch
+                        .chars()
+                        .filter(|c| c.is_alphanumeric())
+                        .collect::<String>(),
                     pre_format
                         .version_format()
                         .as_default_version_number(commit),
@@ -308,7 +312,7 @@ impl PartialOrd for Version {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub enum PreTag {
     Rc(VersionNumber),
     Beta(VersionNumber),
@@ -387,7 +391,7 @@ impl From<PreTag> for PreTagFormat {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum VersionNumber {
     CCVer(usize),
     CalVer(CalVerFormat, chrono::DateTime<chrono::Utc>),
