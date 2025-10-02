@@ -40,7 +40,9 @@ pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Re
         return Err(eyre!("Failed to tag commit with version: {}", version));
     }
 
-    if let Some(stderr) = String::from_utf8(output.stderr).ok() {
+    if let Some(stderr) = String::from_utf8(output.stderr).ok()
+        && !stderr.is_empty()
+    {
         warn!("Failed to tag commit with version: {}", stderr);
     }
 
