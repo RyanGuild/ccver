@@ -1,4 +1,9 @@
-use crate::logs::GIT_FORMAT_ARGS;
+use crate::{
+    logs::GIT_FORMAT_ARGS,
+    version::Version,
+    version_format::{self, VersionFormat},
+};
+use core::hash;
 use eyre::*;
 use std::{path::Path, process::Command};
 use tracing::{debug, info, instrument, warn};
@@ -20,6 +25,17 @@ pub fn is_dirty(path: &Path) -> Result<bool> {
     let is_dirty = code != 0;
     debug!("Repository dirty status: {}", is_dirty);
     Ok(is_dirty)
+}
+
+#[instrument]
+pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Result<()> {
+    debug!("Tagging commit with version: {}", version);
+    let tag = format!("{}", version);
+    Command::new("git")
+        .args(["tag", "-a", tag.as_str(), hash])
+        .current_dir(path)
+        .output()?;
+    Ok(())
 }
 
 #[instrument]
