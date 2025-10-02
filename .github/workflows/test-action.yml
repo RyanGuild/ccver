@@ -55,7 +55,7 @@ jobs:
     - name: Test Docker Image - HELP
       run: docker run --rm -v "${GITHUB_WORKSPACE}:/github/workspace" ghcr.io/ryanguild/ccver:${{ github.ref_name }} --help
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
         fetch-tags: true

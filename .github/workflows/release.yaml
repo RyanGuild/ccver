@@ -20,7 +20,7 @@ jobs:
     name: 🚚 Cargo Publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.ref_name }}
       - name: Get Rust Cache
@@ -36,7 +36,7 @@ jobs:
     name: 🚀 Create Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.ref_name }}
           fetch-tags: true
