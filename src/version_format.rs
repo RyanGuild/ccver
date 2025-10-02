@@ -71,7 +71,7 @@ impl Default for &VersionNumberFormat {
 
 pub type CalVerFormat = Arc<[CalVerFormatSegment]>;
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub enum CalVerFormatSegment {
     Year4,
     Year2,

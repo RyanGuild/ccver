@@ -1,4 +1,3 @@
-use crate::graph::CommitGraphNodeWeight;
 use crate::parser::parse_log;
 use crate::pattern_macros::{major_subject, minor_subject, patch_subject};
 use crate::version::Version;
@@ -6,9 +5,12 @@ use crate::version_format::VersionFormat;
 use crate::{git, parser};
 use eyre::*;
 use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::{env::current_dir, path::Path};
 use tracing::{debug, info, instrument};
+
+pub const PEEK_COMMIT_HASH: &str = "0000000000000000000000000000000000000000";
 
 #[derive(Debug)]
 pub enum Decoration<'a> {
@@ -69,25 +71,29 @@ impl LogEntry<'_> {
 }
 
 pub trait PeekLogEntry {
-    fn as_peek_log_entry<'a>(&self, parent: CommitGraphNodeWeight<'a>) -> LogEntry<'a>;
+    fn into_peek_log_entry(
+        self,
+        parent_commit: &'static str,
+        branch: &'static str,
+    ) -> LogEntry<'static>;
 }
 
-impl<T> PeekLogEntry for T
-where
-    T: AsRef<str>,
-{
-    fn as_peek_log_entry<'a>(&self, parent: CommitGraphNodeWeight<'a>) -> LogEntry<'a> {
-        let parent = parent.lock().unwrap();
-        let parsed_subject = parser::parse_subject(self.as_ref()).unwrap();
+impl PeekLogEntry for &'static str {
+    fn into_peek_log_entry(
+        self,
+        parent_commit: &'static str,
+        branch: &'static str,
+    ) -> LogEntry<'static> {
+        let parsed_subject = parser::parse_subject(self).unwrap();
 
         // For peek entries, we need to convert the subject to use the parent's lifetime
         // Since this is a preview operation, we'll create a simplified subject
         let subject = match parsed_subject {
             Subject::Conventional(conv) => {
                 // Leak the strings to get 'static lifetime, then coerce to 'a
-                let commit_type: &'a str = Box::leak(conv.commit_type.to_string().into_boxed_str());
-                let description: &'a str = Box::leak(conv.description.to_string().into_boxed_str());
-                let scope: Option<&'a str> = conv.scope.map(|s| {
+                let commit_type: &str = Box::leak(conv.commit_type.to_string().into_boxed_str());
+                let description: &str = Box::leak(conv.description.to_string().into_boxed_str());
+                let scope: Option<&str> = conv.scope.map(|s| {
                     let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
                     leaked
                 });
@@ -100,31 +106,52 @@ where
                 })
             }
             Subject::Text(text) => {
-                let leaked_text: &'a str = Box::leak(text.to_string().into_boxed_str());
+                let leaked_text: &str = Box::leak(text.to_string().into_boxed_str());
                 Subject::Text(leaked_text)
             }
         };
 
         LogEntry {
             name: "peek-next-commit",
-            branch: parent.log_entry.branch,
-            commit_hash: "0000000000000000000000000000000000000000",
+            branch,
+            commit_hash: PEEK_COMMIT_HASH,
             commit_timezone: chrono::Utc,
             commit_datetime: chrono::Utc::now(),
-            parent_hashes: vec![parent.log_entry.commit_hash].into(),
-            decorations: Arc::new([Decoration::HeadIndicator(parent.log_entry.branch)]),
+            parent_hashes: vec![parent_commit].into(),
+            decorations: Arc::new([Decoration::HeadIndicator(branch)]),
             subject,
             footers: HashMap::new(),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Logs<'a>(Vec<LogEntry<'a>>);
 
 impl Logs<'_> {
     pub fn iter(&'_ self) -> impl Iterator<Item = &'_ LogEntry<'_>> {
         self.0.iter()
+    }
+}
+
+impl<'a> Deref for Logs<'a> {
+    type Target = Vec<LogEntry<'a>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for Logs<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a> IntoIterator for Logs<'a> {
+    type Item = LogEntry<'a>;
+    type IntoIter = std::vec::IntoIter<LogEntry<'a>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

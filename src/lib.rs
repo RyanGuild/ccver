@@ -11,9 +11,10 @@ pub mod pattern_macros;
 pub mod version;
 pub mod version_format;
 
-use eyre::{OptionExt, Result, eyre};
-use graph::CommitGraph;
+use eyre::Result;
+use graph::CommitGraphT;
 use logs::Logs;
+use petgraph::graph::DiGraph;
 use tracing::{Level, span};
 use version::Version;
 use version_format::VersionFormat;
@@ -25,14 +26,15 @@ pub fn peek(
 ) -> Result<Version, eyre::Error> {
     let _span = span!(Level::INFO, "peek", repo_path = ?repo_path, commit_message = %commit_message, version_format = %version_format).entered();
     let logs = Logs::from_path(repo_path)?;
-    let graph = CommitGraph::new(&logs, version_format)?;
-    let next_graph = graph.peek(commit_message, version_format)?;
-    let version = next_graph
-        .head()
-        .lock()
-        .unwrap()
-        .version
-        .clone()
-        .ok_or_eyre(eyre!("Peek Head Was Not Assigned a Version"))?;
-    Ok(version)
+    let graph: CommitGraphT = DiGraph::new();
+    todo!()
+    // let next_graph = graph.peek(commit_message, version_format)?;
+    // let version = next_graph
+    //     .head()
+    //     .lock()
+    //     .unwrap()
+    //     .version
+    //     .clone()
+    //     .ok_or_eyre(eyre!("Peek Head Was Not Assigned a Version"))?;
+    // Ok(version)
 }
