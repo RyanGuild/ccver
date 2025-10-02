@@ -40,6 +40,7 @@ use std::io::Read as _;
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::graph::version::TaggedVersionExt as _;
 use crate::logs::PeekLogEntry;
 use crate::version::Version;
 use crate::version_format::VersionFormat;
@@ -306,26 +307,19 @@ fn main() -> Result<()> {
                             DfsPostOrder::new(graph.base_graph(), graph.headidx().unwrap())
                                 .iter(graph.base_graph())
                                 .map(|idx| {
-                                    let version = graph
-                                        .node_weight(idx)
-                                        .unwrap()
-                                        .lock()
-                                        .unwrap()
-                                        .as_existing_version()
-                                        .expect(
-                                            "A version was not assinged to a node in the graph",
-                                        );
-                                    git::tag_commit_with_version(
-                                        &graph
-                                            .node_weight(idx)
-                                            .unwrap()
-                                            .lock()
-                                            .unwrap()
-                                            .log_entry
-                                            .commit_hash,
-                                        &version,
-                                        &path,
-                                    )?;
+                                    let weight = graph.node_weight(idx).unwrap().lock().unwrap();
+                                    let version = weight.as_existing_version().expect(
+                                        "A version was not assinged to a node in the graph",
+                                    );
+
+                                    let tagged_version = weight.log_entry.as_tagged_version();
+                                    if tagged_version.is_none() {
+                                        git::tag_commit_with_version(
+                                            &weight.log_entry.commit_hash,
+                                            &version,
+                                            &path,
+                                        )?;
+                                    }
 
                                     Ok(format!("{}", version))
                                 })
