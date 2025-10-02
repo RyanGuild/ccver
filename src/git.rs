@@ -32,7 +32,7 @@ pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Re
     debug!("Tagging commit with version: {}", version);
     let tag = format!("{}", version);
     Command::new("git")
-        .args(["tag", "-a", tag.as_str(), hash])
+        .args(["tag", tag.as_str(), hash])
         .current_dir(path)
         .output()?;
     Ok(())
