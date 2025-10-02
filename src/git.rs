@@ -31,10 +31,20 @@ pub fn is_dirty(path: &Path) -> Result<bool> {
 pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Result<()> {
     debug!("Tagging commit with version: {}", version);
     let tag = format!("{}", version);
-    Command::new("git")
+    let output = Command::new("git")
         .args(["tag", tag.as_str(), hash])
         .current_dir(path)
         .output()?;
+
+    if !output.status.success() {
+        return Err(eyre!("Failed to tag commit with version: {}", version));
+    }
+
+    if let Some(stderr) = String::from_utf8(output.stderr).ok() {
+        warn!("Failed to tag commit with version: {}", stderr);
+    }
+
+    debug!("Tagged commit with version: {}", version);
     Ok(())
 }
 
