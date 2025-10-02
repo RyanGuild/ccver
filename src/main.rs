@@ -314,11 +314,11 @@ fn main() -> Result<()> {
 
                                     let tagged_version = weight.log_entry.as_tagged_version();
                                     if tagged_version.is_none() {
-                                        git::tag_commit_with_version(
+                                        let _ = git::tag_commit_with_version(
                                             &weight.log_entry.commit_hash,
                                             &version,
                                             &path,
-                                        )?;
+                                        );
                                     }
 
                                     Ok(format!("{}", version))
