@@ -1,9 +1,4 @@
-use crate::{
-    logs::GIT_FORMAT_ARGS,
-    version::Version,
-    version_format::{self, VersionFormat},
-};
-use core::hash;
+use crate::{logs::GIT_FORMAT_ARGS, version::Version};
 use eyre::*;
 use std::{path::Path, process::Command};
 use tracing::{debug, info, instrument, warn};

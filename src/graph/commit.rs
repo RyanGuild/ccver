@@ -159,7 +159,7 @@ impl<Ix, T> DerefMut for CommitMemo<T, Ix> {
 
 pub trait CommitExt<N, E, Ty, Ix> {
     fn commit_by_hash(&self, commit: &str) -> Option<&N>;
-    fn commitidx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>>;
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>>;
 }
 
 impl<N, E, Ty, Ix, T> CommitExt<N, E, Ty, Ix> for CommitMemo<T, Ix>
@@ -169,10 +169,10 @@ where
     Ix: Copy,
 {
     fn commit_by_hash(&self, commit: &str) -> Option<&N> {
-        self.inner.node_weight(self.commitidx_by_hash(commit)?)
+        self.inner.node_weight(self.commit_idx_by_hash(commit)?)
     }
 
-    fn commitidx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
         self.commitmemo.get(commit).cloned()
     }
 }

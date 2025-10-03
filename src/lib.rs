@@ -12,29 +12,41 @@ pub mod version;
 pub mod version_format;
 
 use eyre::Result;
-use graph::CommitGraphT;
 use logs::Logs;
-use petgraph::graph::DiGraph;
-use tracing::{Level, span};
+use tracing::{Level, debug, instrument, span};
 use version::Version;
 use version_format::VersionFormat;
 
+use crate::{
+    graph::{MemoizedCommitGraph, version::ExistingVersionExt as _},
+    logs::PeekLogEntry as _,
+};
+
+#[instrument]
 pub fn peek(
     repo_path: &Path,
-    commit_message: &str,
+    commit_message: String,
     version_format: &VersionFormat,
 ) -> Result<Version, eyre::Error> {
-    let _span = span!(Level::INFO, "peek", repo_path = ?repo_path, commit_message = %commit_message, version_format = %version_format).entered();
     let logs = Logs::from_path(repo_path)?;
-    let graph: CommitGraphT = DiGraph::new();
-    todo!()
-    // let next_graph = graph.peek(commit_message, version_format)?;
-    // let version = next_graph
-    //     .head()
-    //     .lock()
-    //     .unwrap()
-    //     .version
-    //     .clone()
-    //     .ok_or_eyre(eyre!("Peek Head Was Not Assigned a Version"))?;
-    // Ok(version)
+    let graph = MemoizedCommitGraph::new(logs, version_format);
+
+    let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.commit_hash;
+    let branch = graph.head().unwrap().lock().unwrap().log_entry.branch;
+    let next_entry = commit_message
+        .leak()
+        .into_peek_log_entry(parent_commit, branch);
+    let next_version = graph
+        .head()
+        .unwrap()
+        .as_existing_version()
+        .map(|v| v.next_version(&next_entry, &version_format))
+        .unwrap_or_else(|| version_format.as_default_version(&next_entry));
+
+    debug!(version = %next_version, "Peek result");
+    if version_format.prerelease.is_none() {
+        Ok(next_version.no_pre())
+    } else {
+        Ok(next_version)
+    }
 }

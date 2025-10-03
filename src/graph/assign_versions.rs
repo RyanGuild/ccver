@@ -16,7 +16,7 @@ use petgraph::{
     Direction, EdgeType, Graph,
     csr::IndexType,
     graph::{EdgeIndex, NodeIndex},
-    visit::{DfsPostOrder, Reversed, Walker},
+    visit::{DfsPostOrder, Walker},
 };
 use tracing::debug;
 
@@ -58,7 +58,7 @@ impl<'a, T> WithCCVerVersions<T> {
         let mut last_version =
             version_format.as_default_version(&inner.head().unwrap().as_log_entry());
         // let reversed = Reversed(base);
-        let versions = DfsPostOrder::new(base, inner.headidx().unwrap())
+        let versions = DfsPostOrder::new(base, inner.head_idx().unwrap())
             .iter(base)
             .map(|idx| {
                 let weight = inner.node_weight(idx).unwrap();
@@ -198,8 +198,8 @@ impl<N, E, Ty, Ix, T> HasHead<N, E, Ty, Ix> for WithCCVerVersions<T>
 where
     T: HasHead<N, E, Ty, Ix>,
 {
-    fn headidx(&self) -> Option<NodeIndex<Ix>> {
-        self.inner.headidx()
+    fn head_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.head_idx()
     }
     fn head(&self) -> Option<&N> {
         self.inner.head()
@@ -210,8 +210,8 @@ impl<N, E, Ty, Ix, T> HasTail<N, E, Ty, Ix> for WithCCVerVersions<T>
 where
     T: HasTail<N, E, Ty, Ix>,
 {
-    fn tailidx(&self) -> Option<NodeIndex<Ix>> {
-        self.inner.tailidx()
+    fn tail_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.tail_idx()
     }
     fn tail(&self) -> Option<&N> {
         self.inner.tail()
@@ -226,16 +226,16 @@ where
         self.inner.parents(idx)
     }
 
-    fn parentidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.parentidxs(idx)
+    fn parent_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.parent_idxs(idx)
     }
 
     fn children(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
         self.inner.children(idx)
     }
 
-    fn childidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.childidxs(idx)
+    fn child_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.child_idxs(idx)
     }
 }
 
@@ -247,7 +247,7 @@ where
         self.inner.commit_by_hash(commit)
     }
 
-    fn commitidx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
-        self.inner.commitidx_by_hash(commit)
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
+        self.inner.commit_idx_by_hash(commit)
     }
 }

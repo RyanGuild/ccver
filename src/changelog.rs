@@ -180,7 +180,9 @@ impl ChangeLogData {
         N: AsLogEntry + ExistingVersionExt,
         Ix: Copy,
     {
-        let root = graph.headidx().ok_or_eyre("No head index found in graph")?;
+        let root = graph
+            .head_idx()
+            .ok_or_eyre("No head index found in graph")?;
         Self::from_index(graph, root)
     }
 
@@ -191,7 +193,7 @@ impl ChangeLogData {
         Ix: Copy,
     {
         let versions = {
-            let mut stack = graph.parentidxs(from);
+            let mut stack = graph.parent_idxs(from);
             let current_ver = graph.node_weight(from).unwrap();
             let mut versions = vec![current_ver];
             while let Some(parent_idx) = stack.pop() {
@@ -199,7 +201,7 @@ impl ChangeLogData {
                 match parent.as_log_entry().subject {
                     semver_advancing_subject!() => {}
                     _ => {
-                        stack.extend(graph.parentidxs(parent_idx));
+                        stack.extend(graph.parent_idxs(parent_idx));
                         versions.push(parent);
                     }
                 };

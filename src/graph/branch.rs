@@ -6,17 +6,24 @@ use petgraph::{
 };
 
 use crate::{
-    graph::GraphOps,
-    logs::{Decoration, LogEntry},
+    graph::{
+        GraphOps, assign_versions::AsLogEntry, commit::CommitExt, head::HasHead,
+        parents_and_children::HasParentsAndChildren, tail::HasTail,
+    },
+    logs::Decoration,
 };
 
-pub trait HasBranchs {
+pub trait HasBranches {
     fn branch(&self) -> Vec<&str>;
 }
 
-impl HasBranchs for LogEntry<'_> {
+impl<T> HasBranches for T
+where
+    T: AsLogEntry,
+{
     fn branch(&self) -> Vec<&str> {
-        self.decorations
+        self.as_log_entry()
+            .decorations
             .iter()
             .filter_map(|d| match d {
                 Decoration::Branch(b) => Some(*b),
@@ -28,13 +35,17 @@ impl HasBranchs for LogEntry<'_> {
     }
 }
 
-pub trait HasLocalBranchs {
+pub trait HasLocalBranches {
     fn local_branch(&self) -> Vec<&str>;
 }
 
-impl HasLocalBranchs for LogEntry<'_> {
+impl<T> HasLocalBranches for T
+where
+    T: AsLogEntry,
+{
     fn local_branch(&self) -> Vec<&str> {
-        self.decorations
+        self.as_log_entry()
+            .decorations
             .iter()
             .filter_map(|d| match d {
                 Decoration::Branch(b) => Some(*b),
@@ -44,13 +55,17 @@ impl HasLocalBranchs for LogEntry<'_> {
     }
 }
 
-pub trait HasRemoteBranchs {
+pub trait HasRemoteBranches {
     fn remote_branch(&self) -> Vec<(&str, &str)>;
 }
 
-impl HasRemoteBranchs for LogEntry<'_> {
+impl<T> HasRemoteBranches for T
+where
+    T: AsLogEntry,
+{
     fn remote_branch(&self) -> Vec<(&str, &str)> {
-        self.decorations
+        self.as_log_entry()
+            .decorations
             .iter()
             .filter_map(|d| match d {
                 Decoration::RemoteBranch((o, b)) => Some((*o, *b)),
@@ -62,31 +77,31 @@ impl HasRemoteBranchs for LogEntry<'_> {
 
 pub trait BranchExt<N, E, Ty, Ix> {
     fn branch(&self, branch: &str) -> Vec<N>;
-    fn branchidx(&self, branch: &str) -> Vec<NodeIndex<Ix>>;
+    fn branch_idx(&self, branch: &str) -> Vec<NodeIndex<Ix>>;
 
     fn local_branch(&self, branch: &str) -> Vec<N>;
-    fn local_branchidx(&self, branch: &str) -> Vec<NodeIndex<Ix>>;
+    fn local_branch_idx(&self, branch: &str) -> Vec<NodeIndex<Ix>>;
 
     fn remote_branch(&self, remote: &str, branch: &str) -> Vec<N>;
-    fn remote_branchidx(&self, remote: &str, branch: &str) -> Vec<NodeIndex<Ix>>;
+    fn remote_branch_idx(&self, remote: &str, branch: &str) -> Vec<NodeIndex<Ix>>;
 }
-struct BranchMemo<T, Ix> {
-    branchmemo: HashMap<String, NodeIndex<Ix>>,
+pub struct BranchMemo<T, Ix> {
+    branch_memo: HashMap<String, NodeIndex<Ix>>,
     inner: T,
-    local_branchmemo: HashMap<String, NodeIndex<Ix>>,
-    remote_branchmemo: HashMap<(String, String), NodeIndex<Ix>>,
+    local_branch_memo: HashMap<String, NodeIndex<Ix>>,
+    remote_branch_memo: HashMap<(String, String), NodeIndex<Ix>>,
 }
 
 impl<T, Ix> BranchMemo<T, Ix> {
     pub fn new<N, E, Ty>(graph: T) -> Self
     where
         T: GraphOps<N, E, Ty, Ix>,
-        N: HasBranchs + HasLocalBranchs + HasRemoteBranchs,
+        N: HasBranches + HasLocalBranches + HasRemoteBranches,
     {
         Self {
-            branchmemo: HashMap::new(),
-            local_branchmemo: HashMap::new(),
-            remote_branchmemo: HashMap::new(),
+            branch_memo: HashMap::new(),
+            local_branch_memo: HashMap::new(),
+            remote_branch_memo: HashMap::new(),
             inner: graph,
         }
     }
@@ -95,24 +110,22 @@ impl<T, Ix> BranchMemo<T, Ix> {
 impl<N, E, Ty, Ix, T> GraphOps<N, E, Ty, Ix> for BranchMemo<T, Ix>
 where
     T: GraphOps<N, E, Ty, Ix>,
-    N: HasBranchs + HasLocalBranchs + HasRemoteBranchs + Clone,
+    N: HasBranches + HasLocalBranches + HasRemoteBranches + Clone,
     Ix: Copy,
 {
     fn add_node(&mut self, weight: N) -> NodeIndex<Ix> {
         let clone = weight.clone();
         let idx = self.inner.add_node(weight);
 
-        clone
-            .branch()
-            .iter()
-            .map(|branch| self.branchmemo.insert(branch.to_string(), idx));
-        clone
-            .local_branch()
-            .iter()
-            .map(|local_branch| self.local_branchmemo.insert(local_branch.to_string(), idx));
-        clone.remote_branch().iter().map(|(o, b)| {
-            self.remote_branchmemo
-                .insert((o.to_string(), b.to_string()), idx)
+        clone.branch().iter().for_each(|branch| {
+            self.branch_memo.insert(branch.to_string(), idx);
+        });
+        clone.local_branch().iter().for_each(|local_branch| {
+            self.local_branch_memo.insert(local_branch.to_string(), idx);
+        });
+        clone.remote_branch().iter().for_each(|(o, b)| {
+            self.remote_branch_memo
+                .insert((o.to_string(), b.to_string()), idx);
         });
         idx
     }
@@ -192,5 +205,61 @@ where
 
     fn base_graph_mut(&mut self) -> &mut Graph<N, E, Ty, Ix> {
         self.inner.base_graph_mut()
+    }
+}
+
+impl<N, E, Ty, Ix, T> HasHead<N, E, Ty, Ix> for BranchMemo<T, Ix>
+where
+    T: HasHead<N, E, Ty, Ix>,
+{
+    fn head(&self) -> Option<&N> {
+        self.inner.head()
+    }
+
+    fn head_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.head_idx()
+    }
+}
+
+impl<N, E, Ty, Ix, T> HasTail<N, E, Ty, Ix> for BranchMemo<T, Ix>
+where
+    T: HasTail<N, E, Ty, Ix>,
+{
+    fn tail(&self) -> Option<&N> {
+        self.inner.tail()
+    }
+
+    fn tail_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.tail_idx()
+    }
+}
+
+impl<N, E, Ty, Ix, T> HasParentsAndChildren<N, E, Ty, Ix> for BranchMemo<T, Ix>
+where
+    T: HasParentsAndChildren<N, E, Ty, Ix>,
+{
+    fn parents(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
+        self.inner.parents(idx)
+    }
+    fn parent_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.parent_idxs(idx)
+    }
+    fn children(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
+        self.inner.children(idx)
+    }
+    fn child_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.child_idxs(idx)
+    }
+}
+
+impl<N, E, Ty, Ix, T> CommitExt<N, E, Ty, Ix> for BranchMemo<T, Ix>
+where
+    T: CommitExt<N, E, Ty, Ix>,
+{
+    fn commit_by_hash(&self, commit: &str) -> Option<&N> {
+        self.inner.commit_by_hash(commit)
+    }
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
+        self.inner.commit_idx_by_hash(commit)
     }
 }

@@ -473,7 +473,7 @@ impl Ord for VersionNumber {
                     if format.iter().eq(format2.iter()) {
                         date.cmp(date2)
                     } else {
-                        // TODO: Implement a link between all the calver in a version so that date segments can be compared without regard to format
+                        // TODO: Implement a link between all the calender versions in a version so that date segments can be compared without regard to format
                         panic!("Cannot compare CalVer Version Number with different formats")
                     }
                 }

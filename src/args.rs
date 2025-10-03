@@ -54,7 +54,7 @@ pub struct TagArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum CCVerSubCommand {
-    #[command(about = "Tag git with calcuated version")]
+    #[command(about = "Tag git with calculated version")]
     Tag(TagArgs),
     #[command(about = "Print the changelog")]
     ChangeLog,

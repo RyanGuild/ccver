@@ -11,7 +11,7 @@ use petgraph::{
     graph::{DiGraph, EdgeIndex, NodeIndex},
     visit::{
         EdgeIndexable, EdgeRef as _, IntoEdgeReferences, IntoNeighbors, IntoNeighborsDirected,
-        IntoNodeIdentifiers, IntoNodeReferences, NodeCount, NodeIndexable,
+        IntoNodeIdentifiers, IntoNodeReferences, NodeIndexable,
     },
 };
 use tracing::debug;
@@ -28,6 +28,7 @@ pub mod version;
 use crate::{
     graph::{
         assign_versions::WithCCVerVersions,
+        branch::BranchMemo,
         commit::{CommitExt, CommitMemo},
         head::{HasHead, HeadMemo},
         node::{CommitGraphNodeData, CommitGraphNodeWeight},
@@ -78,8 +79,8 @@ impl<'a, N, E, Ty, Ix> DerefMut for MemoizedCommitGraph<'a, N, E, Ty, Ix> {
 }
 
 impl<'a, N, E, Ty, Ix> HasHead<N, E, Ty, Ix> for MemoizedCommitGraph<'a, N, E, Ty, Ix> {
-    fn headidx(&self) -> Option<NodeIndex<Ix>> {
-        self.inner.headidx()
+    fn head_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.head_idx()
     }
     fn head(&self) -> Option<&N> {
         self.inner.head()
@@ -87,8 +88,8 @@ impl<'a, N, E, Ty, Ix> HasHead<N, E, Ty, Ix> for MemoizedCommitGraph<'a, N, E, T
 }
 
 impl<'a, N, E, Ty, Ix> HasTail<N, E, Ty, Ix> for MemoizedCommitGraph<'a, N, E, Ty, Ix> {
-    fn tailidx(&self) -> Option<NodeIndex<Ix>> {
-        self.inner.tailidx()
+    fn tail_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.tail_idx()
     }
     fn tail(&self) -> Option<&N> {
         self.inner.tail()
@@ -101,14 +102,14 @@ impl<'a, N, E, Ty, Ix> HasParentsAndChildren<N, E, Ty, Ix>
     fn parents(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
         self.inner.parents(idx)
     }
-    fn parentidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.parentidxs(idx)
+    fn parent_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.parent_idxs(idx)
     }
     fn children(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
         self.inner.children(idx)
     }
-    fn childidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.childidxs(idx)
+    fn child_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.child_idxs(idx)
     }
 }
 
@@ -116,8 +117,8 @@ impl<'a, N, E, Ty, Ix> CommitExt<N, E, Ty, Ix> for MemoizedCommitGraph<'a, N, E,
     fn commit_by_hash(&self, commit: &str) -> Option<&N> {
         self.inner.commit_by_hash(commit)
     }
-    fn commitidx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
-        self.inner.commitidx_by_hash(commit)
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
+        self.inner.commit_idx_by_hash(commit)
     }
 }
 
@@ -202,6 +203,8 @@ impl<'a> MemoizedCommitGraph<'a> {
         debug!("TailMemo created");
         let graph = HeadMemo::new(graph);
         debug!("HeadMemo created");
+        let graph = BranchMemo::new(graph);
+        debug!("BranchMemo created");
 
         let graph = WithCCVerVersions::new(graph, version_format.clone());
 
@@ -341,25 +344,13 @@ where
 #[cfg(test)]
 mod graph_tests {
 
-    use std::sync::{Arc, Mutex};
-
     use crate::{
-        graph::{
-            CommitGraphT, GraphOps,
-            commit::CommitMemo,
-            head::{HasHead, HeadMemo},
-            node::CommitGraphNodeData,
-            parents_and_children::{HasParentsAndChildren, WithParentsAndChildEdges},
-            tail::TailMemo,
-        },
+        graph::{head::HasHead, parents_and_children::HasParentsAndChildren},
         logs::Logs,
         version_format::VersionFormat,
     };
     use eyre::*;
-    use petgraph::{
-        graph::{self, DiGraph},
-        visit::{Bfs, Walker as _},
-    };
+    use petgraph::visit::{Bfs, Walker as _};
 
     #[test]
     fn layered_graph_construction() -> Result<()> {
@@ -367,9 +358,9 @@ mod graph_tests {
         let version_format = VersionFormat::default();
         let graph = super::MemoizedCommitGraph::new(logs, &version_format);
 
-        let headidx = graph.headidx().unwrap();
+        let head_idx = graph.head_idx().unwrap();
 
-        let parents = graph.parentidxs(headidx);
+        let parents = graph.parent_idxs(head_idx);
 
         for parent in parents {
             let parent = graph.node_weight(parent).unwrap();
@@ -390,7 +381,7 @@ mod graph_tests {
 
         assert_ne!(logs.len(), 0);
 
-        let logs2: Vec<String> = Bfs::new(graph.base_graph(), graph.headidx().unwrap())
+        let logs2: Vec<String> = Bfs::new(graph.base_graph(), graph.head_idx().unwrap())
             .iter(graph.base_graph())
             .map(|idx| {
                 graph

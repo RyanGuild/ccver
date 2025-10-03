@@ -304,12 +304,12 @@ fn main() -> Result<()> {
                         format!("{}", version)
                     } else {
                         let new_versions =
-                            DfsPostOrder::new(graph.base_graph(), graph.headidx().unwrap())
+                            DfsPostOrder::new(graph.base_graph(), graph.head_idx().unwrap())
                                 .iter(graph.base_graph())
                                 .map(|idx| {
                                     let weight = graph.node_weight(idx).unwrap().lock().unwrap();
                                     let version = weight.as_existing_version().expect(
-                                        "A version was not assinged to a node in the graph",
+                                        "A version was not assigned to a node in the graph",
                                     );
 
                                     let tagged_version = weight.log_entry.as_tagged_version();

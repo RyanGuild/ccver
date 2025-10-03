@@ -8,7 +8,6 @@ use crate::{
 use petgraph::{
     Direction, Graph,
     graph::{EdgeIndex, NodeIndex},
-    visit::IntoNodeIdentifiers,
 };
 
 pub trait HasVersionTags {

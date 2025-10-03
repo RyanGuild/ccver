@@ -23,13 +23,13 @@ fn main() -> Result<()> {
     let cwd = std::env::current_dir().unwrap();
     let next_version = ccver::peek(
         &cwd,
-        &commit_message,
+        commit_message,
         &VersionFormat {
             v_prefix: false,
             major: VersionNumberFormat::CCVer,
             minor: VersionNumberFormat::CCVer,
             patch: VersionNumberFormat::CCVer,
-            prerelease: Some(PreTagFormat::Build(VersionNumberFormat::CCVer)),
+            prerelease: None,
         },
     )?;
 

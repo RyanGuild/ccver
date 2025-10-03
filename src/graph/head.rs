@@ -13,7 +13,7 @@ use petgraph::{
 };
 
 pub struct HeadMemo<T, Ix> {
-    headidx: NodeIndex<Ix>,
+    head_idx: NodeIndex<Ix>,
     inner: T,
 }
 
@@ -24,12 +24,12 @@ impl<T, Ix> HeadMemo<T, Ix> {
         N: Headed,
         Ix: Copy,
     {
-        let headidx = inner
+        let head_idx = inner
             .node_identifiers()
             .into_iter()
             .find(|idx| inner.node_weight(*idx).unwrap().is_current_head())
             .unwrap();
-        Self { headidx, inner }
+        Self { head_idx, inner }
     }
 }
 
@@ -84,9 +84,9 @@ where
 {
     fn add_node(&mut self, weight: N) -> NodeIndex<Ix> {
         if weight.is_current_head() {
-            let headidx = self.inner.add_node(weight);
-            self.headidx = headidx;
-            headidx
+            let head_idx = self.inner.add_node(weight);
+            self.head_idx = head_idx;
+            head_idx
         } else {
             self.inner.add_node(weight)
         }
@@ -157,7 +157,7 @@ where
 }
 
 pub trait HasHead<N, E, Ty, Ix> {
-    fn headidx(&self) -> Option<NodeIndex<Ix>>;
+    fn head_idx(&self) -> Option<NodeIndex<Ix>>;
     fn head(&self) -> Option<&N>;
 }
 
@@ -166,11 +166,11 @@ where
     T: GraphOps<N, E, Ty, Ix>,
     Ix: Copy,
 {
-    fn headidx(&self) -> Option<NodeIndex<Ix>> {
-        Some(self.headidx)
+    fn head_idx(&self) -> Option<NodeIndex<Ix>> {
+        Some(self.head_idx)
     }
     fn head(&self) -> Option<&N> {
-        self.inner.node_weight(self.headidx()?)
+        self.inner.node_weight(self.head_idx()?)
     }
 }
 
@@ -178,8 +178,8 @@ impl<N, E, Ty, Ix, T> HasTail<N, E, Ty, Ix> for HeadMemo<T, Ix>
 where
     T: HasTail<N, E, Ty, Ix>,
 {
-    fn tailidx(&self) -> Option<NodeIndex<Ix>> {
-        self.inner.tailidx()
+    fn tail_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.tail_idx()
     }
     fn tail(&self) -> Option<&N> {
         self.inner.tail()
@@ -193,14 +193,14 @@ where
     fn parents(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
         self.inner.parents(idx)
     }
-    fn parentidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.parentidxs(idx)
+    fn parent_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.parent_idxs(idx)
     }
     fn children(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
         self.inner.children(idx)
     }
-    fn childidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.childidxs(idx)
+    fn child_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.child_idxs(idx)
     }
 }
 
@@ -211,7 +211,7 @@ where
     fn commit_by_hash(&self, commit: &str) -> Option<&N> {
         self.inner.commit_by_hash(commit)
     }
-    fn commitidx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
-        self.inner.commitidx_by_hash(commit)
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
+        self.inner.commit_idx_by_hash(commit)
     }
 }

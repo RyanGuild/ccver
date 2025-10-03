@@ -13,7 +13,6 @@ use crate::{
 use petgraph::{
     Direction, Graph,
     graph::{EdgeIndex, NodeIndex},
-    visit::{IntoNeighborsDirected, IntoNodeIdentifiers},
 };
 
 pub trait Parented {
@@ -55,9 +54,9 @@ impl<T, Ix> WithParentsAndChildEdges<T, Ix> {
 
 pub trait HasParentsAndChildren<N, E, Ty, Ix> {
     fn parents(&self, idx: NodeIndex<Ix>) -> Vec<&N>;
-    fn parentidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>>;
+    fn parent_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>>;
     fn children(&self, idx: NodeIndex<Ix>) -> Vec<&N>;
-    fn childidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>>;
+    fn child_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>>;
 }
 
 impl<N, E, Ty, Ix, T> HasParentsAndChildren<N, E, Ty, Ix> for WithParentsAndChildEdges<T, Ix>
@@ -73,7 +72,7 @@ where
             .collect()
     }
 
-    fn parentidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+    fn parent_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
         self.inner
             .neighbors_directed(idx, Direction::Outgoing)
             .to_vec()
@@ -87,7 +86,7 @@ where
             .collect()
     }
 
-    fn childidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+    fn child_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
         self.inner
             .neighbors_directed(idx, Direction::Incoming)
             .to_vec()
@@ -111,7 +110,7 @@ where
             }
         }
         for parent in parents {
-            match self.inner.commitidx_by_hash(&parent) {
+            match self.inner.commit_idx_by_hash(&parent) {
                 Some(parent_idx) => {
                     self.inner.add_edge(idx, parent_idx, E::default());
                 }
@@ -222,8 +221,8 @@ impl<N, E, Ty, Ix, T> HasTail<N, E, Ty, Ix> for WithParentsAndChildEdges<T, Ix>
 where
     T: HasTail<N, E, Ty, Ix>,
 {
-    fn tailidx(&self) -> Option<NodeIndex<Ix>> {
-        self.inner.tailidx()
+    fn tail_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.tail_idx()
     }
     fn tail(&self) -> Option<&N> {
         self.inner.tail()
@@ -237,7 +236,7 @@ where
     fn commit_by_hash(&self, commit: &str) -> Option<&N> {
         self.inner.commit_by_hash(commit)
     }
-    fn commitidx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
-        self.inner.commitidx_by_hash(commit)
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
+        self.inner.commit_idx_by_hash(commit)
     }
 }

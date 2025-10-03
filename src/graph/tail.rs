@@ -6,12 +6,12 @@ use crate::graph::{
 use petgraph::graph::NodeIndex;
 
 pub struct TailMemo<T, Ix> {
-    tailidx: NodeIndex<Ix>,
+    tail_idx: NodeIndex<Ix>,
     inner: T,
 }
 
 pub trait HasTail<N, E, Ty, Ix> {
-    fn tailidx(&self) -> Option<NodeIndex<Ix>>;
+    fn tail_idx(&self) -> Option<NodeIndex<Ix>>;
     fn tail(&self) -> Option<&N>;
 }
 
@@ -22,7 +22,7 @@ impl<T, Ix> TailMemo<T, Ix> {
         Ix: Copy,
     {
         Some(TailMemo {
-            tailidx: graph
+            tail_idx: graph
                 .node_identifiers()
                 .into_iter()
                 .find(|idx| graph.parents(*idx).is_empty())?,
@@ -37,11 +37,11 @@ where
     Ix: Copy,
 {
     fn tail(&self) -> Option<&N> {
-        self.inner.node_weight(self.tailidx()?)
+        self.inner.node_weight(self.tail_idx()?)
     }
 
-    fn tailidx(&self) -> Option<NodeIndex<Ix>> {
-        Some(self.tailidx)
+    fn tail_idx(&self) -> Option<NodeIndex<Ix>> {
+        Some(self.tail_idx)
     }
 }
 
@@ -159,14 +159,14 @@ where
     fn parents(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
         self.inner.parents(idx)
     }
-    fn parentidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.parentidxs(idx)
+    fn parent_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.parent_idxs(idx)
     }
     fn children(&self, idx: NodeIndex<Ix>) -> Vec<&N> {
         self.inner.children(idx)
     }
-    fn childidxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
-        self.inner.childidxs(idx)
+    fn child_idxs(&self, idx: NodeIndex<Ix>) -> Vec<NodeIndex<Ix>> {
+        self.inner.child_idxs(idx)
     }
 }
 
@@ -178,8 +178,8 @@ where
         self.inner.commit_by_hash(commit)
     }
 
-    fn commitidx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
-        self.inner.commitidx_by_hash(commit)
+    fn commit_idx_by_hash(&self, commit: &str) -> Option<NodeIndex<Ix>> {
+        self.inner.commit_idx_by_hash(commit)
     }
 }
 
@@ -187,8 +187,8 @@ impl<N, E, Ty, Ix, T> HasHead<N, E, Ty, Ix> for TailMemo<T, Ix>
 where
     T: HasHead<N, E, Ty, Ix>,
 {
-    fn headidx(&self) -> Option<NodeIndex<Ix>> {
-        self.inner.headidx()
+    fn head_idx(&self) -> Option<NodeIndex<Ix>> {
+        self.inner.head_idx()
     }
     fn head(&self) -> Option<&N> {
         self.inner.head()
