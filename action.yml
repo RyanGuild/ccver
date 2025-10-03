@@ -25,6 +25,14 @@ inputs:
   command:
     description: 'CCVer subcommand to run (changelog, git-format, etc.)'
     required: false
+  command_peek_message:
+    description: 'Message to use while peeking using peek subcommand'
+    required: false
+    default: "chore: peek next version"
+  command_tag_all:
+    description: '--all option for tag subcommand'
+    required: false
+    default: "false"
 
 outputs:
   version:
@@ -41,3 +49,5 @@ runs:
     INPUT_NO_PRE: ${{ inputs.no-pre }}
     INPUT_CI: ${{ inputs.ci }}
     INPUT_COMMAND: ${{ inputs.command }}
+    INPUT_COMMAND_PEEK_MESSAGE: ${{ inputs.command_peek_message }}
+    INPUT_COMMAND_TAG_ALL: ${{ inputs.command_tag_all}}
