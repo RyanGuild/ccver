@@ -13,7 +13,7 @@ pub mod version_format;
 
 use eyre::Result;
 use logs::Logs;
-use tracing::{Level, debug, instrument, span};
+use tracing::{debug, instrument};
 use version::Version;
 use version_format::VersionFormat;
 

@@ -1,6 +1,6 @@
 use std::env::current_dir;
 
-use ccver::version_format::{PreTagFormat, VersionFormat, VersionNumberFormat};
+use ccver::version_format::{VersionFormat, VersionNumberFormat};
 use eyre::Result;
 use toml_edit::Document;
 use tracing::info;

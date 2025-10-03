@@ -95,20 +95,19 @@ fn main() -> Result<()> {
         None => match std::env::var("INPUT_COMMAND") {
             std::result::Result::Ok(command) => {
                 info!("Using command from environment: {}", command);
-                let command = match command.to_ascii_lowercase().trim() {
-                    "tag" => CCVerSubCommand::Tag(TagArgs {
+                match command.to_ascii_lowercase().trim() {
+                    "tag" => Some(CCVerSubCommand::Tag(TagArgs {
                         all: std::env::var("INPUT_COMMAND_TAG_ALL").unwrap_or_default() != "0"
                             && std::env::var("INPUT_COMMAND_TAG_ALL").unwrap_or_default()
                                 != "false",
-                    }),
-                    "changelog" => CCVerSubCommand::ChangeLog,
-                    "git-format" => CCVerSubCommand::GitFormat,
-                    "peek" => CCVerSubCommand::Peek(PeekArgs {
+                    })),
+                    "changelog" => Some(CCVerSubCommand::ChangeLog),
+                    "git-format" => Some(CCVerSubCommand::GitFormat),
+                    "peek" => Some(CCVerSubCommand::Peek(PeekArgs {
                         message: std::env::var("INPUT_COMMAND_PEEK_MESSAGE").unwrap_or_default(),
-                    }),
-                    _ => panic!("Invalid command: {}", command),
-                };
-                Some(command)
+                    })),
+                    _ => None,
+                }
             }
             Err(_) => {
                 debug!("No command specified, will generate version");
