@@ -350,7 +350,7 @@ fn get_current_version(
         Result::Ok(dirty) => {
             if ci && dirty {
                 Err(eyre!("Repo is dirty while ci is true"))
-            } else {
+            } else if dirty {
                 let head = graph.head();
                 debug!("Head: {:#?}", head);
                 let head = head.unwrap().lock().unwrap();
@@ -359,6 +359,14 @@ fn get_current_version(
                     .clone()
                     .ok_or_eyre(eyre!("Current Branch Head Was Not Assigned a Version"));
                 version.map(|v| v.build(&head.log_entry, &version_format))
+            } else {
+                let head = graph.head().ok_or_eyre("No Head Found")?;
+                let head = head.lock().unwrap();
+                let version = head
+                    .version
+                    .clone()
+                    .ok_or_eyre("Current Branch Head Was Not Assigned a Version")?;
+                Ok(version)
             }
         }
         Err(e) => Err(e),
