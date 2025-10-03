@@ -1,4 +1,9 @@
-use crate::logs::GIT_FORMAT_ARGS;
+use crate::{
+    logs::GIT_FORMAT_ARGS,
+    version::Version,
+    version_format::{self, VersionFormat},
+};
+use core::hash;
 use eyre::*;
 use std::{path::Path, process::Command};
 use tracing::{debug, info, instrument, warn};
@@ -20,6 +25,35 @@ pub fn is_dirty(path: &Path) -> Result<bool> {
     let is_dirty = code != 0;
     debug!("Repository dirty status: {}", is_dirty);
     Ok(is_dirty)
+}
+
+#[instrument]
+pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Result<()> {
+    debug!("Tagging commit with version: {}", version);
+    let tag = format!("{}", version);
+    let output = Command::new("git")
+        .args(["tag", tag.as_str(), hash])
+        .current_dir(path)
+        .output()?;
+
+    if !output.status.success() {
+        return Err(eyre!("Failed to tag commit with version: {}", version));
+    }
+
+    if let Some(stderr) = String::from_utf8(output.stderr).ok()
+        && !stderr.is_empty()
+    {
+        warn!("Failed to tag commit with version: {}", stderr);
+    }
+
+    if let Some(stdout) = String::from_utf8(output.stdout).ok()
+        && !stdout.is_empty()
+    {
+        debug!("Tagged commit with version: {}", stdout);
+    }
+
+    debug!("Tagged commit with version: {}", version);
+    Ok(())
 }
 
 #[instrument]

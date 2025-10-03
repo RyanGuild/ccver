@@ -39,42 +39,26 @@ pub struct CCVerArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(about = "Initialize ccver in a git repository")]
-pub struct InitArgs {
-    #[arg(long = "rewrite", short = 'r')]
-    pub rewrite: bool,
-
-    #[arg(long = "install", short = 'i')]
-    pub install_hooks: bool,
-}
-
-#[derive(Args, Debug)]
 #[command(about = "Tag the current commit with a version")]
 pub struct PeekArgs {
     #[arg(long = "message", short = 'm')]
     pub message: String,
 }
 
+#[derive(Args, Debug)]
+#[command(about = "Tag the current commit with a version")]
+pub struct TagArgs {
+    #[arg(long = "all", short = 'a')]
+    pub all: bool,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum CCVerSubCommand {
-    Init(InitArgs),
-    Install,
-    Tag,
+    #[command(about = "Tag git with calcuated version")]
+    Tag(TagArgs),
     #[command(about = "Print the changelog")]
     ChangeLog,
     #[command(about = "Print the git format string")]
     GitFormat,
     Peek(PeekArgs),
-}
-
-impl From<&str> for CCVerSubCommand {
-    fn from(command: &str) -> Self {
-        match command {
-            "install" => CCVerSubCommand::Install,
-            "tag" => CCVerSubCommand::Tag,
-            "changelog" => CCVerSubCommand::ChangeLog,
-            "git-format" => CCVerSubCommand::GitFormat,
-            _ => panic!("Invalid command: {}", command),
-        }
-    }
 }

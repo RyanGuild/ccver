@@ -114,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "ccver"
-version = "2.22.4"
+version = "2.22.6"
 dependencies = [
  "chrono",
  "clap",

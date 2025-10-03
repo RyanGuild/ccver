@@ -37,16 +37,23 @@ pub mod version_format;
 
 use std::env::current_dir;
 use std::io::Read as _;
+use std::path::Path;
 use std::path::PathBuf;
 
+use crate::graph::version::TaggedVersionExt as _;
 use crate::logs::PeekLogEntry;
+use crate::version::Version;
+use crate::version_format::VersionFormat;
 use args::*;
+use ccver::git::is_dirty;
 use changelog::ChangeLogData;
 use clap::Parser;
 use eyre::*;
-use git::{git_installed, is_dirty};
+use git::git_installed;
 use logs::GIT_FORMAT_ARGS;
 use logs::Logs;
+use petgraph::visit::DfsPostOrder;
+use petgraph::visit::Walker as _;
 use tracing::{Level, debug, error, info, instrument, span, warn};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::Layer as _;
@@ -88,7 +95,20 @@ fn main() -> Result<()> {
         None => match std::env::var("INPUT_COMMAND") {
             std::result::Result::Ok(command) => {
                 info!("Using command from environment: {}", command);
-                Some(CCVerSubCommand::from(command.as_str()))
+                let command = match command.to_ascii_lowercase().trim() {
+                    "tag" => CCVerSubCommand::Tag(TagArgs {
+                        all: std::env::var("INPUT_COMMAND_TAG_ALL").unwrap_or_default() != "0"
+                            && std::env::var("INPUT_COMMAND_TAG_ALL").unwrap_or_default()
+                                != "false",
+                    }),
+                    "changelog" => CCVerSubCommand::ChangeLog,
+                    "git-format" => CCVerSubCommand::GitFormat,
+                    "peek" => CCVerSubCommand::Peek(PeekArgs {
+                        message: std::env::var("INPUT_COMMAND_PEEK_MESSAGE").unwrap_or_default(),
+                    }),
+                    _ => panic!("Invalid command: {}", command),
+                };
+                Some(command)
             }
             Err(_) => {
                 debug!("No command specified, will generate version");
@@ -218,44 +238,10 @@ fn main() -> Result<()> {
     let stdout = {
         let _command_span = span!(Level::INFO, "execute_command").entered();
         match command {
-            None => {
-                let _version_span = span!(Level::INFO, "get_current_version").entered();
-                info!("Using default command to get current version");
-                match is_dirty(&path) {
-                    Result::Ok(dirty) => {
-                        if ci && dirty {
-                            Err(eyre!("Repo is dirty while ci is true"))
-                        } else {
-                            let head = graph.head();
-                            info!("Head: {:#?}", head);
-                            let head = head.unwrap().lock().unwrap();
-                            let version = head.version.clone().ok_or_eyre(eyre!(
-                                "Current Branch Head Was Not Assigned a Version"
-                            ));
-                            version.map(|v| v.build(&head.log_entry, &version_format))
-                        }
-                    }
-                    Err(e) => Err(e),
-                }
-                .map(|v| {
-                    info!("Version: {:?}", v);
-                    if no_pre {
-                        format!(
-                            "{}",
-                            v.release(
-                                &graph.head().unwrap().lock().unwrap().log_entry,
-                                &version_format
-                            )
-                        )
-                    } else {
-                        format!("{}", v)
-                    }
-                })
-                .map_err(|e| {
-                    error!(error = %e, "Failed to get current version");
-                    e
-                })?
-            }
+            None => format!(
+                "{}",
+                get_current_version(&graph, &path, ci, no_pre, &version_format)?
+            ),
             Some(command) => match command {
                 CCVerSubCommand::Peek(args) => {
                     let _peek_span =
@@ -302,9 +288,45 @@ fn main() -> Result<()> {
                         GIT_FORMAT_ARGS[4]
                     )
                 }
-                _ => {
-                    warn!(command = ?command, "Unimplemented command");
-                    todo!()
+                CCVerSubCommand::Tag(args) => {
+                    if is_dirty(&path)? {
+                        return Err(eyre!("Repo is dirty while tag is true"));
+                    }
+                    let _tag_span = span!(Level::INFO, "tag_command", all = args.all).entered();
+                    info!("Tagging with all: {}", args.all);
+                    let version = get_current_version(&graph, &path, ci, no_pre, &version_format)?;
+                    if !args.all {
+                        git::tag_commit_with_version(
+                            &graph.head().unwrap().lock().unwrap().log_entry.commit_hash,
+                            &version,
+                            &path,
+                        )?;
+                        format!("{}", version)
+                    } else {
+                        let new_versions =
+                            DfsPostOrder::new(graph.base_graph(), graph.headidx().unwrap())
+                                .iter(graph.base_graph())
+                                .map(|idx| {
+                                    let weight = graph.node_weight(idx).unwrap().lock().unwrap();
+                                    let version = weight.as_existing_version().expect(
+                                        "A version was not assinged to a node in the graph",
+                                    );
+
+                                    let tagged_version = weight.log_entry.as_tagged_version();
+                                    if tagged_version.is_none() {
+                                        let _ = git::tag_commit_with_version(
+                                            &weight.log_entry.commit_hash,
+                                            &version,
+                                            &path,
+                                        );
+                                    }
+
+                                    Ok(format!("{}", version))
+                                })
+                                .try_collect::<Vec<_>>()?;
+
+                        format!("{}", new_versions.join("\n"))
+                    }
                 }
             },
         }
@@ -314,4 +336,47 @@ fn main() -> Result<()> {
     info!("ccver application completed successfully");
 
     Ok(())
+}
+
+#[instrument(skip(graph))]
+fn get_current_version(
+    graph: &MemoizedCommitGraph,
+    path: &Path,
+    ci: bool,
+    no_pre: bool,
+    version_format: &VersionFormat,
+) -> Result<Version> {
+    debug!("Using default command to get current version");
+    return match is_dirty(&path) {
+        Result::Ok(dirty) => {
+            if ci && dirty {
+                Err(eyre!("Repo is dirty while ci is true"))
+            } else {
+                let head = graph.head();
+                debug!("Head: {:#?}", head);
+                let head = head.unwrap().lock().unwrap();
+                let version = head
+                    .version
+                    .clone()
+                    .ok_or_eyre(eyre!("Current Branch Head Was Not Assigned a Version"));
+                version.map(|v| v.build(&head.log_entry, &version_format))
+            }
+        }
+        Err(e) => Err(e),
+    }
+    .map(|v| {
+        info!("Version: {:?}", v);
+        if no_pre {
+            v.release(
+                &graph.head().unwrap().lock().unwrap().log_entry,
+                &version_format,
+            )
+        } else {
+            v
+        }
+    })
+    .map_err(|e| {
+        error!(error = %e, "Failed to get current version");
+        e
+    });
 }
