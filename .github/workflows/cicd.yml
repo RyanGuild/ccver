@@ -1,0 +1,46 @@
+name: CI/CD
+
+on:
+  workflow_dispatch: {}
+  push: {}
+
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  checks: write
+
+
+
+jobs:
+  check:
+    name: Check
+    secrets: inherit
+    uses: "./.github/workflows/tag.yml"
+  build:
+    name: Build
+    needs: [check]
+    secrets: inherit
+    uses: "./.github/workflows/build.yml"
+  docker:
+    name: Docker
+    needs: [build]
+    secrets: inherit
+    uses: "./.github/workflows/docker.yml"
+  test:
+    needs: [build]
+    name: Test
+    uses: "./.github/workflows/test.yml"
+  test-action:
+    needs: docker
+    name: Test Action
+    uses: "./.github/workflows/test-action.yml"
+  release:
+    name: Release
+    if: github.ref_name == 'main' || github.ref_name == 'master'
+    needs: [check,build, test, test-action, docker]
+    uses: "./.github/workflows/release.yml"
+    secrets: inherit
+    with:
+      tag: ${{ github.ref_name }}
