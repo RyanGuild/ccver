@@ -10,7 +10,7 @@ permissions:
   id-token: write
   attestations: write
   checks: write
-
+  packages: write
 
 
 jobs:
