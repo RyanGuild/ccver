@@ -1,6 +1,10 @@
 use std::env::current_dir;
 
-use ccver::version_format::{PreTagFormat, VersionFormat, VersionNumberFormat};
+use ccver::{
+    logs::PEEK_COMMIT_HASH,
+    version::{PreTag, VersionNumber},
+    version_format::{PreTagFormat, VersionFormat, VersionNumberFormat},
+};
 use eyre::Result;
 use toml_edit::Document;
 use tracing::{debug, info};
@@ -21,7 +25,7 @@ fn main() -> Result<()> {
     info!("Commit message: {}", commit_message);
 
     let cwd = std::env::current_dir().unwrap();
-    let next_version = ccver::peek(
+    let (last_version, next_version) = ccver::peek(
         &cwd,
         commit_message,
         &VersionFormat {
@@ -29,20 +33,33 @@ fn main() -> Result<()> {
             major: VersionNumberFormat::CCVer,
             minor: VersionNumberFormat::CCVer,
             patch: VersionNumberFormat::CCVer,
-            prerelease: Some(PreTagFormat::ShortSha),
+            prerelease: Some(PreTagFormat::Build(VersionNumberFormat::CCVer)),
         },
     )?;
 
-    let next_version_string = next_version.no_pre().to_string();
+    if let Some(PreTag::ShortSha(VersionNumber::ShortSha(ref s))) = next_version.prerelease {
+        if s.eq(&PEEK_COMMIT_HASH[0..7]) {
+            return Err(eyre::eyre!(
+                "A short sha cannot be calculated before the commit is pushed; please make changes from a feature branch"
+            ));
+        };
+    };
+
+    let next_version_string = next_version.to_string();
     info!("Next version: {}", next_version_string);
 
     let cargo_toml_path = cwd.join("Cargo.toml");
     let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
     let binding = cargo_toml_content.parse::<Document<_>>().unwrap();
     let mut document = binding.into_mut();
-    document["package"]["version"] = toml_edit::value(next_version_string);
+    document["package"]["version"] = toml_edit::value(next_version_string.clone());
 
     std::fs::write(&cargo_toml_path, document.to_string()).unwrap();
+
+    println!(
+        "Updated Cargo.toml version to {}->{}",
+        last_version, next_version_string
+    );
 
     Ok(())
 }
