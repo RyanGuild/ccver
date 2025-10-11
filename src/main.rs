@@ -63,7 +63,6 @@ use crate::graph::MemoizedCommitGraph;
 use crate::graph::version::ExistingVersionExt;
 use crate::logs::InfersVersionFormat as _;
 
-#[instrument]
 fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(ErrorLayer::default())
@@ -337,7 +336,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[instrument(skip(graph))]
 fn get_current_version(
     graph: &MemoizedCommitGraph,
     path: &Path,
