@@ -1,9 +1,9 @@
 use std::env::current_dir;
 
-use ccver::version_format::{VersionFormat, VersionNumberFormat};
+use ccver::version_format::{PreTagFormat, VersionFormat, VersionNumberFormat};
 use eyre::Result;
 use toml_edit::Document;
-use tracing::info;
+use tracing::{debug, info};
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 fn main() -> Result<()> {
@@ -16,7 +16,7 @@ fn main() -> Result<()> {
         .init();
 
     let commit_message_file = current_dir().unwrap().join(".git/COMMIT_EDITMSG");
-    println!("commit_message_file: {}", commit_message_file.display());
+    debug!("commit_message_file: {}", commit_message_file.display());
     let commit_message = std::fs::read_to_string(commit_message_file).unwrap();
     info!("Commit message: {}", commit_message);
 
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
             major: VersionNumberFormat::CCVer,
             minor: VersionNumberFormat::CCVer,
             patch: VersionNumberFormat::CCVer,
-            prerelease: None,
+            prerelease: Some(PreTagFormat::ShortSha),
         },
     )?;
 

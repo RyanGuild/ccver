@@ -1,0 +1,57 @@
+name: Update Version and Tag
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update-version:
+    name: 📝 Update Version in Cargo.toml
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Rust Cache
+        uses: ./.github/actions/rust_depcache
+        with:
+          runner: ubuntu-latest
+          arch: x86_64-unknown-linux-gnu
+          rust: nightly
+
+      - name: Run version updater
+        run: cargo run --bin update-cargo-toml-version --release
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in Cargo.toml"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in Cargo.toml"
+            git diff
+          fi
+
+      - name: Commit changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml
+          git commit -m "chore: update version in Cargo.toml"
+          git push
+
+      - name: Fail workflow if changes were made
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          echo "::error::Version was updated in Cargo.toml. Please re-run the workflow with the updated version."
+          exit 1
