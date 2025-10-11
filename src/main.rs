@@ -54,7 +54,7 @@ use logs::GIT_FORMAT_ARGS;
 use logs::Logs;
 use petgraph::visit::DfsPostOrder;
 use petgraph::visit::Walker as _;
-use tracing::{Level, debug, error, info, instrument, span, warn};
+use tracing::{Level, debug, error, info, span};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::Layer as _;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -295,7 +295,7 @@ fn main() -> Result<()> {
                     let version = get_current_version(&graph, &path, ci, no_pre, &version_format)?;
                     if !args.all {
                         git::tag_commit_with_version(
-                            &graph.head().unwrap().lock().unwrap().log_entry.commit_hash,
+                            graph.head().unwrap().lock().unwrap().log_entry.commit_hash,
                             &version,
                             &path,
                         )?;
@@ -313,7 +313,7 @@ fn main() -> Result<()> {
                                     let tagged_version = weight.log_entry.as_tagged_version();
                                     if tagged_version.is_none() {
                                         let _ = git::tag_commit_with_version(
-                                            &weight.log_entry.commit_hash,
+                                            weight.log_entry.commit_hash,
                                             &version,
                                             &path,
                                         );
@@ -323,7 +323,7 @@ fn main() -> Result<()> {
                                 })
                                 .try_collect::<Vec<_>>()?;
 
-                        format!("{}", new_versions.join("\n"))
+                        new_versions.join("\n").to_string()
                     }
                 }
             },
@@ -344,7 +344,7 @@ fn get_current_version(
     version_format: &VersionFormat,
 ) -> Result<Version> {
     debug!("Using default command to get current version");
-    return match is_dirty(&path) {
+    match is_dirty(path) {
         Result::Ok(dirty) => {
             if ci && dirty {
                 Err(eyre!("Repo is dirty while ci is true"))
@@ -356,7 +356,7 @@ fn get_current_version(
                     .version
                     .clone()
                     .ok_or_eyre(eyre!("Current Branch Head Was Not Assigned a Version"));
-                version.map(|v| v.build(&head.log_entry, &version_format))
+                version.map(|v| v.build(&head.log_entry, version_format))
             } else {
                 let head = graph.head().ok_or_eyre("No Head Found")?;
                 let head = head.lock().unwrap();
@@ -374,7 +374,7 @@ fn get_current_version(
         if no_pre {
             v.release(
                 &graph.head().unwrap().lock().unwrap().log_entry,
-                &version_format,
+                version_format,
             )
         } else {
             v
@@ -383,5 +383,5 @@ fn get_current_version(
     .map_err(|e| {
         error!(error = %e, "Failed to get current version");
         e
-    });
+    })
 }

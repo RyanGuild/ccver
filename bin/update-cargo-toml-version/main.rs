@@ -37,12 +37,12 @@ fn main() -> Result<()> {
         },
     )?;
 
-    if let Some(PreTag::ShortSha(VersionNumber::ShortSha(ref s))) = next_version.prerelease {
-        if s.eq(&PEEK_COMMIT_HASH[0..7]) {
-            return Err(eyre::eyre!(
-                "A short sha cannot be calculated before the commit is pushed; please make changes from a feature branch"
-            ));
-        };
+    if let Some(PreTag::ShortSha(VersionNumber::ShortSha(ref s))) = next_version.prerelease
+        && s.eq(&PEEK_COMMIT_HASH[0..7])
+    {
+        return Err(eyre::eyre!(
+            "A short sha cannot be calculated before the commit is created; please make changes from a feature branch or use a conventional commit"
+        ));
     };
 
     let next_version_string = next_version.to_string();

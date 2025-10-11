@@ -39,7 +39,7 @@ pub fn peek(
         .unwrap()
         .as_existing_version()
         .unwrap_or_else(|| version_format.as_default_version(&parent_commit).clone());
-    let next_version = last_version.next_version(&next_entry, &version_format);
+    let next_version = last_version.next_version(&next_entry, version_format);
 
     debug!(version = %next_version, "Peek result");
 
