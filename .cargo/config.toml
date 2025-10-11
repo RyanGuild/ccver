@@ -1,0 +1,117 @@
+# Cargo cross-compilation configuration for ccver
+# Defines build settings and linkers for all supported platforms
+
+# ============================================================================
+# Linux x86_64 (GNU libc)
+# ============================================================================
+[target.x86_64-unknown-linux-gnu]
+linker = "x86_64-linux-gnu-gcc"
+
+# ============================================================================
+# Linux ARM64 (GNU libc)
+# ============================================================================
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+
+# ============================================================================
+# Linux x86_64 (musl - static linking for Alpine)
+# ============================================================================
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# ============================================================================
+# Linux ARM64 (musl - static linking for Alpine)
+# ============================================================================
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# ============================================================================
+# macOS x86_64 (Intel)
+# ============================================================================
+[target.x86_64-apple-darwin]
+# Uses system clang, no special configuration needed
+
+# ============================================================================
+# macOS ARM64 (Apple Silicon)
+# ============================================================================
+[target.aarch64-apple-darwin]
+# Uses system clang, no special configuration needed
+
+# ============================================================================
+# Windows x86_64 (MSVC)
+# ============================================================================
+[target.x86_64-pc-windows-msvc]
+# Uses MSVC toolchain, no special configuration needed
+
+# ============================================================================
+# Windows ARM64 (MSVC)
+# ============================================================================
+[target.aarch64-pc-windows-msvc]
+# Requires Visual Studio ARM64 build tools
+# Cross-compile from x64 Windows using:
+#   cargo build --target aarch64-pc-windows-msvc
+
+# ============================================================================
+# Build profiles
+# ============================================================================
+[build]
+# Number of parallel jobs, defaults to # of CPUs
+# jobs = 4
+
+# ============================================================================
+# Aliases for common cross-compilation commands
+# ============================================================================
+[alias]
+# Linux builds
+build-linux-x64 = "build --release --target x86_64-unknown-linux-gnu"
+build-linux-arm64 = "build --release --target aarch64-unknown-linux-gnu"
+build-linux-musl-x64 = "build --release --target x86_64-unknown-linux-musl"
+build-linux-musl-arm64 = "build --release --target aarch64-unknown-linux-musl"
+
+# macOS builds
+build-macos-x64 = "build --release --target x86_64-apple-darwin"
+build-macos-arm64 = "build --release --target aarch64-apple-darwin"
+
+# Windows builds
+build-windows-x64 = "build --release --target x86_64-pc-windows-msvc"
+build-windows-arm64 = "build --release --target aarch64-pc-windows-msvc"
+
+# Build all Linux targets
+build-all-linux = "build --release --target x86_64-unknown-linux-gnu --target aarch64-unknown-linux-gnu"
+
+# Build all macOS targets
+build-all-macos = "build --release --target x86_64-apple-darwin --target aarch64-apple-darwin"
+
+# Build all Windows targets
+build-all-windows = "build --release --target x86_64-pc-windows-msvc --target aarch64-pc-windows-msvc"
+
+# Build everything (requires all toolchains installed)
+build-all = "build --release --target x86_64-unknown-linux-gnu --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target aarch64-apple-darwin --target x86_64-pc-windows-msvc --target aarch64-pc-windows-msvc"
+
+# ============================================================================
+# Platform-specific notes
+# ============================================================================
+#
+# Linux cross-compilation:
+#   Install cross-compilation toolchains:
+#     Ubuntu/Debian: sudo apt-get install gcc-aarch64-linux-gnu
+#     Fedora: sudo dnf install gcc-aarch64-linux-gnu
+#
+#   For musl targets, use cross or musl-cross:
+#     cargo install cross
+#     cross build --target x86_64-unknown-linux-musl
+#
+# macOS cross-compilation:
+#   On macOS, you can build both architectures natively
+#   On Linux, requires osxcross: https://github.com/tpoechtrager/osxcross
+#
+# Windows cross-compilation:
+#   On Windows: Install Visual Studio with ARM64 support
+#   On Linux: Use wine + mingw-w64 (not recommended for ARM64)
+#   On macOS: Use cross or xwin
+#
+# General cross-compilation tool:
+#   cargo install cross
+#   cross build --target <target-triple>

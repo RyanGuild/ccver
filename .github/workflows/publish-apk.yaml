@@ -1,0 +1,295 @@
+name: Publish to Alpine APK
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: true
+        type: string
+      github_token:
+        description: 'GitHub token with write permissions (defaults to GITHUB_TOKEN)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  alpine:
+    name: 📦 Create Alpine APK Packages
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Get release info
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download Linux musl binary
+        run: |
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+            curl -L -o ccver \
+              "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-amd64-musl"
+          else
+            curl -L -o ccver \
+              "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-arm64-musl"
+          fi
+          chmod +x ccver
+
+      - name: Set up Alpine environment
+        run: |
+          # Install Alpine build tools in a container
+          docker pull alpine:latest
+
+      - name: Create APK package
+        run: |
+          # Create the build script
+          cat > build-apk.sh << 'EOFSCRIPT'
+          #!/bin/sh
+          set -e
+
+          # Install build dependencies
+          apk add --no-cache alpine-sdk sudo
+
+          # Create build user
+          adduser -D builder
+          addgroup builder abuild
+          echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+
+          # Setup directories
+          mkdir -p /home/builder/package
+          mkdir -p /home/builder/.abuild
+
+          # Generate signing key
+          su builder -c "abuild-keygen -a -i -n"
+
+          # Copy binary
+          cp /workspace/ccver /home/builder/package/
+
+          # Create APKBUILD file
+          cat > /home/builder/package/APKBUILD << 'EOF'
+          # Maintainer: ${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>
+          pkgname=ccver
+          pkgver=${{ steps.release.outputs.version }}
+          pkgrel=0
+          pkgdesc="A zero dependency tool for conventional commits and semantic versioning"
+          url="https://github.com/${{ github.repository }}"
+          arch="${{ matrix.arch }}"
+          license="MIT"
+          depends="git"
+          options="!check"
+
+          package() {
+              install -Dm755 "$srcdir/../ccver" "$pkgdir/usr/bin/ccver"
+          }
+          EOF
+
+          # Build package
+          cd /home/builder/package
+          chown -R builder:builder /home/builder
+          su builder -c "abuild checksum"
+          su builder -c "abuild -r"
+
+          # Copy the built package
+          find /home/builder/packages -name "*.apk" -exec cp {} /workspace/ \;
+          EOFSCRIPT
+
+          chmod +x build-apk.sh
+
+          # Run build in Alpine container
+          docker run --rm \
+            -v "$(pwd):/workspace" \
+            -w /workspace \
+            alpine:latest \
+            /workspace/build-apk.sh
+
+          # Rename the package for clarity
+          mv ccver-*.apk ccver-${{ steps.release.outputs.version }}-${{ matrix.arch }}.apk || true
+
+      - name: Upload APK package to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          files: ccver-${{ steps.release.outputs.version }}-${{ matrix.arch }}.apk
+        env:
+          GITHUB_TOKEN: ${{ inputs.github_token || secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccver-apk-${{ matrix.arch }}
+          path: ccver-${{ steps.release.outputs.version }}-${{ matrix.arch }}.apk
+
+  create-apk-repository:
+    name: 📦 Create APK Repository
+    needs: alpine
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+          token: ${{ inputs.github_token || secrets.GITHUB_TOKEN }}
+
+      - name: Get release info
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download APK packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ccver-apk-*
+          path: apk-packages
+
+      - name: Set up Alpine environment
+        run: |
+          docker pull alpine:latest
+
+      - name: Setup APK repository
+        run: |
+          mkdir -p apk/v3.19/main/x86_64
+          mkdir -p apk/v3.19/main/aarch64
+
+          # Copy packages to repository
+          find apk-packages -name "*x86_64.apk" -exec cp {} apk/v3.19/main/x86_64/ \; || true
+          find apk-packages -name "*aarch64.apk" -exec cp {} apk/v3.19/main/aarch64/ \; || true
+
+          # Create repository index generation script
+          cat > generate-index.sh << 'EOFSCRIPT'
+          #!/bin/sh
+          apk add --no-cache alpine-sdk
+
+          # Generate signing key
+          abuild-keygen -a -i -n
+
+          # Generate repository indexes
+          cd /workspace/apk/v3.19/main/x86_64
+          if [ -n "$(ls -A 2>/dev/null)" ]; then
+            apk index -o APKINDEX.tar.gz *.apk || true
+            abuild-sign -k ~/.abuild/*.rsa APKINDEX.tar.gz || true
+          fi
+
+          cd /workspace/apk/v3.19/main/aarch64
+          if [ -n "$(ls -A 2>/dev/null)" ]; then
+            apk index -o APKINDEX.tar.gz *.apk || true
+            abuild-sign -k ~/.abuild/*.rsa APKINDEX.tar.gz || true
+          fi
+
+          # Copy public key
+          cp ~/.abuild/*.pub /workspace/apk/
+          EOFSCRIPT
+
+          chmod +x generate-index.sh
+
+          # Run in Alpine container
+          docker run --rm \
+            -v "$(pwd):/workspace" \
+            -w /workspace \
+            alpine:latest \
+            /workspace/generate-index.sh
+
+      - name: Create repository instructions
+        run: |
+          cat > apk/README.md << 'EOF'
+          # CCVer APK Repository
+
+          ## Installation
+
+          ### Step 1: Download and trust the repository key
+
+          ```bash
+          # Download the public key
+          wget -O /etc/apk/keys/ccver.rsa.pub \
+            https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/apk/*.rsa.pub
+          ```
+
+          ### Step 2: Add the repository
+
+          ```bash
+          # Add repository to apk
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/apk/v3.19/main" \
+            >> /etc/apk/repositories
+          ```
+
+          ### Step 3: Install ccver
+
+          ```bash
+          # Update package index
+          apk update
+
+          # Install ccver
+          apk add ccver
+          ```
+
+          ## Usage
+
+          After installation, you can use ccver directly:
+
+          ```bash
+          ccver --version
+          ```
+
+          ## Packages
+
+          Available architectures:
+          - x86_64 (amd64)
+          - aarch64 (arm64)
+
+          ## Manual Installation
+
+          You can also download and install packages manually:
+
+          ```bash
+          # Download the package for your architecture
+          wget https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/apk/v3.19/main/x86_64/ccver-${{ steps.release.outputs.version }}-x86_64.apk
+
+          # Install with apk
+          apk add --allow-untrusted ccver-${{ steps.release.outputs.version }}-x86_64.apk
+          ```
+
+          ## Repository Structure
+
+          ```
+          apk/
+          ├── *.rsa.pub           # Repository signing key
+          └── v3.19/
+              └── main/
+                  ├── x86_64/     # x86_64 packages
+                  │   ├── *.apk
+                  │   └── APKINDEX.tar.gz
+                  └── aarch64/    # aarch64 packages
+                      ├── *.apk
+                      └── APKINDEX.tar.gz
+          ```
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apk
+          git commit -m "Update APK repository for version ${{ steps.release.outputs.version }}" || echo "No changes to commit"
+          git push origin gh-pages || echo "Failed to push. Make sure gh-pages branch exists and GitHub Pages is enabled."

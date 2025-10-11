@@ -1,0 +1,139 @@
+name: Publish to Homebrew
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: true
+        type: string
+      homebrew_tap_token:
+        description: 'GitHub token with access to homebrew-tap repository'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  homebrew:
+    name: 🍺 Update Homebrew Formula
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get release info
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download macOS AMD64 binary
+        run: |
+          curl -L -o ccver-macos-amd64 \
+            "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-amd64"
+
+      - name: Download macOS ARM64 binary
+        run: |
+          curl -L -o ccver-macos-arm64 \
+            "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-arm64"
+
+      - name: Download Linux AMD64 binary
+        run: |
+          curl -L -o ccver-linux-amd64 \
+            "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-amd64"
+
+      - name: Download Linux ARM64 binary
+        run: |
+          curl -L -o ccver-linux-arm64 \
+            "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-arm64"
+
+      - name: Calculate checksums
+        id: checksums
+        run: |
+          MACOS_AMD64_SHA=$(shasum -a 256 ccver-macos-amd64 | awk '{print $1}')
+          MACOS_ARM64_SHA=$(shasum -a 256 ccver-macos-arm64 | awk '{print $1}')
+          LINUX_AMD64_SHA=$(shasum -a 256 ccver-linux-amd64 | awk '{print $1}')
+          LINUX_ARM64_SHA=$(shasum -a 256 ccver-linux-arm64 | awk '{print $1}')
+
+          echo "macos_amd64_sha=${MACOS_AMD64_SHA}" >> $GITHUB_OUTPUT
+          echo "macos_arm64_sha=${MACOS_ARM64_SHA}" >> $GITHUB_OUTPUT
+          echo "linux_amd64_sha=${LINUX_AMD64_SHA}" >> $GITHUB_OUTPUT
+          echo "linux_arm64_sha=${LINUX_ARM64_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew tap
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          formula-name: ccver
+          homebrew-tap: ${{ github.repository_owner }}/homebrew-tap
+          base-branch: main
+          download-url: https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-arm64
+          commit-message: |
+            ccver ${{ steps.release.outputs.version }}
+
+            Created by ${{ github.repository }} release workflow
+        env:
+          COMMITTER_TOKEN: ${{ inputs.homebrew_tap_token || secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Create Homebrew formula (if tap doesn't exist)
+        if: failure()
+        run: |
+          cat > ccver.rb << 'EOF'
+          class Ccver < Formula
+            desc "A zero dependency tool for conventional commits and semantic versioning"
+            homepage "https://github.com/${{ github.repository }}"
+            version "${{ steps.release.outputs.version }}"
+            license "MIT"
+
+            depends_on "git"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-arm64"
+                sha256 "${{ steps.checksums.outputs.macos_arm64_sha }}"
+              else
+                url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-amd64"
+                sha256 "${{ steps.checksums.outputs.macos_amd64_sha }}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-arm64"
+                sha256 "${{ steps.checksums.outputs.linux_arm64_sha }}"
+              else
+                url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-amd64"
+                sha256 "${{ steps.checksums.outputs.linux_amd64_sha }}"
+              end
+            end
+
+            def install
+              if OS.mac?
+                if Hardware::CPU.arm?
+                  bin.install "ccver-macos-arm64" => "ccver"
+                else
+                  bin.install "ccver-macos-amd64" => "ccver"
+                end
+              else
+                if Hardware::CPU.arm?
+                  bin.install "ccver-linux-arm64" => "ccver"
+                else
+                  bin.install "ccver-linux-amd64" => "ccver"
+                end
+              end
+            end
+
+            test do
+              system "#{bin}/ccver", "--version"
+            end
+          end
+          EOF
+
+          echo "::notice::Homebrew formula created. Please create a homebrew-tap repository and add this formula manually."
+          cat ccver.rb

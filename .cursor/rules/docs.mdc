@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+
+# README.md should be the only .md file in the repository
+
+## Rather than creating a TOPIC.md summary
+- Add rust documentation comments
+- Add a section to the README.md file
+- Suggest descriptive Commit messages

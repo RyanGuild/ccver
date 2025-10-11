@@ -1,0 +1,223 @@
+name: Publish to Debian
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: true
+        type: string
+      github_token:
+        description: 'GitHub token with write permissions (defaults to GITHUB_TOKEN)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  debian:
+    name: 📦 Create Debian Packages
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Get release info
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download Linux binary
+        run: |
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            curl -L -o ccver \
+              "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-amd64"
+          else
+            curl -L -o ccver \
+              "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-linux-arm64"
+          fi
+          chmod +x ccver
+
+      - name: Create Debian package structure
+        run: |
+          mkdir -p ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/DEBIAN
+          mkdir -p ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/usr/bin
+          mkdir -p ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/usr/share/doc/ccver
+
+          # Copy binary
+          cp ccver ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/usr/bin/
+
+          # Create control file
+          cat > ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/DEBIAN/control << EOF
+          Package: ccver
+          Version: ${{ steps.release.outputs.version }}
+          Section: devel
+          Priority: optional
+          Architecture: ${{ matrix.arch }}
+          Depends: git
+          Maintainer: ${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>
+          Description: A zero dependency tool for conventional commits and semantic versioning
+           CCVer is a command-line tool designed for automating version management
+           in git repositories. It leverages conventional commit message conventions
+           to help you parse and validate commit messages, automate semantic versioning,
+           and provide an extensible CLI for version management.
+          Homepage: https://github.com/${{ github.repository }}
+          EOF
+
+          # Create copyright file
+          if [ -f "LICENSE" ]; then
+            cp LICENSE ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/usr/share/doc/ccver/copyright
+          fi
+
+          # Create changelog
+          cat > ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/usr/share/doc/ccver/changelog.Debian << EOF
+          ccver (${{ steps.release.outputs.version }}) unstable; urgency=medium
+
+            * Release ${{ steps.release.outputs.version }}
+            * See https://github.com/${{ github.repository }}/releases/tag/${{ steps.release.outputs.tag }}
+
+           -- ${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>  $(date -R)
+          EOF
+
+          gzip -9 ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/usr/share/doc/ccver/changelog.Debian
+
+      - name: Build Debian package
+        run: |
+          dpkg-deb --build --root-owner-group ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}
+
+      - name: Upload Debian package to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          files: ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}.deb
+        env:
+          GITHUB_TOKEN: ${{ inputs.github_token || secrets.GITHUB_TOKEN }}
+
+      - name: Upload Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccver-debian-${{ matrix.arch }}
+          path: ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}.deb
+
+  create-apt-repository:
+    name: 📦 Create APT Repository
+    needs: debian
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+          token: ${{ inputs.github_token || secrets.GITHUB_TOKEN }}
+
+      - name: Get release info
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download Debian packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ccver-debian-*
+          path: debian-packages
+
+      - name: Setup APT repository
+        run: |
+          mkdir -p apt/pool/main
+          mkdir -p apt/dists/stable/main/binary-amd64
+          mkdir -p apt/dists/stable/main/binary-arm64
+
+          # Move packages to pool
+          find debian-packages -name "*.deb" -exec cp {} apt/pool/main/ \;
+
+          # Create Packages files
+          cd apt
+          dpkg-scanpackages --arch amd64 pool/main > dists/stable/main/binary-amd64/Packages
+          dpkg-scanpackages --arch arm64 pool/main > dists/stable/main/binary-arm64/Packages
+
+          gzip -9 -k dists/stable/main/binary-amd64/Packages
+          gzip -9 -k dists/stable/main/binary-arm64/Packages
+
+          # Create Release file
+          cat > dists/stable/Release << EOF
+          Origin: ${{ github.repository }}
+          Label: CCVer
+          Suite: stable
+          Codename: stable
+          Architectures: amd64 arm64
+          Components: main
+          Description: CCVer APT Repository
+          Date: $(date -Ru)
+          EOF
+
+          # Add checksums
+          cd dists/stable
+          echo "MD5Sum:" >> Release
+          find main -type f -exec md5sum {} \; | sed 's/main/ main/g' >> Release
+          echo "SHA256:" >> Release
+          find main -type f -exec sha256sum {} \; | sed 's/main/ main/g' >> Release
+          cd ../..
+
+      - name: Create repository instructions
+        run: |
+          cat > apt/README.md << 'EOF'
+          # CCVer APT Repository
+
+          ## Installation
+
+          Add the repository to your system:
+
+          ```bash
+          # Add the repository
+          echo "deb [trusted=yes] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/apt stable main" | \
+            sudo tee /etc/apt/sources.list.d/ccver.list
+
+          # Update package list
+          sudo apt update
+
+          # Install ccver
+          sudo apt install ccver
+          ```
+
+          ## Usage
+
+          After installation, you can use ccver directly:
+
+          ```bash
+          ccver --version
+          ```
+
+          ## Packages
+
+          Available architectures:
+          - amd64 (x86_64)
+          - arm64 (aarch64)
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apt
+          git commit -m "Update APT repository for version ${{ steps.release.outputs.version }}" || echo "No changes to commit"
+          git push origin gh-pages || echo "Failed to push. Make sure gh-pages branch exists and GitHub Pages is enabled."

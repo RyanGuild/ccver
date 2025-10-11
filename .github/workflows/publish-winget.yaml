@@ -1,0 +1,123 @@
+name: Publish to Winget
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: true
+        type: string
+      winget_token:
+        description: 'GitHub token with repo and workflow permissions for winget-pkgs'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    name: 📦 Update Winget Package
+    runs-on: windows-latest
+    steps:
+      - name: Get release info
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download Windows binary
+        shell: bash
+        run: |
+          curl -L -o ccver-windows-amd64.exe \
+            "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-windows-amd64.exe"
+
+      - name: Calculate checksum
+        id: checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Path "ccver-windows-amd64.exe" -Algorithm SHA256).Hash
+          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Submit to Winget
+        uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: ${{ github.repository_owner }}.ccver
+          version: ${{ steps.release.outputs.version }}
+          installers-regex: '\.exe$'
+          token: ${{ inputs.winget_token || secrets.WINGET_TOKEN }}
+          fork-user: ${{ github.repository_owner }}
+
+      - name: Create Winget manifest (if submission fails)
+        if: failure()
+        shell: pwsh
+        run: |
+          $version = "${{ steps.release.outputs.version }}"
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-windows-amd64.exe"
+          $hash = "${{ steps.checksum.outputs.sha256 }}"
+
+          $versionManifest = @"
+          PackageIdentifier: ${{ github.repository_owner }}.ccver
+          PackageVersion: $version
+          DefaultLocale: en-US
+          ManifestType: version
+          ManifestVersion: 1.6.0
+          "@
+
+          $installerManifest = @"
+          PackageIdentifier: ${{ github.repository_owner }}.ccver
+          PackageVersion: $version
+          InstallerType: portable
+          Commands:
+            - ccver
+          Installers:
+            - Architecture: x64
+              InstallerUrl: $url
+              InstallerSha256: $hash
+          ManifestType: installer
+          ManifestVersion: 1.6.0
+          "@
+
+          $localeManifest = @"
+          PackageIdentifier: ${{ github.repository_owner }}.ccver
+          PackageVersion: $version
+          PackageLocale: en-US
+          Publisher: ${{ github.repository_owner }}
+          PackageName: CCVer
+          License: MIT
+          ShortDescription: A zero dependency tool for conventional commits and semantic versioning
+          Description: CCVer is a command-line tool designed for automating version management in git repositories using conventional commit message conventions.
+          PackageUrl: https://github.com/${{ github.repository }}
+          Tags:
+            - git
+            - versioning
+            - semver
+            - conventional-commits
+            - cli
+          ManifestType: defaultLocale
+          ManifestVersion: 1.6.0
+          "@
+
+          New-Item -ItemType Directory -Force -Path "manifests"
+          $versionManifest | Out-File -FilePath "manifests/${{ github.repository_owner }}.ccver.yaml" -Encoding utf8
+          $installerManifest | Out-File -FilePath "manifests/${{ github.repository_owner }}.ccver.installer.yaml" -Encoding utf8
+          $localeManifest | Out-File -FilePath "manifests/${{ github.repository_owner }}.ccver.locale.en-US.yaml" -Encoding utf8
+
+          Write-Host "::notice::Winget manifest created. Please submit to winget-pkgs repository manually."
+          Write-Host "Manifest files created in 'manifests' directory"
+
+      - name: Upload manifest artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests
+          path: manifests/

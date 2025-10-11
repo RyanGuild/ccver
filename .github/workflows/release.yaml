@@ -56,6 +56,8 @@ jobs:
             **ccver-*
             **/ccver-linux-amd64
             **/ccver-linux-arm64
+            **/ccver-linux-amd64-musl
+            **/ccver-linux-arm64-musl
             **/ccver-windows-amd64.exe
             **/ccver-macos-amd64
             **/ccver-macos-arm64

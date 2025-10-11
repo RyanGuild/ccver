@@ -1,0 +1,22 @@
+{
+    "version": "0.2",
+    "ignorePaths": [],
+    "dictionaryDefinitions": [],
+    "dictionaries": [],
+    "words": [
+        "clippy",
+        "distro",
+        "libc",
+        "msvc",
+        "pkgs",
+        "pwsh",
+        "ryanguild",
+        "Winget"
+    ],
+    "ignoreWords": [
+        "APKBUILD",
+        "APKINDEX",
+        "dists"
+    ],
+    "import": []
+}

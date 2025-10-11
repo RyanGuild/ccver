@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+# Do not use shell script files
+
+## disallowed extensions
+- .sh
+- .bat
+- .ps
+
+## Instead when creating automation
+- use .rs and rust binary targets to create scripts
+- use github actions
+- run a one off command
