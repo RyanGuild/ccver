@@ -27,22 +27,12 @@ jobs:
           rust: nightly
 
       - name: Run version updater
-        run: cargo run --bin update-cargo-toml-version --release
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if git diff --quiet; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No changes detected in Cargo.toml"
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in Cargo.toml"
-            git diff
-          fi
+        id: check-cargo-toml-version
+        run: cargo run --bin check-cargo-toml-version --release
+        continue-on-error: true
 
       - name: Commit changes
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.check-cargo-toml-version.conclusion == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

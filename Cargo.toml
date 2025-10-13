@@ -25,6 +25,7 @@ path = "bin/check-cargo-toml-version/main.rs"
 
 [dev-dependencies]
 indoc = "2"
+serial_test="3.2.0"
 
 [dependencies]
 toml_edit = "0.23.6"

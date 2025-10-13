@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use ccver::{
     graph::{MemoizedCommitGraph, version::ExistingVersionExt as _},
     logs::Logs,
@@ -19,9 +21,19 @@ fn main() {
     )
     .unwrap();
 
-    let logs = Logs::from_path(&std::env::current_dir().unwrap()).unwrap();
+    let logs =
+        Logs::from_path(&std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))).unwrap();
+    println!("Logs Count : {}", logs.len());
     let graph = MemoizedCommitGraph::new(logs, &ccver_format);
+    println!("Graph Head: {:#?}", graph.head().unwrap());
     let target_version = graph.head().unwrap().as_existing_version().unwrap();
+
+    println!("Target version: {}", target_version);
+    println!("Existing version: {}", existing_version);
+    println!(
+        "Existing version == Target version: {}",
+        existing_version == target_version
+    );
 
     assert!(
         existing_version == target_version,

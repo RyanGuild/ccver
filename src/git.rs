@@ -52,9 +52,10 @@ pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Re
 }
 
 #[instrument]
-pub fn commit_hash(path: &Path, message: &str) -> Result<String> {
+/// Function marked as unsafe because it is not thread safe with other git::* unsafe functions
+pub unsafe fn commit_hash(path: &Path, message: &str) -> Result<String> {
     debug!("Creating commit hash for message: {}", message);
-    let tree_hash = tree_hash(path)?;
+    let tree_hash = unsafe { tree_hash(path)? };
     let hash = String::from_utf8(
         Command::new("git")
             .args([
@@ -134,7 +135,8 @@ pub fn head_hash(path: &Path) -> Result<String> {
 }
 
 #[instrument]
-pub fn tree_hash(path: &Path) -> Result<String> {
+/// Function marked as unsafe because it is not thread safe with other git::* unsafe functions
+pub unsafe fn tree_hash(path: &Path) -> Result<String> {
     debug!("Getting tree hash");
     let hash = String::from_utf8(
         Command::new("git")
@@ -194,6 +196,7 @@ pub fn formatted_logs(path: &Path) -> Result<&'static mut str> {
 
 #[cfg(test)]
 mod test_commands {
+    use serial_test::serial;
     use std::env::current_dir;
 
     #[test]
@@ -218,16 +221,18 @@ mod test_commands {
     }
 
     #[test]
+    #[serial]
     fn tree_hash_exists() -> eyre::Result<()> {
-        let tree_hash = super::tree_hash(&current_dir().unwrap())?;
+        let tree_hash = unsafe { super::tree_hash(&current_dir().unwrap())? };
         assert!(!tree_hash.is_empty());
         println!("tree_hash: {:?}", tree_hash);
         Ok(())
     }
 
     #[test]
+    #[serial]
     fn commit_hash_exists() -> eyre::Result<()> {
-        let commit_hash = super::commit_hash(&current_dir().unwrap(), "test")?;
+        let commit_hash = unsafe { super::commit_hash(&current_dir().unwrap(), "test")? };
         assert!(!commit_hash.is_empty());
         println!("commit_hash: {:?}", commit_hash);
         Ok(())
