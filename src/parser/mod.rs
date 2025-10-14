@@ -1,14 +1,36 @@
+//! Parser module for CCVer log files and version formats.
+//!
+//! This module uses [Pest](https://pest.rs/) for parsing git logs and version format strings.
+//!
+//! # Performance Characteristics
+//!
+//! - **Log parsing:** O(n) where n is the number of commits, ~600-650 Kelem/s throughput
+//! - **Version format parsing:** O(m) where m is format complexity, ~2-4 µs per format
+//! - **Subject parsing:** O(1) per commit, ~2-4 µs per subject
+//!
+//! The parser maintains linear scaling across repository sizes. See `benches/parse_bench.rs`
+//! for detailed benchmarks.
+//!
+//! # Optimization Notes
+//!
+//! - Parser uses borrowed string slices (`&str`) to avoid allocations where possible
+//! - For large repositories (1000+ commits), consider parallel parsing (see PERFORMANCE_ANALYSIS.md)
+//! - Conventional commits have ~30-50% parsing overhead vs non-conventional commits
+
 use core::str;
 use interpreter::InterpreterResult;
+use pest_consume::Parser as _;
 
 use crate::logs::Subject;
-use crate::{logs::Logs, version::Version, version_format::VersionFormat};
+use crate::{
+    cc_parse, cc_parse_format, cc_parse_with_data, logs::Logs, version::Version,
+    version_format::VersionFormat,
+};
 
 #[cfg(test)]
 mod tests;
 
 mod macros;
-use macros::{cc_parse, cc_parse_format, cc_parse_with_data};
 
 mod grammar;
 use grammar::Parser;

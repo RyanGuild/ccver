@@ -52,7 +52,11 @@ pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Re
 }
 
 #[instrument]
-/// Function marked as unsafe because it is not thread safe with other git::* unsafe functions
+/// Creates a commit hash for the given message.
+///
+/// # Safety
+///
+/// This function is marked as unsafe because it is not thread safe with other git::* unsafe functions.
 pub unsafe fn commit_hash(path: &Path, message: &str) -> Result<String> {
     debug!("Creating commit hash for message: {}", message);
     let tree_hash = unsafe { tree_hash(path)? };
@@ -135,7 +139,11 @@ pub fn head_hash(path: &Path) -> Result<String> {
 }
 
 #[instrument]
-/// Function marked as unsafe because it is not thread safe with other git::* unsafe functions
+/// Gets the tree hash for the given path.
+///
+/// # Safety
+///
+/// This function is marked as unsafe because it is not thread safe with other git::* unsafe functions.
 pub unsafe fn tree_hash(path: &Path) -> Result<String> {
     debug!("Getting tree hash");
     let hash = String::from_utf8(

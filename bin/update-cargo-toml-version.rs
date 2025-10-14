@@ -55,7 +55,7 @@ fn main() -> Result<()> {
         let next_version = last_version.next_version(&next_entry, &version_format);
 
         if let Some(PreTag::ShortSha(VersionNumber::ShortSha(ref s))) = next_version.prerelease
-            && s.eq(&PEEK_COMMIT_HASH[0..7])
+            && s.as_ref() == &PEEK_COMMIT_HASH[0..7]
         {
             return Err(eyre::eyre!(
                 "A short sha cannot be calculated before the commit is created; please make changes from a feature branch or use a conventional commit"

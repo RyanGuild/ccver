@@ -31,8 +31,8 @@ jobs:
         run: cargo run --bin check-cargo-toml-version --release
         continue-on-error: true
 
-      - name: Commit changes
-        if: steps.check-cargo-toml-version.conclusion == 'success'
+      - name: Commit change
+        if: steps.check-cargo-toml-version.conclusion != 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -41,7 +41,7 @@ jobs:
           git push
 
       - name: Fail workflow if changes were made
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.check-cargo-toml-version.conclusion != 'success'
         run: |
           echo "::error::Version was updated in Cargo.toml. Please re-run the workflow with the updated version."
           exit 1

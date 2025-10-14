@@ -1,11 +1,15 @@
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
+    sync::Arc,
 };
 
 use crate::{
+    alpha_branches, beta_branches,
     logs::{LogEntry, Subject},
-    pattern_macros::*,
+    major_commit_types, major_conventional_subject, major_subject, minor_commit_types,
+    minor_conventional_subject, minor_subject, patch_commit_types, patch_conventional_subject,
+    patch_subject, rc_branches, release_branches,
     version_format::{
         CalVerFormat, CalVerFormatSegment, PreTagFormat, VersionFormat, VersionNumberFormat,
     },
@@ -261,9 +265,9 @@ impl Version {
             major: self.major.peek(commit),
             minor: self.minor.peek(commit),
             patch: self.patch.peek(commit),
-            prerelease: Some(PreTag::Sha(VersionNumber::Sha(
-                commit.commit_hash.to_string(),
-            ))),
+            prerelease: Some(PreTag::Sha(VersionNumber::Sha(Arc::from(
+                commit.commit_hash,
+            )))),
         }
     }
 
@@ -273,9 +277,9 @@ impl Version {
             major: self.major.peek(commit),
             minor: self.minor.peek(commit),
             patch: self.patch.peek(commit),
-            prerelease: Some(PreTag::ShortSha(VersionNumber::ShortSha(
-                commit.commit_hash[0..7].to_string(),
-            ))),
+            prerelease: Some(PreTag::ShortSha(VersionNumber::ShortSha(Arc::from(
+                &commit.commit_hash[0..7],
+            )))),
         }
     }
 }
@@ -395,8 +399,8 @@ impl From<PreTag> for PreTagFormat {
 pub enum VersionNumber {
     CCVer(usize),
     CalVer(CalVerFormat, chrono::DateTime<chrono::Utc>),
-    Sha(String),
-    ShortSha(String),
+    Sha(Arc<str>),
+    ShortSha(Arc<str>),
 }
 
 impl From<Version> for VersionFormat {
@@ -429,9 +433,9 @@ impl VersionNumber {
             VersionNumber::CalVer(format, _) => {
                 VersionNumber::CalVer(format.clone(), commit.commit_datetime)
             }
-            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::Sha(_) => VersionNumber::Sha(Arc::from(commit.commit_hash)),
             VersionNumber::ShortSha(_) => {
-                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+                VersionNumber::ShortSha(Arc::from(&commit.commit_hash[0..7]))
             }
         }
     }
@@ -442,9 +446,9 @@ impl VersionNumber {
             VersionNumber::CalVer(format, _) => {
                 VersionNumber::CalVer(format.clone(), commit.commit_datetime)
             }
-            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::Sha(_) => VersionNumber::Sha(Arc::from(commit.commit_hash)),
             VersionNumber::ShortSha(_) => {
-                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+                VersionNumber::ShortSha(Arc::from(&commit.commit_hash[0..7]))
             }
         }
     }
@@ -453,9 +457,9 @@ impl VersionNumber {
         match self {
             VersionNumber::CCVer(_) => VersionNumber::CCVer(0),
             VersionNumber::CalVer(_, _) => self.bump(commit),
-            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::Sha(_) => VersionNumber::Sha(Arc::from(commit.commit_hash)),
             VersionNumber::ShortSha(_) => {
-                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+                VersionNumber::ShortSha(Arc::from(&commit.commit_hash[0..7]))
             }
         }
     }

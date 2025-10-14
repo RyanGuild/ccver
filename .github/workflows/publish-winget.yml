@@ -13,6 +13,16 @@ on:
         description: 'GitHub token with repo and workflow permissions for winget-pkgs'
         required: false
         type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: true
+        type: string
+      winget_token:
+        description: 'GitHub token with repo and workflow permissions for winget-pkgs'
+        required: false
+        type: string
 
 permissions:
   contents: read

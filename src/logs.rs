@@ -1,8 +1,11 @@
 use crate::parser::parse_log;
-use crate::pattern_macros::{major_subject, minor_subject, patch_subject};
 use crate::version::Version;
 use crate::version_format::VersionFormat;
-use crate::{git, parser};
+use crate::{
+    git, major_commit_types, major_conventional_subject, major_subject, minor_commit_types,
+    minor_conventional_subject, minor_subject, parser, patch_commit_types,
+    patch_conventional_subject, patch_subject,
+};
 use eyre::*;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
@@ -220,7 +223,8 @@ pub trait InfersVersionFormat {
 
 impl<'a> InfersVersionFormat for Logs<'a> {
     fn infer_version_format(&self) -> VersionFormat {
-        let mut log_entries: Vec<_> = self.iter().collect();
+        let mut log_entries = Vec::with_capacity(self.0.len());
+        log_entries.extend(self.iter());
         log_entries.sort_by(|a, b| a.commit_datetime.cmp(&b.commit_datetime));
 
         log_entries

@@ -1,5 +1,3 @@
-#![feature(decl_macro, lock_value_accessors, iterator_try_collect)]
-
 /// The main entry point for the `ccver` application.
 ///
 /// This function parses command-line arguments, initializes logging, and
@@ -244,8 +242,9 @@ fn main() -> Result<()> {
                 CCVerSubCommand::Peek(args) => {
                     let _peek_span =
                         span!(Level::INFO, "peek_command", message = %args.message).entered();
-                    let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.commit_hash;
-                    let branch = graph.head().unwrap().lock().unwrap().log_entry.branch;
+                    let head_guard = graph.head().unwrap().lock().unwrap();
+                    let parent_commit = head_guard.log_entry.commit_hash;
+                    let branch = head_guard.log_entry.branch;
                     let next_entry = args
                         .message
                         .leak()
@@ -294,8 +293,9 @@ fn main() -> Result<()> {
                     info!("Tagging with all: {}", args.all);
                     let version = get_current_version(&graph, &path, ci, no_pre, &version_format)?;
                     if !args.all {
+                        let head_guard = graph.head().unwrap().lock().unwrap();
                         git::tag_commit_with_version(
-                            graph.head().unwrap().lock().unwrap().log_entry.commit_hash,
+                            head_guard.log_entry.commit_hash,
                             &version,
                             &path,
                         )?;
@@ -321,7 +321,7 @@ fn main() -> Result<()> {
 
                                     Ok(format!("{}", version))
                                 })
-                                .try_collect::<Vec<_>>()?;
+                                .collect::<Result<Vec<_>>>()?;
 
                         new_versions.join("\n").to_string()
                     }
@@ -372,10 +372,8 @@ fn get_current_version(
     .map(|v| {
         info!("Version: {:?}", v);
         if no_pre {
-            v.release(
-                &graph.head().unwrap().lock().unwrap().log_entry,
-                version_format,
-            )
+            let head_guard = graph.head().unwrap().lock().unwrap();
+            v.release(&head_guard.log_entry, version_format)
         } else {
             v
         }

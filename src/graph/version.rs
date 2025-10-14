@@ -30,7 +30,8 @@ pub trait SetVersionExt {
 
 impl<'a> SetVersionExt for CommitGraphNodeWeight<'a> {
     fn set_version(&mut self, version: Version) {
-        self.lock().unwrap().version = Some(version);
+        let mut guard = self.lock().unwrap();
+        guard.version = Some(version);
     }
 }
 
@@ -62,7 +63,7 @@ impl<'a> NextVersionExt<'a> for &CommitGraphNodeWeight<'a> {
         let data = self.lock().unwrap();
         let existing_version = data.log_entry.as_existing_version();
         let prev_version = existing_version.unwrap_or(max_parent.clone());
-        prev_version.next_version(&self.lock().unwrap().log_entry, version_format)
+        prev_version.next_version(&data.log_entry, version_format)
     }
 }
 

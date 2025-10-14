@@ -194,3 +194,183 @@ where
         self.inner.head()
     }
 }
+
+#[cfg(test)]
+mod tail_tests {
+    use super::*;
+    use crate::graph::{
+        GraphOps, commit::CommitMemo, parents_and_children::WithParentsAndChildEdges,
+    };
+    use crate::logs::{LogEntry, Subject};
+    use petgraph::{Directed, Graph};
+    use std::sync::Arc;
+
+    /// Helper to create a test LogEntry
+    fn create_log_entry(hash: &'static str, parents: Vec<&'static str>) -> LogEntry<'static> {
+        LogEntry {
+            name: "Test User",
+            branch: "main",
+            commit_hash: hash,
+            commit_timezone: chrono::Utc,
+            commit_datetime: chrono::Utc::now(),
+            parent_hashes: Arc::from(parents),
+            decorations: Arc::from(vec![]),
+            subject: Subject::Text("test commit"),
+            footers: std::collections::HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_tail_detection_linear_chain() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        // Create a linear chain: c1 <- c2 <- c3
+        let c1 = create_log_entry("c1", vec![]);
+        let c2 = create_log_entry("c2", vec!["c1"]);
+        let c3 = create_log_entry("c3", vec!["c2"]);
+
+        let idx1 = graph.add_node(c1);
+        let _idx2 = graph.add_node(c2);
+        let _idx3 = graph.add_node(c3);
+
+        // Create TailMemo
+        let tail_graph = TailMemo::new(graph).unwrap();
+
+        // c1 should be the tail (no parents)
+        assert_eq!(tail_graph.tail_idx(), Some(idx1));
+        let tail = tail_graph.tail().unwrap();
+        assert_eq!(tail.commit_hash, "c1");
+    }
+
+    #[test]
+    fn test_tail_has_no_parents() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        let c1 = create_log_entry("c1", vec![]);
+        let c2 = create_log_entry("c2", vec!["c1"]);
+
+        let idx1 = graph.add_node(c1);
+        graph.add_node(c2);
+
+        let tail_graph = TailMemo::new(graph).unwrap();
+
+        // Tail should have no parents
+        let tail_idx = tail_graph.tail_idx().unwrap();
+        assert_eq!(tail_idx, idx1);
+        let parents = tail_graph.parent_idxs(tail_idx);
+        assert_eq!(parents.len(), 0);
+    }
+
+    #[test]
+    fn test_tail_memoization() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        let c1 = create_log_entry("c1", vec![]);
+        let idx1 = graph.add_node(c1);
+
+        let tail_graph = TailMemo::new(graph).unwrap();
+
+        // Multiple calls should return the same memoized value
+        assert_eq!(tail_graph.tail_idx(), Some(idx1));
+        assert_eq!(tail_graph.tail_idx(), Some(idx1));
+        assert!(tail_graph.tail().is_some());
+    }
+
+    #[test]
+    fn test_tail_with_branching() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        // Create branching from root: c1 <- c2 and c1 <- c3
+        let c1 = create_log_entry("c1", vec![]);
+        let c2 = create_log_entry("c2", vec!["c1"]);
+        let c3 = create_log_entry("c3", vec!["c1"]);
+
+        let idx1 = graph.add_node(c1);
+        graph.add_node(c2);
+        graph.add_node(c3);
+
+        let tail_graph = TailMemo::new(graph).unwrap();
+
+        // c1 is still the tail even with branching
+        assert_eq!(tail_graph.tail_idx(), Some(idx1));
+    }
+
+    #[test]
+    fn test_tail_with_merge_commit() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        // Create a merge scenario: c1, c2 (roots) <- c3 (merge)
+        let c1 = create_log_entry("c1", vec![]);
+        let c2 = create_log_entry("c2", vec![]);
+        let c3 = create_log_entry("c3", vec!["c1", "c2"]);
+
+        let idx1 = graph.add_node(c1);
+        graph.add_node(c2);
+        graph.add_node(c3);
+
+        let tail_graph = TailMemo::new(graph).unwrap();
+
+        // Should find one of the roots (c1 or c2)
+        let tail_idx = tail_graph.tail_idx().unwrap();
+        assert!(tail_idx == idx1 || tail_graph.parent_idxs(tail_idx).is_empty());
+    }
+
+    #[test]
+    fn test_tail_none_when_no_root() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let graph = WithParentsAndChildEdges::new(memo);
+
+        // Empty graph has no tail
+        let tail_graph = TailMemo::new(graph);
+        assert!(tail_graph.is_none());
+    }
+
+    #[test]
+    fn test_tail_forwarding_traits() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        let c1 = create_log_entry("c1", vec![]);
+        let c2 = create_log_entry("c2", vec!["c1"]);
+
+        let idx1 = graph.add_node(c1);
+        let idx2 = graph.add_node(c2);
+
+        let tail_graph = TailMemo::new(graph).unwrap();
+
+        // Verify HasParentsAndChildren is forwarded correctly
+        let parents = tail_graph.parent_idxs(idx2);
+        assert_eq!(parents, vec![idx1]);
+
+        // Verify CommitExt is forwarded correctly
+        assert!(tail_graph.commit_by_hash("c1").is_some());
+        assert_eq!(tail_graph.commit_idx_by_hash("c2"), Some(idx2));
+    }
+
+    #[test]
+    fn test_single_commit_is_tail() {
+        let graph: Graph<LogEntry, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        let c1 = create_log_entry("c1", vec![]);
+        let idx1 = graph.add_node(c1);
+
+        let tail_graph = TailMemo::new(graph).unwrap();
+
+        // Single commit should be the tail
+        assert_eq!(tail_graph.tail_idx(), Some(idx1));
+    }
+}

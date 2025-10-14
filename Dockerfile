@@ -37,10 +37,16 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 # Copy the compiled binary from the builder stage
 COPY --from=builder /usr/src/app/target/release/ccver /ccver
 
+# Copy SBOM files (directory contains at minimum a .gitkeep file)
+COPY --chown=root:root sbom /usr/share/sbom
+
 RUN ls -la /
 
 ENV PATH="/usr/local/bin:${PATH}"
 
+# Add labels for SBOM and supply chain metadata
+LABEL org.opencontainers.image.sbom.location="/usr/share/sbom"
+LABEL org.opencontainers.image.sbom.formats="CycloneDX,SPDX"
 
 # Set the working directory to the workspace
 WORKDIR /github/workspace

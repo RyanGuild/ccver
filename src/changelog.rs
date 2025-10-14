@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Display, rc::Rc, vec};
+use std::{cmp::Ordering, fmt::Display, rc::Rc};
 
 use eyre::*;
 use petgraph::graph::NodeIndex;
@@ -9,9 +9,9 @@ use crate::{
         parents_and_children::HasParentsAndChildren, version::ExistingVersionExt,
     },
     logs::{ConventionalSubject, Subject},
-    pattern_macros::{
-        major_commit_types, minor_commit_types, patch_commit_types, semver_advancing_subject,
-    },
+    major_commit_types, major_conventional_subject, minor_commit_types, minor_conventional_subject,
+    patch_commit_types, patch_conventional_subject, semver_advancing_conventional_subject,
+    semver_advancing_subject,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -34,46 +34,46 @@ impl Display for ChangeLogData {
         assert!(self.0.is_sorted());
         writeln!(f, "# ChangeLog",)?;
 
-        let mut current_scope: Option<String> = None;
-        let mut last_level: Option<String> = None;
+        let mut current_scope: Option<&str> = None;
+        let mut last_level: Option<&str> = None;
         for change in self.0.iter() {
             match change {
                 ChangeScoped::All(change) => match change {
                     Change::Breaking(desc, date) => {
-                        if last_level != "Breaking Changes".to_string().into() {
+                        if last_level != Some("Breaking Changes") {
                             writeln!(f, "## Breaking Changes")?;
-                            last_level = Some("Breaking Changes".to_string());
+                            last_level = Some("Breaking Changes");
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Feature(desc, date) => {
-                        if last_level != "Features".to_string().into() {
+                        if last_level != Some("Features") {
                             writeln!(f, "## Features")?;
-                            last_level = Some("Features".to_string());
+                            last_level = Some("Features");
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Fix(desc, date) => {
-                        if last_level != "Fixes".to_string().into() {
+                        if last_level != Some("Fixes") {
                             writeln!(f, "## Fixes")?;
-                            last_level = Some("Fixes".to_string());
+                            last_level = Some("Fixes");
                         };
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Named(name, desc, date) => {
-                        if last_level != name.to_string().into() {
+                        if last_level != Some(name.as_ref()) {
                             writeln!(f, "## {}", name)?;
-                            last_level = Some(name.to_string());
+                            last_level = Some(name.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Misc(desc, date) => {
-                        if last_level != "Misc".to_string().into() {
+                        if last_level != Some("Misc") {
                             writeln!(f, "## Misc")?;
-                            last_level = Some("Misc".to_string());
+                            last_level = Some("Misc");
                         }
 
                         writeln!(f, "- ({}): {}", date, desc)?;
@@ -81,65 +81,65 @@ impl Display for ChangeLogData {
                 },
                 ChangeScoped::Scoped(scope, change) => match change {
                     Change::Breaking(desc, date) => {
-                        if last_level != Some("Breaking Changes".to_string()) {
+                        if last_level != Some("Breaking Changes") {
                             writeln!(f, "## Breaking Changes")?;
-                            last_level = Some("Breaking Changes".to_string());
+                            last_level = Some("Breaking Changes");
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Feature(desc, date) => {
-                        if last_level != Some("Features".to_string()) {
+                        if last_level != Some("Features") {
                             writeln!(f, "## Features")?;
-                            last_level = "Features".to_string().into();
+                            last_level = Some("Features");
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Fix(desc, date) => {
-                        if last_level != Some("Fixes".to_string()) {
+                        if last_level != Some("Fixes") {
                             writeln!(f, "## Fixes")?;
-                            last_level = Some("Fixes".to_string());
+                            last_level = Some("Fixes");
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Named(name, desc, date) => {
-                        if last_level != Some(name.clone()) {
+                        if last_level != Some(name.as_ref()) {
                             writeln!(f, "## {}", name)?;
-                            last_level = Some(name.to_string());
+                            last_level = Some(name.as_ref());
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Misc(desc, date) => {
-                        if last_level != Some("Misc".to_string()) {
+                        if last_level != Some("Misc") {
                             writeln!(f, "## Misc")?;
-                            last_level = Some("Misc".to_string());
+                            last_level = Some("Misc");
                         }
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
@@ -174,7 +174,7 @@ enum Change {
 }
 
 impl ChangeLogData {
-    pub fn new<'a, N, E, Ty, Ix, T>(graph: T) -> Result<ChangeLog>
+    pub fn new<N, E, Ty, Ix, T>(graph: T) -> Result<ChangeLog>
     where
         T: GraphOps<N, E, Ty, Ix> + HasHead<N, E, Ty, Ix> + HasParentsAndChildren<N, E, Ty, Ix>,
         N: AsLogEntry + ExistingVersionExt,
@@ -186,7 +186,7 @@ impl ChangeLogData {
         Self::from_index(graph, root)
     }
 
-    pub fn from_index<'a, N, E, Ty, Ix, T>(graph: T, from: NodeIndex<Ix>) -> Result<ChangeLog>
+    pub fn from_index<N, E, Ty, Ix, T>(graph: T, from: NodeIndex<Ix>) -> Result<ChangeLog>
     where
         T: GraphOps<N, E, Ty, Ix> + HasParentsAndChildren<N, E, Ty, Ix>,
         N: AsLogEntry + ExistingVersionExt,
@@ -195,7 +195,8 @@ impl ChangeLogData {
         let versions = {
             let mut stack = graph.parent_idxs(from);
             let current_ver = graph.node_weight(from).unwrap();
-            let mut versions = vec![current_ver];
+            let mut versions = Vec::with_capacity(100);
+            versions.push(current_ver);
             while let Some(parent_idx) = stack.pop() {
                 let parent = graph.node_weight(parent_idx).unwrap();
                 match parent.as_log_entry().subject {

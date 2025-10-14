@@ -13,6 +13,16 @@ on:
         description: 'GitHub token with access to homebrew-tap repository'
         required: false
         type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: true
+        type: string
+      homebrew_tap_token:
+        description: 'GitHub token with access to homebrew-tap repository'
+        required: false
+        type: string
 
 permissions:
   contents: read

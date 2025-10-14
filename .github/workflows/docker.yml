@@ -1,7 +1,21 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Image with SBOM
 
 on:
   workflow_call: {}
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'src/**'
+      - 'Dockerfile'
+      - '.github/workflows/docker.yml'
 
 env:
   REGISTRY: ghcr.io
@@ -13,10 +27,77 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
+      attestations: write
+      id-token: write
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v5
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: docker-sbom-${{ runner.os }}
+
+    - name: Install cargo-sbom
+      run: cargo install cargo-sbom
+
+    - name: Build release binaries
+      run: cargo build --release
+
+    - name: Generate Cargo-based SBOM (CycloneDX)
+      run: |
+        mkdir -p sbom
+        cargo sbom --output-format cyclone_dx_json_1_5 > sbom/sbom-cargo-cyclonedx.json
+
+    - name: Generate Cargo-based SBOM (SPDX)
+      run: |
+        cargo sbom --output-format spdx_json_2_3 > sbom/sbom-cargo-spdx.json
+
+    - name: Install Syft
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+    - name: Generate binary SBOM with Syft (CycloneDX)
+      run: |
+        syft target/release/ccver -o cyclonedx-json=sbom/sbom-binary-cyclonedx.json
+
+    - name: Generate binary SBOM with Syft (SPDX)
+      run: |
+        syft target/release/ccver -o spdx-json=sbom/sbom-binary-spdx.json
+
+    - name: Generate binary SBOM with Syft (SARIF)
+      run: |
+        syft target/release/ccver -o sarif=sbom/sbom-binary.sarif
+
+    - name: List generated SBOMs
+      run: |
+        echo "Generated SBOM files:"
+        ls -lh sbom/
+        echo ""
+        echo "SBOM file sizes:"
+        du -h sbom/*
+
+    - name: Upload SBOM artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom-${{ github.sha }}
+        path: sbom/
+        retention-days: 90
+
+    - name: Upload SARIF to GitHub Security
+      if: github.event_name != 'pull_request'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: sbom/sbom-binary.sarif
+        category: sbom
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: Log in to Container Registry
       if: github.event_name != 'pull_request'
@@ -38,11 +119,92 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=sha
+        labels: |
+          org.opencontainers.image.title=ccver
+          org.opencontainers.image.description=A zero dependency tool for Conventional Commits with embedded SBOM
+          org.opencontainers.image.vendor=ccver
 
     - name: Build and push Docker image
+      id: docker_build
       uses: docker/build-push-action@v6
       with:
         context: .
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        sbom: true
+        provenance: mode=max
+
+    - name: Generate Docker SBOM
+      if: github.event_name != 'pull_request'
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7)
+        syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7) -o cyclonedx-json=sbom/sbom-docker-cyclonedx.json
+        syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7) -o spdx-json=sbom/sbom-docker-spdx.json
+
+    - name: Upload complete SBOM artifacts
+      if: github.event_name != 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom-complete-${{ github.sha }}
+        path: sbom/
+        retention-days: 90
+
+    - name: Create attestation for SBOM
+      if: github.event_name != 'pull_request'
+      uses: actions/attest-sbom@v1
+      with:
+        subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        subject-digest: ${{ steps.docker_build.outputs.digest }}
+        sbom-path: sbom/sbom-docker-cyclonedx.json
+        push-to-registry: true
+
+    - name: Generate summary
+      run: |
+        cat > $GITHUB_STEP_SUMMARY << 'EOF'
+        ## 📋 SBOM Generation Results
+
+        Software Bill of Materials has been successfully generated for all binaries.
+
+        ### Generated SBOMs
+        - **Cargo Dependencies (CycloneDX)**: Complete dependency tree from Cargo.lock
+        - **Cargo Dependencies (SPDX)**: SPDX format for tooling compatibility
+        - **Binary Analysis (CycloneDX)**: Deep binary analysis including system libraries
+        - **Binary Analysis (SPDX)**: SPDX format binary analysis
+        - **Binary Analysis (SARIF)**: Security-focused format for vulnerability scanning
+
+        ### Formats
+        - 🔄 **CycloneDX**: Industry-standard format for software supply chain
+        - 📜 **SPDX**: Linux Foundation standard for license compliance
+        - 🔒 **SARIF**: Security analysis format integrated with GitHub Security
+
+        ### Artifacts
+        All SBOM files are available in the `sbom-${{ github.sha }}` artifact.
+
+        EOF
+
+    - name: Add Docker summary
+      if: github.event_name != 'pull_request'
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+
+        ### 🐳 Docker Image with SBOM
+
+        The Docker image has been built with:
+        - ✅ Embedded SBOM metadata
+        - ✅ Provenance attestation
+        - ✅ SBOM attestation signed and pushed to registry
+        - ✅ Complete Docker image SBOM generated
+
+        ### Security Features
+        - SBOM is cryptographically signed and stored in the registry
+        - Provenance tracking enabled for full build transparency
+        - Compatible with supply chain security tools (Sigstore, cosign, etc.)
+
+        ### Verification
+        You can verify the SBOM attestation using:
+        ```bash
+        gh attestation verify oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7) --owner ${{ github.repository_owner }}
+        ```
+
+        EOF
