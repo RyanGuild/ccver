@@ -141,6 +141,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base64"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -191,11 +197,12 @@ dependencies = [
 
 [[package]]
 name = "ccver"
-version = "2.27.1-featuremonitoring.8"
+version = "2.27.1-featuremonitoring.9"
 dependencies = [
  "chrono",
  "clap",
  "criterion",
+ "embed-doc-image",
  "eyre",
  "indoc",
  "pest",
@@ -205,6 +212,7 @@ dependencies = [
  "pprof",
  "rustc-hash",
  "serial_test",
+ "simple-mermaid",
  "toml_edit",
  "tracing",
  "tracing-error",
@@ -425,6 +433,18 @@ name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+
+[[package]]
+name = "embed-doc-image"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af36f591236d9d822425cb6896595658fa558fcebf5ee8accac1d4b92c47166e"
+dependencies = [
+ "base64",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "equator"
@@ -1310,6 +1330,12 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "simple-mermaid"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "589144a964b4b30fe3a83b4bb1a09e2475aac194ec832a046a23e75bddf9eb29"
 
 [[package]]
 name = "slab"

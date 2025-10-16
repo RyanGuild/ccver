@@ -1,0 +1,5 @@
+flowchart TD
+    A[git log] --> C[Parse raw logs with Pest]
+    C --> D[Create DiGraph]
+    D --> E[Construct Commit Graph<br>using `CommitGraphData::new`]
+    E --> F[CommitGraph]

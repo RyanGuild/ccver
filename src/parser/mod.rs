@@ -27,6 +27,19 @@ use crate::{
     version_format::VersionFormat,
 };
 
+#[cfg(all(doc, feature = "documentation"))]
+use embed_doc_image::embed_doc_image;
+/// Performance profile visualization for the parser module.
+///
+/// ![Parser Performance Profile][parser_perf]
+///
+#[cfg_attr(
+    all(doc, feature = "documentation"),
+    embed_doc_image("parser_perf", "target/profiling/parse.svg")
+)]
+#[cfg(all(doc, feature = "documentation"))]
+pub struct ParserPerfProfile;
+
 #[cfg(test)]
 mod tests;
 

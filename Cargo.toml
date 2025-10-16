@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.27.1-featuremonitoring.8"
+version = "2.27.1-featuremonitoring.9"
 edition = "2024"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 license-file = "LICENSE"
@@ -42,6 +42,8 @@ indoc = "2"
 serial_test="3.2.0"
 criterion = { version = "0.7.0", features = ["html_reports"] }
 
+
+
 [[bench]]
 name = "parse_bench"
 harness = false
@@ -66,6 +68,8 @@ tracing = "0.1.41"
 tracing-error = "0.2.0"
 chrono = "0.4.40"
 rustc-hash = "2.0"
+embed-doc-image = {version = "0.1.4", optional = true}
+simple-mermaid = {version = "0.2.0", optional = true}
 
   [dependencies.pest_derive]
   version = "2.7.15"
@@ -95,3 +99,7 @@ rustc-hash = "2.0"
 
 [features]
 profiling = ["pprof"]
+documentation = ["embed-doc-image", "simple-mermaid"]
+
+[package.metadata.docs.rs]
+features = ["documentation"]

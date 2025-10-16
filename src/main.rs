@@ -1,28 +1,3 @@
-/// The main entry point for the `ccver` application.
-///
-/// This function parses command-line arguments, initializes logging, and
-/// executes the specified command. It supports version formatting and tagging
-/// operations.
-///
-/// # Returns
-///
-/// * `Result<()>` - Returns `Ok(())` if the operation is successful, otherwise
-///   returns an error.
-///
-/// # Errors
-///
-/// This function will return an error if:
-///
-/// * The current directory cannot be determined.
-/// * The version format cannot be parsed.
-/// * The logs cannot be retrieved or processed.
-/// * The `git` command is not installed.
-///
-/// # Example
-///
-/// ```sh
-/// ccver --path /path/to/repo --format "vYY.CC.CC-pre.<short-sha>" tag
-/// ```
 pub mod args;
 pub mod changelog;
 pub mod current_version;
