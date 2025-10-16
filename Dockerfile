@@ -34,6 +34,9 @@ COPY Cargo.toml Cargo.lock ./
 # Copy the source code
 COPY src ./src
 
+# Copy the benches
+COPY benches ./benches
+
 # Copy the hooks
 COPY bin ./bin
 
