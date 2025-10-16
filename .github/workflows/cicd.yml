@@ -23,8 +23,13 @@ jobs:
     name: Build
     secrets: inherit
     uses: "./.github/workflows/build.yml"
+  sbom:
+    name: SBOM
+    needs: build
+    uses: "./.github/workflows/sbom.yml"
   docker:
     name: Docker
+    needs: [build, sbom]
     secrets: inherit
     uses: "./.github/workflows/docker.yml"
   profile:
@@ -41,7 +46,7 @@ jobs:
   release:
     name: Release
     if: github.ref_name == 'main' || github.ref_name == 'master'
-    needs: [check,build, test, test-action, docker, profile]
+    needs: [check, build, sbom, test, test-action, docker, profile]
     uses: "./.github/workflows/release.yml"
     secrets: inherit
     with:

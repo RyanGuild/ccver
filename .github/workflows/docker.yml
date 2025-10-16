@@ -22,70 +22,36 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v5
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
+    - name: Download Linux binaries
+      uses: actions/download-artifact@v4
       with:
-        key: docker-sbom-${{ runner.os }}
+        pattern: ccver-linux-*
+        path: binaries-temp/
+        merge-multiple: true
 
-    - name: Install cargo-sbom
-      run: cargo install cargo-sbom
-
-    - name: Build release binaries
-      run: cargo build --release
-
-    - name: Generate Cargo-based SBOM (CycloneDX)
+    - name: Prepare binaries for Docker build
       run: |
-        mkdir -p sbom
-        cargo sbom --output-format cyclone_dx_json_1_5 > sbom/sbom-cargo-cyclonedx.json
+        mkdir -p binaries
+        # Copy binaries to the Docker build context
+        cp binaries-temp/ccver-linux-amd64 binaries/
+        cp binaries-temp/ccver-linux-arm64 binaries/
+        # List for verification
+        ls -lh binaries/
 
-    - name: Generate Cargo-based SBOM (SPDX)
-      run: |
-        cargo sbom --output-format spdx_json_2_3 > sbom/sbom-cargo-spdx.json
-
-    - name: Install Syft
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-
-    - name: Generate binary SBOM with Syft (CycloneDX)
-      run: |
-        syft target/release/ccver -o cyclonedx-json=sbom/sbom-binary-cyclonedx.json
-
-    - name: Generate binary SBOM with Syft (SPDX)
-      run: |
-        syft target/release/ccver -o spdx-json=sbom/sbom-binary-spdx.json
-
-    - name: Install Grype
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-
-    - name: Scan binary for vulnerabilities with Grype
-      run: |
-        grype target/release/ccver -o sarif=sbom/grype-report.sarif
-
-    - name: List generated SBOMs
-      run: |
-        echo "Generated SBOM files:"
-        ls -lh sbom/
-        echo ""
-        echo "SBOM file sizes:"
-        du -h sbom/*
-
-    - name: Upload SBOM artifacts
-      uses: actions/upload-artifact@v4
+    - name: Download SBOM artifacts
+      uses: actions/download-artifact@v4
       with:
         name: sbom-${{ github.sha }}
         path: sbom/
-        retention-days: 90
 
-    - name: Upload SARIF to GitHub Security
-      if: github.event_name != 'pull_request'
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: sbom/grype-report.sarif
-        category: grype-vulnerability-scan
+    - name: List SBOM files
+      run: |
+        echo "SBOM files for Docker image:"
+        ls -lh sbom/
+
+    - name: Install Syft (for Docker SBOM generation)
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -120,7 +86,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        platforms: linux/amd64,linux/arm64,linux/arm/v7
+        platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -141,19 +107,12 @@ jobs:
         syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7) --platform linux/arm64 -o cyclonedx-json=sbom/sbom-docker-arm64-cyclonedx.json
         syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7) --platform linux/arm64 -o spdx-json=sbom/sbom-docker-arm64-spdx.json
 
-    - name: Generate Docker SBOM (armv7)
-      if: github.event_name != 'pull_request'
-      run: |
-        docker pull --platform linux/arm/v7 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7)
-        syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7) --platform linux/arm/v7 -o cyclonedx-json=sbom/sbom-docker-armv7-cyclonedx.json
-        syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7) --platform linux/arm/v7 -o spdx-json=sbom/sbom-docker-armv7-spdx.json
-
-    - name: Upload complete SBOM artifacts
+    - name: Upload Docker SBOM artifacts
       if: github.event_name != 'pull_request'
       uses: actions/upload-artifact@v4
       with:
-        name: sbom-complete-${{ github.sha }}
-        path: sbom/
+        name: sbom-docker-${{ github.sha }}
+        path: sbom/sbom-docker-*
         retention-days: 90
 
     - name: Create attestation for SBOM
@@ -168,25 +127,22 @@ jobs:
     - name: Generate summary
       run: |
         cat > $GITHUB_STEP_SUMMARY << 'EOF'
-        ## 📋 SBOM Generation Results
+        ## 📋 Docker Image Build Results
 
-        Software Bill of Materials has been successfully generated for all binaries and Docker images.
+        Multi-platform Docker images have been built with embedded SBOMs.
 
-        ### Generated SBOMs
+        ### Embedded SBOMs (from SBOM workflow)
         - **Cargo Dependencies (CycloneDX)**: Complete dependency tree from Cargo.lock
         - **Cargo Dependencies (SPDX)**: SPDX format for tooling compatibility
         - **Binary Analysis (CycloneDX)**: Deep binary analysis including system libraries
         - **Binary Analysis (SPDX)**: SPDX format binary analysis
-        - **Vulnerability Scan (SARIF)**: Grype security scan results for GitHub Security
-        - **Docker Images**: Platform-specific SBOMs for amd64, arm64, and armv7
 
-        ### Formats
-        - 🔄 **CycloneDX**: Industry-standard format for software supply chain
-        - 📜 **SPDX**: Linux Foundation standard for license compliance
-        - 🔒 **SARIF**: Security vulnerability findings uploaded to GitHub Security
+        ### Docker-specific SBOMs
+        - **Docker Image (amd64)**: Platform-specific SBOM for amd64
+        - **Docker Image (arm64)**: Platform-specific SBOM for arm64
 
         ### Artifacts
-        All SBOM files (including platform-specific Docker SBOMs) are available in the workflow artifacts.
+        All Docker-specific SBOM files are available in the workflow artifacts.
 
         EOF
 
@@ -200,7 +156,6 @@ jobs:
         The Docker image has been built for multiple platforms:
         - ✅ linux/amd64 (x86_64)
         - ✅ linux/arm64 (aarch64)
-        - ✅ linux/arm/v7 (armv7)
 
         Each platform includes:
         - ✅ Embedded SBOM metadata
@@ -212,7 +167,7 @@ jobs:
         - SBOM is cryptographically signed and stored in the registry
         - Provenance tracking enabled for full build transparency
         - Compatible with supply chain security tools (Sigstore, cosign, etc.)
-        - Each platform binary compiled with only its specific Rust target
+        - Uses pre-built, attested binaries from the build workflow (no compilation in Docker)
 
         ### Verification
         You can verify the SBOM attestation using:
