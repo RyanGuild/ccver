@@ -7,17 +7,17 @@ use tracing::{debug, info, instrument, warn};
 pub fn is_dirty(path: &Path) -> Result<bool> {
     debug!("Checking if repository is dirty at path: {:?}", path);
     let output = Command::new("git")
-        .args(["diff", "--exit-code"])
+        .args(["status", "--porcelain"])
         .current_dir(path)
         .output()?;
 
-    let status = output.status;
+    if !output.status.success() {
+        return Err(eyre!("Failed to check git status"));
+    }
 
-    let code = status
-        .code()
-        .ok_or_eyre("could not get status code from git diff")?;
-
-    let is_dirty = code != 0;
+    // If git status --porcelain returns any output, the repo is dirty
+    // (includes staged changes, unstaged changes, and untracked files)
+    let is_dirty = !output.stdout.is_empty();
     debug!("Repository dirty status: {}", is_dirty);
     Ok(is_dirty)
 }
@@ -204,7 +204,6 @@ pub fn formatted_logs(path: &Path) -> Result<&'static mut str> {
 
 #[cfg(test)]
 mod test_commands {
-    use serial_test::serial;
     use std::env::current_dir;
 
     #[test]
