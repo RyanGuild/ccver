@@ -29,6 +29,11 @@ jobs:
     needs: [build]
     secrets: inherit
     uses: "./.github/workflows/docker.yml"
+  profile:
+    name: Profile
+    needs: [build]
+    secrets: inherit
+    uses: "./.github/workflows/profile.yml"
   test:
     needs: [build]
     name: Test

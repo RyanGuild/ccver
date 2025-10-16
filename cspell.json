@@ -22,6 +22,7 @@
         "libc",
         "libgcc",
         "msvc",
+        "nextest",
         "NOPASSWD",
         "opencontainers",
         "pdkname",

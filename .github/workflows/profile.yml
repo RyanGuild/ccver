@@ -9,6 +9,13 @@ on:
         required: false
         default: '5000'
         type: string
+  workflow_call:
+    inputs:
+      size:
+        description: 'Number of commits to profile'
+        required: false
+        default: '5000'
+        type: string
 
 jobs:
   profile:
