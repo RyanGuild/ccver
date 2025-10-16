@@ -21,21 +21,17 @@ jobs:
     uses: "./.github/workflows/tag.yml"
   build:
     name: Build
-    needs: [check]
     secrets: inherit
     uses: "./.github/workflows/build.yml"
   docker:
     name: Docker
-    needs: [build]
     secrets: inherit
     uses: "./.github/workflows/docker.yml"
   profile:
     name: Profile
-    needs: [build]
     secrets: inherit
     uses: "./.github/workflows/profile.yml"
   test:
-    needs: [build]
     name: Test
     uses: "./.github/workflows/test.yml"
   test-action:
@@ -45,7 +41,7 @@ jobs:
   release:
     name: Release
     if: github.ref_name == 'main' || github.ref_name == 'master'
-    needs: [check,build, test, test-action, docker]
+    needs: [check,build, test, test-action, docker, profile]
     uses: "./.github/workflows/release.yml"
     secrets: inherit
     with:
