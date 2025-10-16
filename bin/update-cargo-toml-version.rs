@@ -22,11 +22,6 @@ fn main() -> Result<()> {
         )
         .init();
 
-    let commit_message_file = current_dir().unwrap().join(".git/COMMIT_EDITMSG");
-    debug!("commit_message_file: {}", commit_message_file.display());
-    let commit_message = std::fs::read_to_string(commit_message_file).unwrap();
-    info!("Commit message: {}", commit_message);
-
     let cwd = std::env::current_dir().unwrap();
     let logs = Logs::from_path(&cwd)?;
 
@@ -42,6 +37,11 @@ fn main() -> Result<()> {
 
     let (last_version, next_version) = if git::is_dirty(&current_dir().unwrap())? {
         // If the repo is dirty perform a graph peek into the next commit
+
+        let commit_message_file = current_dir().unwrap().join(".git/COMMIT_EDITMSG");
+        debug!("commit_message_file: {}", commit_message_file.display());
+        let commit_message = std::fs::read_to_string(commit_message_file).unwrap();
+        info!("Commit message: {}", commit_message);
 
         let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.clone();
         let next_entry = commit_message.as_str();
