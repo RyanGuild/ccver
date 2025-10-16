@@ -57,9 +57,13 @@ jobs:
       run: |
         syft target/release/ccver -o spdx-json=sbom/sbom-binary-spdx.json
 
-    - name: Generate binary SBOM with Syft (SARIF)
+    - name: Install Grype
       run: |
-        syft target/release/ccver -o sarif=sbom/sbom-binary.sarif
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+    - name: Scan binary for vulnerabilities with Grype
+      run: |
+        grype target/release/ccver -o sarif=sbom/grype-report.sarif
 
     - name: List generated SBOMs
       run: |
@@ -80,8 +84,8 @@ jobs:
       if: github.event_name != 'pull_request'
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: sbom/sbom-binary.sarif
-        category: sbom
+        sarif_file: sbom/grype-report.sarif
+        category: grype-vulnerability-scan
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -158,12 +162,12 @@ jobs:
         - **Cargo Dependencies (SPDX)**: SPDX format for tooling compatibility
         - **Binary Analysis (CycloneDX)**: Deep binary analysis including system libraries
         - **Binary Analysis (SPDX)**: SPDX format binary analysis
-        - **Binary Analysis (SARIF)**: Security-focused format for vulnerability scanning
+        - **Vulnerability Scan (SARIF)**: Grype security scan results for GitHub Security
 
         ### Formats
         - 🔄 **CycloneDX**: Industry-standard format for software supply chain
         - 📜 **SPDX**: Linux Foundation standard for license compliance
-        - 🔒 **SARIF**: Security analysis format integrated with GitHub Security
+        - 🔒 **SARIF**: Security vulnerability findings uploaded to GitHub Security
 
         ### Artifacts
         All SBOM files are available in the `sbom-${{ github.sha }}` artifact.
