@@ -7,18 +7,12 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy the Rust toolchain configuration
-COPY rust-toolchain.toml .
-
-# Install the nightly toolchain specified in rust-toolchain.toml
-RUN rustup toolchain install nightly
-RUN rustup default nightly
-
 # Arguments for cross-compilation
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
-# Install the appropriate Rust target based on the target platform
+# Install only the specific Rust target needed for the target platform
+# Don't copy rust-toolchain.toml to avoid installing all targets
 RUN case "$TARGETPLATFORM" in \
     "linux/amd64") echo "x86_64-unknown-linux-gnu" > /rust_target.txt ;; \
     "linux/arm64") echo "aarch64-unknown-linux-gnu" > /rust_target.txt ;; \
@@ -34,13 +28,14 @@ COPY Cargo.toml Cargo.lock ./
 # Copy the source code
 COPY src ./src
 
-# Copy the benches
+# Copy the benches (required by Cargo.toml, but won't be built)
 COPY benches ./benches
 
 # Copy the hooks
 COPY bin ./bin
 
 # Build the application in release mode for the specific target
+# Using --bin ccver ensures we only build the main binary, not benches or other bins
 RUN export RUST_TARGET=$(cat /rust_target.txt) && \
     cargo build --release --bin ccver --target $RUST_TARGET && \
     mkdir -p /usr/src/app/target/release && \

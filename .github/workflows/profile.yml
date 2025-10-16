@@ -89,7 +89,7 @@ jobs:
   compare-baseline:
     name: Compare with Baseline
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: ${{ github.head_ref != null }}
 
     steps:
       - name: Checkout base branch
@@ -109,6 +109,8 @@ jobs:
 
       - name: Checkout PR
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Run benchmarks (PR) and compare
         id: benchmark
