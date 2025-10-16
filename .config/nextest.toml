@@ -11,3 +11,7 @@ status-level = "all"
 test-threads = "num-cpus"
 status-level = "all"
 fail-fast = false
+
+# JUnit XML output for CI integration
+[profile.ci.junit]
+path = "tests/junit.xml"
