@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "0.0.0-featuremonitoring.0"
+version = "2.27.1-featuremonitoring.2"
 edition = "2024"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 license-file = "LICENSE"

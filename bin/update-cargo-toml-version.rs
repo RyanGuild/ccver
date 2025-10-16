@@ -39,17 +39,18 @@ fn main() -> Result<()> {
         // If the repo is dirty perform a graph peek into the next commit
 
         let commit_message_file = current_dir().unwrap().join(".git/COMMIT_EDITMSG");
-        debug!("commit_message_file: {}", commit_message_file.display());
+        println!("commit_message_file: {}", commit_message_file.display());
         let commit_message = std::fs::read_to_string(commit_message_file).unwrap();
-        info!("Commit message: {}", commit_message);
+        println!("Commit message: {}", commit_message);
 
-        let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.clone();
+        let parent_commit = graph.head().unwrap().lock().unwrap();
+        let parent_log_entry = &parent_commit.log_entry;
         let next_entry = commit_message.as_str();
         let next_entry =
-            next_entry.as_peek_log_entry(parent_commit.commit_hash, parent_commit.branch);
+            next_entry.as_peek_log_entry(parent_log_entry.commit_hash, parent_log_entry.branch);
         let last_version = parent_commit
             .as_existing_version()
-            .unwrap_or_else(|| version_format.as_default_version(&parent_commit).clone());
+            .unwrap_or_else(|| version_format.as_default_version(parent_log_entry).clone());
         let next_version = last_version.next_version(&next_entry, &version_format);
 
         if let Some(PreTag::ShortSha(VersionNumber::ShortSha(ref s))) = next_version.prerelease
