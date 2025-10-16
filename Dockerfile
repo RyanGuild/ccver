@@ -1,5 +1,5 @@
 # Use the official Rust image as the base image
-FROM rust:latest AS builder
+FROM --platform=$BUILDPLATFORM rust:latest AS builder
 
 # Install git (required for ccver to work)
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
@@ -14,6 +14,20 @@ COPY rust-toolchain.toml .
 RUN rustup toolchain install nightly
 RUN rustup default nightly
 
+# Arguments for cross-compilation
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
+# Install the appropriate Rust target based on the target platform
+RUN case "$TARGETPLATFORM" in \
+    "linux/amd64") echo "x86_64-unknown-linux-gnu" > /rust_target.txt ;; \
+    "linux/arm64") echo "aarch64-unknown-linux-gnu" > /rust_target.txt ;; \
+    "linux/arm/v7") echo "armv7-unknown-linux-gnueabihf" > /rust_target.txt ;; \
+    *) echo "Unsupported platform: $TARGETPLATFORM" && exit 1 ;; \
+    esac && \
+    export RUST_TARGET=$(cat /rust_target.txt) && \
+    rustup target add $RUST_TARGET
+
 # Copy the Cargo.toml and Cargo.lock files
 COPY Cargo.toml Cargo.lock ./
 
@@ -23,13 +37,16 @@ COPY src ./src
 # Copy the hooks
 COPY bin ./bin
 
-# Build the application in release mode
-RUN cargo build --release
+# Build the application in release mode for the specific target
+RUN export RUST_TARGET=$(cat /rust_target.txt) && \
+    cargo build --release --bin ccver --target $RUST_TARGET && \
+    mkdir -p /usr/src/app/target/release && \
+    cp /usr/src/app/target/$RUST_TARGET/release/ccver /usr/src/app/target/release/ccver
 
 RUN ls -la /usr/src/app/target/release
 
 # Start a new stage for the final image
-FROM ubuntu:latest AS runner
+FROM --platform=$TARGETPLATFORM ubuntu:latest AS runner
 
 # Install git (Ubuntu doesn't include git by default)
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
