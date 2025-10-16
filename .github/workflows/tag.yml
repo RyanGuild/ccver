@@ -27,12 +27,22 @@ jobs:
           rust: nightly
 
       - name: Run version updater
-        id: check-cargo-toml-version
-        run: cargo run --bin check-cargo-toml-version --release
-        continue-on-error: true
+        id: update-cargo-toml-version
+        run: cargo run --bin update-cargo-toml-version --release
+
+      - name: Check for changes
+        id: check-for-changes
+        run: |
+          if git diff --quiet Cargo.toml; then
+            echo "No changes to Cargo.toml"
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes to Cargo.toml"
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Commit change
-        if: steps.check-cargo-toml-version.conclusion == 'failure'
+        if: steps.check-for-changes.outputs.changes == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -41,7 +51,7 @@ jobs:
           git push
 
       - name: Fail workflow if changes were made
-        if: steps.check-cargo-toml-version.conclusion == 'failure'
+        if: steps.check-for-changes.outputs.changes == 'true'
         run: |
           echo "::error::Version was updated in Cargo.toml. Please re-run the workflow with the updated version."
           exit 1
