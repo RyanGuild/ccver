@@ -1,3 +1,5 @@
+use tracing::{debug, instrument, warn};
+
 use crate::{
     graph::{CommitGraphNodeWeight, node::CommitGraphNodeData},
     logs::{Decoration, LogEntry, Tag},
@@ -42,15 +44,23 @@ impl<'a> ExistingVersionExt for LogEntry<'a> {
 }
 
 impl<'a> ExistingVersionExt for CommitGraphNodeData<'a> {
+    #[instrument(skip(self))]
     fn as_existing_version(&self) -> Option<Version> {
         let tagged_version = self.log_entry.as_tagged_version();
         let existing_version = self.version.as_ref();
-        match (tagged_version, existing_version) {
+        let result = match (tagged_version, existing_version) {
             (Some(tagged), Some(existing)) => Some(tagged.max(existing).clone()),
             (Some(tagged), None) => Some(tagged.clone()),
             (None, Some(existing)) => Some(existing.clone()),
             (None, None) => None,
+        };
+
+        if let Some(ref result) = result {
+            debug!(version = %result);
+        } else {
+            warn!(commit_hash = %self.log_entry.commit_hash, branch = %self.log_entry.branch, "No existing version found");
         }
+        result
     }
 }
 

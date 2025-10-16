@@ -44,12 +44,10 @@ fn main() -> Result<()> {
         // If the repo is dirty perform a graph peek into the next commit
 
         let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.clone();
-        let next_entry = commit_message
-            .leak()
-            .into_peek_log_entry(parent_commit.commit_hash, parent_commit.branch);
-        let last_version = graph
-            .head()
-            .unwrap()
+        let next_entry = commit_message.as_str();
+        let next_entry =
+            next_entry.as_peek_log_entry(parent_commit.commit_hash, parent_commit.branch);
+        let last_version = parent_commit
             .as_existing_version()
             .unwrap_or_else(|| version_format.as_default_version(&parent_commit).clone());
         let next_version = last_version.next_version(&next_entry, &version_format);

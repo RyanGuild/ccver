@@ -73,37 +73,52 @@ impl LogEntry<'_> {
     }
 }
 
-pub trait PeekLogEntry {
-    fn into_peek_log_entry(
-        self,
-        parent_commit: &'static str,
-        branch: &'static str,
-    ) -> LogEntry<'static>;
+pub trait PeekLogEntry<'a> {
+    fn as_peek_log_entry<'b, 'c, 'd>(
+        &'a self,
+        parent_commit: &'b str,
+        branch: &'c str,
+    ) -> LogEntry<'d>
+    where
+        'a: 'b,
+        'a: 'c,
+        'a: 'd,
+        'b: 'd,
+        'c: 'd;
 }
 
-impl PeekLogEntry for &'static str {
-    fn into_peek_log_entry(
-        self,
-        parent_commit: &'static str,
-        branch: &'static str,
-    ) -> LogEntry<'static> {
+impl<'a> PeekLogEntry<'a> for &'a str {
+    fn as_peek_log_entry<'b, 'c, 'd>(
+        &'a self,
+        parent_commit: &'b str,
+        branch: &'c str,
+    ) -> LogEntry<'d>
+    where
+        'a: 'b,
+        'a: 'c,
+        'a: 'd,
+        'b: 'd,
+        'c: 'd,
+    {
         let parsed_subject = parser::parse_subject(self).unwrap();
 
         // For peek entries, we need to convert the subject to use the parent's lifetime
         // Since this is a preview operation, we'll create a simplified subject
         let subject = match parsed_subject {
-            Subject::Conventional(conv) => {
+            Subject::Conventional(conventional) => {
                 // Leak the strings to get 'static lifetime, then coerce to 'a
-                let commit_type: &str = Box::leak(conv.commit_type.to_string().into_boxed_str());
-                let description: &str = Box::leak(conv.description.to_string().into_boxed_str());
-                let scope: Option<&str> = conv.scope.map(|s| {
+                let commit_type: &str =
+                    Box::leak(conventional.commit_type.to_string().into_boxed_str());
+                let description: &str =
+                    Box::leak(conventional.description.to_string().into_boxed_str());
+                let scope: Option<&str> = conventional.scope.map(|s| {
                     let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
                     leaked
                 });
 
                 Subject::Conventional(ConventionalSubject {
                     commit_type,
-                    breaking: conv.breaking,
+                    breaking: conventional.breaking,
                     scope,
                     description,
                 })

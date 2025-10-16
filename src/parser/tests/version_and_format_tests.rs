@@ -15,7 +15,7 @@ fn test_parsing() -> Result<()> {
         .expect_err("Day before month will not monotonically increase");
 
     cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.MM.DD-rc.CC")
-        .expect_err("CalVer format segments must be proceeded by a year segment to maintain semver monotonic incresing versions");
+        .expect_err("CalVer format segments must be proceeded by a year segment to maintain semver monotonic increasing versions");
     Ok(())
 }
 

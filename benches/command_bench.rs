@@ -100,7 +100,8 @@ fn bench_changelog_generation(c: &mut Criterion) {
             b.iter(|| {
                 let graph =
                     MemoizedCommitGraph::new(black_box(logs.clone()), black_box(&version_format));
-                ChangeLogData::new(graph)
+                let changelog = ChangeLogData::new(&graph).unwrap();
+                black_box(changelog.to_string())
             });
         });
     }

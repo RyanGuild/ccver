@@ -64,7 +64,7 @@ jobs:
           cat > ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}/DEBIAN/control << EOF
           Package: ccver
           Version: ${{ steps.release.outputs.version }}
-          Section: development
+          Section: devel
           Priority: optional
           Architecture: ${{ matrix.arch }}
           Depends: git

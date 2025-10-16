@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.25.4-featuremonitoring.0"
+version = "2.26.0-featuremonitoring.0"
 edition = "2024"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 license-file = "LICENSE"
@@ -76,8 +76,8 @@ rustc-hash = "2.0"
   default-features = false
 
   [dependencies.clap]
-  version = "4.5.31"
-  features = [ "derive" ]
+  version = "4.5.49"
+  features = [ "derive", "env" ]
 
   [dependencies.petgraph]
   version = "0.8.2"

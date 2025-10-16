@@ -1,0 +1,13 @@
+# Configuration for cargo-nextest
+# See https://nexte.st/docs/configuration/
+
+[profile.default]
+# Show test output for failures
+test-threads = "num-cpus"
+status-level = "all"
+
+[profile.ci]
+# CI-specific settings
+test-threads = "num-cpus"
+status-level = "all"
+fail-fast = false

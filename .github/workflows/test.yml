@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.target.runner }}
     strategy:
       matrix:
-        rust: [nightly]
+        rust: [stable]
         target:
           - runner: ubuntu-latest
             arch: x86_64-unknown-linux-gnu
@@ -33,10 +33,10 @@ jobs:
           runner: ${{ matrix.target.runner }}
           arch: ${{ matrix.target.arch }}
           rust: ${{ matrix.rust }}
-      - name: Install Junitify
-        run: cargo install junitify
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest --locked
       - name: Run Tests
-        run: cargo test -- --format=json -Z unstable-options --report-time | junitify --out tests/
+        run: cargo nextest run --profile ci --status-level all --junit tests/results.xml
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
