@@ -3,19 +3,6 @@ name: Build and Push Docker Image with SBOM
 on:
   workflow_call: {}
   workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - master
-    tags:
-      - 'v*'
-  pull_request:
-    paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'src/**'
-      - 'Dockerfile'
-      - '.github/workflows/docker.yml'
 
 env:
   REGISTRY: ghcr.io

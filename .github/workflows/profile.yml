@@ -10,22 +10,6 @@ on:
         default: '5000'
         type: string
 
-  # Run on pushes to main
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/**'
-      - 'benches/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-
-  # Run on pull requests that modify performance-critical code
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'benches/**'
-
 jobs:
   profile:
     name: Generate Flamegraphs
