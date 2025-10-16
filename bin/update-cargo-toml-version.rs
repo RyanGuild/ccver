@@ -10,7 +10,7 @@ use ccver::{
 };
 use eyre::{OptionExt as _, Result};
 use toml_edit::Document;
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 fn main() -> Result<()> {
