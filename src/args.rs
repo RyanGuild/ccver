@@ -71,12 +71,7 @@ pub struct CCVerArgs {
     #[arg(long = "tag", short = 't', env = "CCVER_TAG", default_value = "false")]
     pub tag: bool,
 
-    #[arg(
-        long = "changelog",
-        short = 'l',
-        env = "CCVER_EMIT_CHANGELOG",
-        default_value = "./CHANGELOG.md"
-    )]
+    #[arg(long = "changelog", short = 'l', env = "CCVER_EMIT_CHANGELOG")]
     pub changelog_path: Option<PathBuf>,
 }
 

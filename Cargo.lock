@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "ccver"
-version = "2.27.0-featuremonitoring.10"
+version = "2.27.0-featuremonitoring.12"
 dependencies = [
  "chrono",
  "clap",
