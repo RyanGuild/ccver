@@ -10,7 +10,7 @@ use ccver::{
 };
 use eyre::{OptionExt as _, Result};
 use toml_edit::Document;
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 fn main() -> Result<()> {
@@ -21,11 +21,6 @@ fn main() -> Result<()> {
                 .with_writer(std::fs::File::create("update-cargo-toml-version.log").unwrap()),
         )
         .init();
-
-    let commit_message_file = current_dir().unwrap().join(".git/COMMIT_EDITMSG");
-    debug!("commit_message_file: {}", commit_message_file.display());
-    let commit_message = std::fs::read_to_string(commit_message_file).unwrap();
-    info!("Commit message: {}", commit_message);
 
     let cwd = std::env::current_dir().unwrap();
     let logs = Logs::from_path(&cwd)?;
@@ -43,19 +38,23 @@ fn main() -> Result<()> {
     let (last_version, next_version) = if git::is_dirty(&current_dir().unwrap())? {
         // If the repo is dirty perform a graph peek into the next commit
 
-        let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.clone();
-        let next_entry = commit_message
-            .leak()
-            .into_peek_log_entry(parent_commit.commit_hash, parent_commit.branch);
-        let last_version = graph
-            .head()
-            .unwrap()
+        let commit_message_file = current_dir().unwrap().join(".git/COMMIT_EDITMSG");
+        println!("commit_message_file: {}", commit_message_file.display());
+        let commit_message = std::fs::read_to_string(commit_message_file).unwrap();
+        println!("Commit message: {}", commit_message);
+
+        let parent_commit = graph.head().unwrap().lock().unwrap();
+        let parent_log_entry = &parent_commit.log_entry;
+        let next_entry = commit_message.as_str();
+        let next_entry =
+            next_entry.as_peek_log_entry(parent_log_entry.commit_hash, parent_log_entry.branch);
+        let last_version = parent_commit
             .as_existing_version()
-            .unwrap_or_else(|| version_format.as_default_version(&parent_commit).clone());
+            .unwrap_or_else(|| version_format.as_default_version(parent_log_entry).clone());
         let next_version = last_version.next_version(&next_entry, &version_format);
 
         if let Some(PreTag::ShortSha(VersionNumber::ShortSha(ref s))) = next_version.prerelease
-            && s.eq(&PEEK_COMMIT_HASH[0..7])
+            && s.as_ref() == &PEEK_COMMIT_HASH[0..7]
         {
             return Err(eyre::eyre!(
                 "A short sha cannot be calculated before the commit is created; please make changes from a feature branch or use a conventional commit"

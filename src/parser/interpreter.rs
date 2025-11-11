@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use pest_consume::{Node as PestNode, *};
 
@@ -13,32 +13,40 @@ use crate::version_format::{
 };
 
 use super::grammar::{Parser, Rule};
-use super::macros::parsing_error;
 use super::{Logs, Version, VersionFormat};
+use crate::parsing_error;
 
 #[derive(Debug, Clone)]
 pub enum ParserInputs {
     LogParsing(Option<VersionFormat>),
     FormatParsing,
 }
-macro log_parsing_context($input:expr) {{
-    match $input.user_data() {
-        ParserInputs::LogParsing(v) => v.clone(),
-        ParserInputs::FormatParsing => panic!("expected log parsing context"),
-    }
-}}
+
+macro_rules! log_parsing_context {
+    ($input:expr) => {{
+        match $input.user_data() {
+            ParserInputs::LogParsing(v) => v.clone(),
+            ParserInputs::FormatParsing => panic!("expected log parsing context"),
+        }
+    }};
+}
 
 pub type Node<'input> = PestNode<'input, Rule, ParserInputs>;
 
 pub type InterpreterResult<T> = eyre::Result<T, pest_consume::Error<Rule>>;
 
-macro pre_format($input:expr) {{
-    let pre_format = log_parsing_context!($input)
-        .unwrap_or_default()
-        .prerelease
-        .unwrap_or_default();
-    pre_format.version_format()
-}}
+macro_rules! pre_format {
+    ($input:expr) => {{
+        let pre_format = log_parsing_context!($input)
+            .unwrap_or_default()
+            .prerelease
+            .unwrap_or_default();
+        pre_format.version_format()
+    }};
+}
+
+/// This is used ot
+static EMPTY_DECORATIONS: LazyLock<Arc<[Decoration]>> = LazyLock::new(|| Arc::new([]));
 
 #[pest_consume::parser]
 impl Parser {
@@ -52,12 +60,12 @@ impl Parser {
                 patch: parser_input.patch.parse(patch),
                 prerelease: None
             }),
-            [V_PREFIX(v_prefix), VERSION_NUMBER(major), VERSION_NUMBER(minor), VERSION_NUMBER(patch), PRE_TAG(pretag)] => Ok(Version {
+            [V_PREFIX(v_prefix), VERSION_NUMBER(major), VERSION_NUMBER(minor), VERSION_NUMBER(patch), PRE_TAG(pre_tag)] => Ok(Version {
                 v_prefix,
                 major: parser_input.major.parse(major),
                 minor: parser_input.minor.parse(minor),
                 patch: parser_input.patch.parse(patch),
-                prerelease: Some(pretag)
+                prerelease: Some(pre_tag)
             })
         )
     }
@@ -75,8 +83,8 @@ impl Parser {
 
     pub fn SHA_PRE_TAG<'a>(input: Node<'a>) -> InterpreterResult<PreTag> {
         match_nodes!(input.children();
-            [SHA(s)] => Ok(PreTag::Sha(VersionNumber::Sha(s.to_string()))),
-            [SHORT_SHA(s)] => Ok(PreTag::ShortSha(VersionNumber::ShortSha(s.to_string())))
+            [SHA(s)] => Ok(PreTag::Sha(VersionNumber::Sha(Arc::from(s)))),
+            [SHORT_SHA(s)] => Ok(PreTag::ShortSha(VersionNumber::ShortSha(Arc::from(s))))
         )
     }
 
@@ -141,10 +149,10 @@ impl Parser {
             [
                 SCOPE(name),
                 SCOPE(branch),
-                COMMIT_HASHLINE(commit_hash),
+                COMMIT_HASH_LINE(commit_hash),
                 ISO8601_DATE(commit_datetime),
                 DECORATIONS_LINE(decorations),
-                PARENT_HASHLINE(parents),
+                PARENT_HASH_LINE(parents),
                 SUBJECT(subject),
                 FOOTER_SECTION(footers),
 
@@ -166,9 +174,9 @@ impl Parser {
             [
                 SCOPE(name),
                 SCOPE(branch),
-                COMMIT_HASHLINE(commit_hash),
+                COMMIT_HASH_LINE(commit_hash),
                 ISO8601_DATE(commit_datetime),
-                PARENT_HASHLINE(parents),
+                PARENT_HASH_LINE(parents),
                 SUBJECT(subject),
                 FOOTER_SECTION(footers),
 
@@ -182,7 +190,7 @@ impl Parser {
                         commit_timezone: commit_datetime.timezone(),
                         parent_hashes: parents,
                         footers,
-                        decorations: Arc::new([]),
+                        decorations: EMPTY_DECORATIONS.clone(),
                         subject
                     }
                 )
@@ -257,7 +265,7 @@ impl Parser {
         }
     }
 
-    pub fn COMMIT_HASHLINE<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
+    pub fn COMMIT_HASH_LINE<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         match_nodes!(input.children();
             [SHA(s)] => Ok(s)
         )
@@ -267,7 +275,7 @@ impl Parser {
         Ok(input.as_str())
     }
 
-    pub fn PARENT_HASHLINE<'a>(input: Node<'a>) -> InterpreterResult<Arc<[&'a str]>> {
+    pub fn PARENT_HASH_LINE<'a>(input: Node<'a>) -> InterpreterResult<Arc<[&'a str]>> {
         match_nodes!(input.children();
             [SHA(s)..] => Ok(s.collect())
         )
@@ -312,13 +320,13 @@ impl Parser {
         )
     }
 
-    pub fn FNAME<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
+    pub fn FILE_NAME<'a>(input: Node<'a>) -> InterpreterResult<&'a str> {
         Ok(input.as_str())
     }
 
     pub fn REMOTE_DEC<'a>(input: Node<'a>) -> InterpreterResult<(&'a str, &'a str)> {
         match_nodes!(input.children();
-            [FNAME(o), SCOPE(s)] => Ok((o,s))
+            [FILE_NAME(o), SCOPE(s)] => Ok((o,s))
         )
     }
 
@@ -356,18 +364,18 @@ impl Parser {
                     prerelease: None
                 }
             },
-            [V_PREFIX(v_prefix), VERSION_NUMBER_FORMAT(major), VERSION_NUMBER_FORMAT(minor), VERSION_NUMBER_FORMAT(patch), PRE_TAG_FORMAT(pretag)] => {
+            [V_PREFIX(v_prefix), VERSION_NUMBER_FORMAT(major), VERSION_NUMBER_FORMAT(minor), VERSION_NUMBER_FORMAT(patch), PRE_TAG_FORMAT(pre_tag)] => {
                 VersionFormat {
                     v_prefix,
                     major,
                     minor,
                     patch,
-                    prerelease: Some(pretag)
+                    prerelease: Some(pre_tag)
                 }
             },
         );
 
-        let first_calver = if let VersionNumberFormat::CalVer(m) = &version_format.major {
+        let first_cal_ver = if let VersionNumberFormat::CalVer(m) = &version_format.major {
             m.first().cloned()
         } else if let VersionNumberFormat::CalVer(m) = &version_format.minor {
             m.first().cloned()
@@ -386,12 +394,12 @@ impl Parser {
             }
         };
 
-        match first_calver {
+        match first_cal_ver {
             Some(Year4 | Year2) | None => {}
             _ => {
                 return Err(parsing_error!(
                     input,
-                    "The first CalVer format segment must be YY (Year4) or yy (Year2) to maintain semver monotonic incresing versions"
+                    "The first CalVer format segment must be YY (Year4) or yy (Year2) to maintain semver monotonic increasing versions"
                 ));
             }
         };

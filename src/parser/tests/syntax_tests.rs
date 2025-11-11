@@ -1,8 +1,9 @@
 use indoc::indoc;
+use pest_consume::Parser as _;
 
+use crate::cc_parse;
 use crate::logs::Tag;
 use crate::parser::InterpreterResult;
-use crate::parser::macros::cc_parse;
 use crate::version::{Version, VersionNumber};
 
 #[test]
@@ -29,7 +30,7 @@ fn test_footers() -> InterpreterResult<()> {
 
 #[test]
 fn parse_macro() -> InterpreterResult<()> {
-    let _commit = cc_parse!(CONVENTIONAL_SUBJECT, "test(anotha)!: build")?;
+    let _commit = cc_parse!(CONVENTIONAL_SUBJECT, "test(another)!: build")?;
 
     Ok(())
 }
@@ -115,23 +116,23 @@ fn test_tag_with_scope() -> InterpreterResult<()> {
 }
 
 #[test]
-fn test_commit_hashline() -> InterpreterResult<()> {
-    let commit_hashline = cc_parse!(
-        COMMIT_HASHLINE,
+fn test_commit_hash_line() -> InterpreterResult<()> {
+    let commit_hash_line = cc_parse!(
+        COMMIT_HASH_LINE,
         "b008bebb2c3109e6720a9d7afcb1e654781668cb\n"
     )?;
-    assert_eq!(commit_hashline, "b008bebb2c3109e6720a9d7afcb1e654781668cb");
+    assert_eq!(commit_hash_line, "b008bebb2c3109e6720a9d7afcb1e654781668cb");
     Ok(())
 }
 
 #[test]
-fn test_parent_hashline() -> InterpreterResult<()> {
-    let parent_hashline = cc_parse!(
-        PARENT_HASHLINE,
+fn test_parent_hash_line() -> InterpreterResult<()> {
+    let parent_hash_line = cc_parse!(
+        PARENT_HASH_LINE,
         "38aa9cdf8228f03997d0e953d03cb00a2c1be536 38aa9cdf8228f03997d0e953d03cb00a2c1be536\n"
     )?;
     assert_eq!(
-        *parent_hashline,
+        *parent_hash_line,
         [
             "38aa9cdf8228f03997d0e953d03cb00a2c1be536",
             "38aa9cdf8228f03997d0e953d03cb00a2c1be536"

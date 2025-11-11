@@ -1,6 +1,6 @@
 [package]
 name = "ccver"
-version = "2.25.3"
+version = "2.28.1-featuremonitoring.1"
 edition = "2024"
 authors = [ "Ryan Guild <rdg27@pitt.edu>" ]
 license-file = "LICENSE"
@@ -15,28 +15,65 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = true
+
 [[bin]]
 name = "update-cargo-toml-version"
-path = "bin/update-cargo-toml-version/main.rs"
+path = "bin/update-cargo-toml-version.rs"
 
 [[bin]]
 name = "check-cargo-toml-version"
-path = "bin/check-cargo-toml-version/main.rs"
+path = "bin/check-cargo-toml-version.rs"
+
+[[bin]]
+name = "analyze-benchmarks"
+path = "bin/analyze-benchmarks.rs"
+
+[[bin]]
+name = "profile"
+path = "bin/profile.rs"
+required-features = ["profiling"]
+
+[[bin]]
+name = "act-runner"
+path = "bin/act-runner.rs"
 
 [dev-dependencies]
 indoc = "2"
 serial_test="3.2.0"
+criterion = { version = "0.7.0", features = ["html_reports"] }
+
+
+
+[[bench]]
+name = "parse_bench"
+harness = false
+
+[[bench]]
+name = "graph_bench"
+harness = false
+
+[[bench]]
+name = "command_bench"
+harness = false
+
+[[bench]]
+name = "e2e_bench"
+harness = false
 
 [dependencies]
-toml_edit = "0.23.6"
+toml_edit = "0.23.7"
 pest_consume = "1.1.3"
 eyre = "0.6.12"
 tracing = "0.1.41"
 tracing-error = "0.2.0"
-
-  [dependencies.chrono]
-  version = "0.4.40"
-  default-features = true
+chrono = "0.4.40"
+rustc-hash = "2.0"
+embed-doc-image = {version = "0.1.4", optional = true}
+simple-mermaid = {version = "0.2.0", optional = true}
 
   [dependencies.pest_derive]
   version = "2.7.15"
@@ -47,8 +84,8 @@ tracing-error = "0.2.0"
   default-features = false
 
   [dependencies.clap]
-  version = "4.5.31"
-  features = [ "derive" ]
+  version = "4.5.49"
+  features = [ "derive", "env" ]
 
   [dependencies.petgraph]
   version = "0.8.2"
@@ -58,3 +95,15 @@ tracing-error = "0.2.0"
   [dependencies.tracing-subscriber]
   version = "0.3.20"
   features = [ "env-filter" ]
+
+  [dependencies.pprof]
+  version = "0.15"
+  features = ["flamegraph"]
+  optional = true
+
+[features]
+profiling = ["pprof"]
+documentation = ["embed-doc-image", "simple-mermaid"]
+
+[package.metadata.docs.rs]
+features = ["documentation"]

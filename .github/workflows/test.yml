@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.target.runner }}
     strategy:
       matrix:
-        rust: [nightly]
+        rust: [stable]
         target:
           - runner: ubuntu-latest
             arch: x86_64-unknown-linux-gnu
@@ -21,28 +21,34 @@ jobs:
           - runner: macos-latest
             arch: aarch64-apple-darwin
     steps:
+      - name: Skip unsupported act targets
+        if: env.ACT_RUNNER == 'true' && matrix.target.runner != 'ubuntu-latest'
+        run: |
+          echo "⏭️  Skipping ${{ matrix.target.runner }} - only ubuntu-latest works in act"
+          echo "   This target will test successfully on GitHub Actions"
+          exit 0
+
       - name: Checkout
+        if: env.ACT_RUNNER != 'true' || matrix.target.runner == 'ubuntu-latest'
         uses: actions/checkout@v5
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
           fetch-tags: true
-      - name: Get Rust Cache
-        uses: ./.github/actions/rust_depcache
+      - name: Install Rust toolchain
+        if: env.ACT_RUNNER != 'true' || matrix.target.runner == 'ubuntu-latest'
+        uses: dtolnay/rust-toolchain@stable
         with:
-          runner: ${{ matrix.target.runner }}
-          arch: ${{ matrix.target.arch }}
-          rust: ${{ matrix.rust }}
-      - name: Install Junitify
-        run: cargo install junitify
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target.arch }}
+      - name: Cache cargo dependencies
+        if: env.ACT_RUNNER != 'true' || matrix.target.runner == 'ubuntu-latest'
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target.arch }}
+      - name: Install cargo-nextest
+        if: env.ACT_RUNNER != 'true' || matrix.target.runner == 'ubuntu-latest'
+        run: cargo install cargo-nextest --locked
       - name: Run Tests
-        run: cargo test -- --format=json -Z unstable-options --report-time | junitify --out tests/
-      - name: Test Report
-        uses: dorny/test-reporter@v1
-        if: success() || failure()
-        with:
-          name: ${{matrix.target.runner}} Tests          # Name of the check run which will be created
-          path: tests/*.xml    # Path to test results
-          reporter: java-junit
-          fail-on-error: false
-          fail-on-empty: true
+        if: env.ACT_RUNNER != 'true' || matrix.target.runner == 'ubuntu-latest'
+        run: cargo nextest run --profile ci --status-level all

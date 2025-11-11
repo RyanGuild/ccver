@@ -7,7 +7,7 @@ CONVENTIONAL_SUBJECT = { TAG ~ ":" ~ DESCRIPTION }
 
 TYPE = @{ LETTER+ }
 SCOPE = @{ (LETTER | NUMBER | "-" | "_" | "/" | ".")+ }
-FNAME = @{ (LETTER | NUMBER | "-" | "_" | ".")+}
+FILE_NAME = @{ (LETTER | NUMBER | "-" | "_" | ".")+}
 NAME = @{ (LETTER | NUMBER | "-" | "_")+ }
 SCOPE_SECTION = { "(" ~  SCOPE ~ ")" }
 BREAKING_BANG = @{ "!"? }
@@ -21,15 +21,15 @@ BODY = @{ (TEXT~NEWLINE?)*}
 FOOTER = {  SCOPE ~ (": " | " #") ~ DESCRIPTION }
 
 
-COMMIT_HASHLINE = { SHA }
+COMMIT_HASH_LINE = { SHA }
 
-PARENT_HASHLINE = { SHA* }
+PARENT_HASH_LINE = { SHA* }
 
 DECORATIONS_LINE = { "(" ~ (DECORATION~",")* ~ DECORATION? ~ ")"}
 DECORATION = { HEAD_DEC | TAG_DEC | REMOTE_DEC | BRANCH_DEC }
 HEAD_DEC = { "HEAD ->" ~ SCOPE }
 TAG_DEC = { "tag: " ~ (CCVER_VERSION | SCOPE) }
-REMOTE_DEC = { FNAME~"/"~SCOPE }
+REMOTE_DEC = { FILE_NAME~"/"~SCOPE }
 BRANCH_DEC = { SCOPE }
 
 
@@ -57,13 +57,13 @@ CCVER_LOG_ENTRY = {
     ~ "branch="
     ~ BRANCH
     ~ "commit="
-    ~ COMMIT_HASHLINE
+    ~ COMMIT_HASH_LINE
     ~ "commit-time="
     ~ ISO8601_DATE
     ~ "dec="
     ~ DECORATIONS_LINE?
     ~ "parent="
-    ~ PARENT_HASHLINE
+    ~ PARENT_HASH_LINE
     ~ "sub="
     ~ SUBJECT
     ~ "trailers="

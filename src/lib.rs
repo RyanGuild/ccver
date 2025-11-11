@@ -1,6 +1,7 @@
-#![feature(decl_macro, lock_value_accessors, iterator_try_collect)]
+#![cfg_attr(all(doc, feature = "documentation"), doc = simple_mermaid::mermaid!("../version-example.mmd"))]
+#![doc = include_str!("../README.md")]
+#![cfg_attr(all(doc, feature = "documentation"), doc = simple_mermaid::mermaid!("../git-log-flow.mmd"))]
 
-use std::path::Path;
 pub mod args;
 pub mod changelog;
 pub mod git;
@@ -11,37 +12,14 @@ pub mod pattern_macros;
 pub mod version;
 pub mod version_format;
 
-use eyre::Result;
-use logs::Logs;
-use tracing::debug;
-use version::Version;
-use version_format::VersionFormat;
-
-use crate::{
-    graph::{MemoizedCommitGraph, version::ExistingVersionExt as _},
-    logs::PeekLogEntry as _,
-};
-
-pub fn peek(
-    repo_path: &Path,
-    commit_message: String,
-    version_format: &VersionFormat,
-) -> Result<(Version, Version), eyre::Error> {
-    let logs = Logs::from_path(repo_path)?;
-    let graph = MemoizedCommitGraph::new(logs, version_format);
-
-    let parent_commit = graph.head().unwrap().lock().unwrap().log_entry.clone();
-    let next_entry = commit_message
-        .leak()
-        .into_peek_log_entry(parent_commit.commit_hash, parent_commit.branch);
-    let last_version = graph
-        .head()
-        .unwrap()
-        .as_existing_version()
-        .unwrap_or_else(|| version_format.as_default_version(&parent_commit).clone());
-    let next_version = last_version.next_version(&next_entry, version_format);
-
-    debug!(version = %next_version, "Peek result");
-
-    Ok((last_version, next_version))
-}
+#[cfg(all(doc, feature = "documentation"))]
+use embed_doc_image::embed_doc_image;
+/// Performance profile visualization for the library.
+///
+/// ![E2E Performance Profile][e2e_perf]
+#[cfg_attr(
+    all(doc, feature = "documentation"),
+    embed_doc_image("e2e_perf", "target/profiling/e2e.svg")
+)]
+#[cfg(all(doc, feature = "documentation"))]
+pub struct LibraryPerfProfile;

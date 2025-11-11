@@ -1,3 +1,5 @@
+use tracing::{debug, instrument, warn};
+
 use crate::{
     graph::{CommitGraphNodeWeight, node::CommitGraphNodeData},
     logs::{Decoration, LogEntry, Tag},
@@ -30,7 +32,8 @@ pub trait SetVersionExt {
 
 impl<'a> SetVersionExt for CommitGraphNodeWeight<'a> {
     fn set_version(&mut self, version: Version) {
-        self.lock().unwrap().version = Some(version);
+        let mut guard = self.lock().unwrap();
+        guard.version = Some(version);
     }
 }
 
@@ -41,15 +44,23 @@ impl<'a> ExistingVersionExt for LogEntry<'a> {
 }
 
 impl<'a> ExistingVersionExt for CommitGraphNodeData<'a> {
+    #[instrument(skip(self))]
     fn as_existing_version(&self) -> Option<Version> {
         let tagged_version = self.log_entry.as_tagged_version();
         let existing_version = self.version.as_ref();
-        match (tagged_version, existing_version) {
+        let result = match (tagged_version, existing_version) {
             (Some(tagged), Some(existing)) => Some(tagged.max(existing).clone()),
             (Some(tagged), None) => Some(tagged.clone()),
             (None, Some(existing)) => Some(existing.clone()),
             (None, None) => None,
+        };
+
+        if let Some(ref result) = result {
+            debug!(version = %result);
+        } else {
+            warn!(commit_hash = %self.log_entry.commit_hash, branch = %self.log_entry.branch, "No existing version found");
         }
+        result
     }
 }
 
@@ -62,7 +73,7 @@ impl<'a> NextVersionExt<'a> for &CommitGraphNodeWeight<'a> {
         let data = self.lock().unwrap();
         let existing_version = data.log_entry.as_existing_version();
         let prev_version = existing_version.unwrap_or(max_parent.clone());
-        prev_version.next_version(&self.lock().unwrap().log_entry, version_format)
+        prev_version.next_version(&data.log_entry, version_format)
     }
 }
 

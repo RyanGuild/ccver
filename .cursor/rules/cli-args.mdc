@@ -1,0 +1,62 @@
+---
+description: How to handle CLI Arguments
+alwaysApply: false
+---
+
+
+# Always use clap with the derive feature to create declarative cli args
+
+
+## Avoid
+```rust
+fn print_usage() {
+    println!("act-runner - Local GitHub Actions workflow orchestration");
+    println!();
+    println!("USAGE:");
+    println!("    cargo run --bin act-runner -- <COMMAND>");
+    println!();
+    println!("COMMANDS:");
+    println!("    setup          Set up .env file with GitHub token");
+    println!("    list           List available workflows");
+    println!("    run <name>     Run a specific workflow or 'all' for pre-release suite");
+    println!("    help           Show this help message");
+    println!();
+    println!("EXAMPLES:");
+    println!("    cargo run --bin act-runner -- setup");
+    println!("    cargo run --bin act-runner -- list");
+    println!("    cargo run --bin act-runner -- run build");
+    println!("    cargo run --bin act-runner -- run all");
+    println!();
+    println!("AVAILABLE WORKFLOWS:");
+    for workflow in WORKFLOWS {
+        println!("    {:12} - {}", workflow.name, workflow.description);
+    }
+}
+```
+
+## Do Use Clap
+
+```rust
+/// Profiling utility for ccver
+///
+/// Generate flamegraphs and profiles for various ccver operations
+#[derive(Parser, Debug)]
+#[command(name = "profile")]
+#[command(about = "Profile ccver operations and generate flamegraphs", long_about = None)]
+struct Args {
+    /// Operation to profile
+    #[arg(value_enum)]
+    operation: Operation,
+
+    /// Number of commits to use for profiling
+    size: usize,
+
+    /// Output format for profiling results
+    #[arg(short, long, value_enum, default_value = "flamegraph")]
+    format: OutputFormat,
+
+    /// Output directory for profiling results
+    #[arg(short, long, default_value = "target/profiling")]
+    output: PathBuf,
+}
+```

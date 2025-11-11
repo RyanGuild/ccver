@@ -1,0 +1,150 @@
+name: Generate SBOM
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+env:
+  ACT_RUNNER: false
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      attestations: write
+      id-token: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Download Linux binaries
+      uses: actions/download-artifact@v4
+      with:
+        pattern: ccver-linux-*
+        path: binaries/
+        merge-multiple: true
+
+    - name: Detect architecture
+      id: arch
+      run: |
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)
+            echo "arch=x86_64-unknown-linux-gnu" >> $GITHUB_OUTPUT
+            echo "binary=ccver-linux-amd64" >> $GITHUB_OUTPUT
+            ;;
+          aarch64)
+            echo "arch=aarch64-unknown-linux-gnu" >> $GITHUB_OUTPUT
+            echo "binary=ccver-linux-arm64" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "Unknown architecture: $ARCH"
+            exit 1
+            ;;
+        esac
+
+    - name: Cache Rust toolchain and cargo dependencies
+      uses: actions/cache@v4
+      id: cargo_cache
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          ~/.rustup/
+          target/
+        key: ${{ runner.os }}-rust-stable-${{ steps.arch.outputs.arch }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-rust-stable-${{ steps.arch.outputs.arch }}-
+          ${{ runner.os }}-rust-stable-
+          ${{ runner.os }}-rust-
+
+    - name: Install Rust toolchain (for cargo-sbom only)
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Prepare binary for SBOM
+      run: |
+        mkdir -p target/release
+        cp binaries/${{ steps.arch.outputs.binary }} target/release/ccver
+
+    - name: Install cargo-sbom
+      run: cargo install cargo-sbom --force
+
+    - name: Generate Cargo-based SBOM (CycloneDX)
+      run: |
+        mkdir -p sbom
+        cargo sbom --output-format cyclone_dx_json_1_5 > sbom/sbom-cargo-cyclonedx.json
+
+    - name: Generate Cargo-based SBOM (SPDX)
+      run: |
+        cargo sbom --output-format spdx_json_2_3 > sbom/sbom-cargo-spdx.json
+
+    - name: Install Syft
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+    - name: Generate binary SBOM with Syft (CycloneDX)
+      run: |
+        syft target/release/ccver -o cyclonedx-json=sbom/sbom-binary-cyclonedx.json
+
+    - name: Generate binary SBOM with Syft (SPDX)
+      run: |
+        syft target/release/ccver -o spdx-json=sbom/sbom-binary-spdx.json
+
+    - name: Install Grype
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+    - name: Scan binary for vulnerabilities with Grype
+      run: |
+        grype target/release/ccver -o sarif=sbom/grype-report.sarif
+
+    - name: List generated SBOMs
+      run: |
+        echo "Generated SBOM files:"
+        ls -lh sbom/
+        echo ""
+        echo "SBOM file sizes:"
+        du -h sbom/*
+
+    - name: Upload SBOM artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom-${{ github.sha }}
+        path: sbom/
+        retention-days: 90
+
+    - name: Upload SARIF to GitHub Security
+      if: env.ACT_RUNNER != 'true' && github.event_name != 'pull_request'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: sbom/grype-report.sarif
+        category: grype-vulnerability-scan
+
+    - name: Generate summary
+      run: |
+        cat > $GITHUB_STEP_SUMMARY << 'EOF'
+        ## 📋 SBOM Generation Results
+
+        Software Bill of Materials has been successfully generated for the binary.
+
+        ### Generated SBOMs
+        - **Cargo Dependencies (CycloneDX)**: Complete dependency tree from Cargo.lock
+        - **Cargo Dependencies (SPDX)**: SPDX format for tooling compatibility
+        - **Binary Analysis (CycloneDX)**: Deep binary analysis including system libraries
+        - **Binary Analysis (SPDX)**: SPDX format binary analysis
+        - **Vulnerability Scan (SARIF)**: Grype security scan results for GitHub Security
+
+        ### Formats
+        - 🔄 **CycloneDX**: Industry-standard format for software supply chain
+        - 📜 **SPDX**: Linux Foundation standard for license compliance
+        - 🔒 **SARIF**: Security vulnerability findings uploaded to GitHub Security
+
+        ### Artifacts
+        All SBOM files are available in the workflow artifacts.
+
+        EOF

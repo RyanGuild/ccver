@@ -13,6 +13,16 @@ on:
         description: 'GitHub token with access to homebrew-tap repository'
         required: false
         type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag to publish'
+        required: true
+        type: string
+      homebrew_tap_token:
+        description: 'GitHub token with access to homebrew-tap repository'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -34,11 +44,6 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Download macOS AMD64 binary
-        run: |
-          curl -L -o ccver-macos-amd64 \
-            "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-amd64"
-
       - name: Download macOS ARM64 binary
         run: |
           curl -L -o ccver-macos-arm64 \
@@ -57,12 +62,10 @@ jobs:
       - name: Calculate checksums
         id: checksums
         run: |
-          MACOS_AMD64_SHA=$(shasum -a 256 ccver-macos-amd64 | awk '{print $1}')
           MACOS_ARM64_SHA=$(shasum -a 256 ccver-macos-arm64 | awk '{print $1}')
           LINUX_AMD64_SHA=$(shasum -a 256 ccver-linux-amd64 | awk '{print $1}')
           LINUX_ARM64_SHA=$(shasum -a 256 ccver-linux-arm64 | awk '{print $1}')
 
-          echo "macos_amd64_sha=${MACOS_AMD64_SHA}" >> $GITHUB_OUTPUT
           echo "macos_arm64_sha=${MACOS_ARM64_SHA}" >> $GITHUB_OUTPUT
           echo "linux_amd64_sha=${LINUX_AMD64_SHA}" >> $GITHUB_OUTPUT
           echo "linux_arm64_sha=${LINUX_ARM64_SHA}" >> $GITHUB_OUTPUT
@@ -94,13 +97,8 @@ jobs:
             depends_on "git"
 
             on_macos do
-              if Hardware::CPU.arm?
-                url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-arm64"
-                sha256 "${{ steps.checksums.outputs.macos_arm64_sha }}"
-              else
-                url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-amd64"
-                sha256 "${{ steps.checksums.outputs.macos_amd64_sha }}"
-              end
+              url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/ccver-macos-arm64"
+              sha256 "${{ steps.checksums.outputs.macos_arm64_sha }}"
             end
 
             on_linux do
@@ -115,11 +113,7 @@ jobs:
 
             def install
               if OS.mac?
-                if Hardware::CPU.arm?
-                  bin.install "ccver-macos-arm64" => "ccver"
-                else
-                  bin.install "ccver-macos-amd64" => "ccver"
-                end
+                bin.install "ccver-macos-arm64" => "ccver"
               else
                 if Hardware::CPU.arm?
                   bin.install "ccver-linux-arm64" => "ccver"

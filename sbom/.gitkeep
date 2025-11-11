@@ -1,0 +1,21 @@
+# SBOM Directory
+
+This directory contains Software Bill of Materials (SBOM) files for ccver.
+
+SBOM files are automatically generated during the CI/CD process and included in the Docker container at `/usr/share/sbom/`.
+
+## Formats
+
+- **CycloneDX JSON**: Industry-standard format for software supply chain
+- **SPDX JSON**: Linux Foundation standard for license compliance
+- **SARIF**: Security analysis format for vulnerability scanning
+
+## Generated Files
+
+When built by the SBOM workflow, this directory will contain:
+- `sbom-cargo-cyclonedx.json` - Cargo dependency tree in CycloneDX format
+- `sbom-cargo-spdx.json` - Cargo dependency tree in SPDX format
+- `sbom-binary-cyclonedx.json` - Binary analysis in CycloneDX format
+- `sbom-binary-spdx.json` - Binary analysis in SPDX format
+- `sbom-docker-cyclonedx.json` - Complete Docker image SBOM in CycloneDX format
+- `sbom-docker-spdx.json` - Complete Docker image SBOM in SPDX format

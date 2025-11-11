@@ -1,3 +1,20 @@
+#![doc = include_str!("./GRAPH.md")]
+
+#[cfg(all(doc, feature = "documentation"))]
+use embed_doc_image::embed_doc_image;
+
+/// Performance profile visualization for the graph module.
+///
+/// This struct exists solely to embed the performance profile SVG in documentation.
+///
+/// ![Graph Performance Profile][graph_perf]
+#[cfg_attr(
+    all(doc, feature = "documentation"),
+    embed_doc_image("graph_perf", "target/profiling/graph.svg")
+)]
+#[cfg(all(doc, feature = "documentation"))]
+pub struct GraphPerfProfile;
+
 use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -345,12 +362,15 @@ where
 mod graph_tests {
 
     use crate::{
-        graph::{head::HasHead, parents_and_children::HasParentsAndChildren},
+        graph::{
+            commit::CommitExt, head::HasHead, parents_and_children::HasParentsAndChildren,
+            tail::HasTail,
+        },
         logs::Logs,
         version_format::VersionFormat,
     };
     use eyre::*;
-    use petgraph::visit::{Bfs, Walker as _};
+    use petgraph::visit::{Bfs, Dfs, Walker as _};
 
     #[test]
     fn layered_graph_construction() -> Result<()> {
@@ -395,6 +415,137 @@ mod graph_tests {
             })
             .collect();
         assert_eq!(logs.len(), logs2.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_graph_has_head_and_tail() -> Result<()> {
+        let logs = Logs::default();
+        let version_format = VersionFormat::default();
+        let graph = super::MemoizedCommitGraph::new(logs, &version_format);
+
+        // Graph should have a head
+        assert!(graph.head_idx().is_some());
+        assert!(graph.head().is_some());
+
+        // Graph should have a tail (root commit)
+        assert!(graph.tail_idx().is_some());
+        assert!(graph.tail().is_some());
+
+        // Head and tail should be different for a non-trivial history
+        let head_idx = graph.head_idx().unwrap();
+        let tail_idx = graph.tail_idx().unwrap();
+
+        // They might be the same for a repo with only one commit, but in general they differ
+        // Just verify both exist
+        let head = graph.node_weight(head_idx).unwrap();
+        let tail = graph.node_weight(tail_idx).unwrap();
+        assert!(head.lock().is_ok());
+        assert!(tail.lock().is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_graph_node_and_edge_count() -> Result<()> {
+        let logs = Logs::default();
+        let version_format = VersionFormat::default();
+        let graph = super::MemoizedCommitGraph::new(logs.clone(), &version_format);
+
+        // Node count should match log entries
+        assert_eq!(graph.node_count(), logs.len());
+
+        // Edge count should be reasonable (at least n-1 for a linear history)
+        let edge_count = graph.edge_count();
+        let node_count = graph.node_count();
+
+        // In a connected graph with n nodes, we have at least n-1 edges
+        if node_count > 1 {
+            assert!(edge_count >= node_count - 1);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dfs_traversal() -> Result<()> {
+        let logs = Logs::default();
+        let version_format = VersionFormat::default();
+        let graph = super::MemoizedCommitGraph::new(logs.clone(), &version_format);
+
+        assert_ne!(logs.len(), 0);
+
+        // DFS traversal should visit all nodes
+        let dfs_nodes: Vec<String> = Dfs::new(graph.base_graph(), graph.head_idx().unwrap())
+            .iter(graph.base_graph())
+            .map(|idx| {
+                graph
+                    .node_weight(idx)
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .log_entry
+                    .commit_hash
+                    .to_string()
+            })
+            .collect();
+
+        assert_eq!(dfs_nodes.len(), logs.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_commit_lookup_by_hash() -> Result<()> {
+        let logs = Logs::default();
+        let version_format = VersionFormat::default();
+        let graph = super::MemoizedCommitGraph::new(logs.clone(), &version_format);
+
+        // Get head commit hash
+        let head = graph.head().unwrap();
+        let head_hash = head.lock().unwrap().log_entry.commit_hash.to_string();
+
+        // Lookup by hash should work
+        let found = graph.commit_by_hash(&head_hash);
+        assert!(found.is_some());
+
+        // Non-existent hash should return None
+        let not_found = graph.commit_by_hash("0000000000000000000000000000000000000000");
+        assert!(not_found.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parent_child_relationships() -> Result<()> {
+        let logs = Logs::default();
+        let version_format = VersionFormat::default();
+        let graph = super::MemoizedCommitGraph::new(logs, &version_format);
+
+        let head_idx = graph.head_idx().unwrap();
+        let parents = graph.parent_idxs(head_idx);
+
+        // For each parent, verify the head is in its children
+        for parent_idx in parents {
+            let children = graph.child_idxs(parent_idx);
+            assert!(children.contains(&head_idx));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_tail_has_no_parents() -> Result<()> {
+        let logs = Logs::default();
+        let version_format = VersionFormat::default();
+        let graph = super::MemoizedCommitGraph::new(logs, &version_format);
+
+        let tail_idx = graph.tail_idx().unwrap();
+        let parents = graph.parent_idxs(tail_idx);
+
+        // Tail commit should have no parents
+        assert_eq!(parents.len(), 0);
 
         Ok(())
     }

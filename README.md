@@ -12,37 +12,9 @@ CCVer is a command-line tool designed for automating version management in git r
 - **Automate semantic versioning**  
   Extract version and tagging information from commits to automatically bump version numbers following [semver](https://semver.org/) principles.
 
+- [Git Log Flow](git-log-flow.mmd)
 
-  ```mermaid
-  flowchart TD
-      A[git log] --> C[Parse raw logs with Pest]
-      C --> D[Create DiGraph]
-      D --> E[Construct Commit Graph<br>using `CommitGraphData::new`]
-      E --> F[CommitGraph]
-  ```
-
-  ```mermaid
-    gitGraph
-        commit id: "initial commit" tag: "0.0.0"
-        commit id: "unconventional commit" tag: "0.0.0-build.1"
-        branch staging
-        branch develop
-        commit id: "feat: conventional commit" tag: "0.1.0-alpha.1"
-        branch ryans-fix
-        commit id: "chore: formatting" tag: "0.1.0-ryans-fix.1"
-        checkout main
-        merge ryans-fix id: "Merge branch 'ryans-fix'" tag: "0.1.0"
-        checkout develop
-        commit id: "fix: conventional commit" tag: "0.1.1-alpha.1"
-        commit id: "whooops" tag: "0.1.1-alpha.2"
-        checkout staging
-        merge develop id: "Merge branch 'develop'" tag: "0.1.1-rc.1"
-        merge main id: "Merge branch 'main'" tag: "0.1.1-rc.2"
-        checkout main
-        merge staging id: "Merge branch 'staging'" tag: "0.1.1"
-        checkout develop
-        commit type: HIGHLIGHT id: "uncommited changes" tag: "0.1.1-build.1"
-  ```
+- [Version Example](version-example.mmd)
 
 - **Provide an extensible CLI**  
   Run various subcommands such as initializing (`Init`), installing hooks (`Install`), and tagging commits (`Tag`) to integrate version management into your workflow.
@@ -235,3 +207,442 @@ Use CCVer directly in your GitHub workflows:
   with:
     tag_name: ${{ steps.version.outputs.version }}
 ```
+
+## Performance
+
+CCVer is designed for speed and efficiency:
+
+### Benchmarks
+
+Performance characteristics for typical workloads:
+
+| Repository Size | Parse Time | Graph Construction | Total Time |
+|----------------|------------|-------------------|------------|
+| 10 commits     | ~18 µs     | ~14 µs           | ~32 µs     |
+| 100 commits    | ~159 µs    | ~122 µs          | ~281 µs    |
+| 1000 commits   | ~1.99 ms   | ~1.27 ms         | ~3.26 ms   |
+
+### Complexity
+
+All operations scale linearly with repository size:
+
+- **Log Parsing:** O(n) - ~600-650K elements/s throughput
+- **Graph Construction:** O(n) - ~800K elements/s throughput
+- **Version Lookup:** O(1) - ~57 ns via hash map
+- **Parent/Child Ops:** O(1) - ~30-110 ns via memoization
+
+### Running Benchmarks
+
+```bash
+# Run all benchmarks
+cargo bench
+
+# Run specific benchmark suite
+cargo bench --bench parse_bench
+cargo bench --bench graph_bench
+cargo bench --bench command_bench
+cargo bench --bench e2e_bench
+
+# View HTML reports
+open target/criterion/report/index.html
+```
+
+## Profiling
+
+CCVer includes profiling capabilities using `cargo-flamegraph` and `pprof` to help analyze performance and identify bottlenecks.
+
+### Profiling with cargo-flamegraph
+
+Profile benchmarks using cargo-flamegraph to generate flamegraphs:
+
+```bash
+# Install cargo-flamegraph
+cargo install flamegraph
+
+# Profile specific benchmarks (automatically includes debug symbols)
+cargo flamegraph --profile profiling --bench parse_bench
+cargo flamegraph --profile profiling --bench graph_bench
+cargo flamegraph --profile profiling --bench e2e_bench
+
+# Profile the main binary
+cargo flamegraph --profile profiling --bin ccver
+
+# Flamegraphs are saved as flamegraph.svg in the current directory
+```
+
+### Ad-hoc Profiling
+
+Use the profiling utility binary for targeted profiling:
+
+```bash
+# Profile specific operations (use --profile profiling for proper symbols)
+cargo run --profile profiling --features profiling --bin profile -- parse 1000
+cargo run --profile profiling --features profiling --bin profile -- graph 1000
+cargo run --profile profiling --features profiling --bin profile -- e2e 1000
+
+# Profile all operations
+cargo run --profile profiling --features profiling --bin profile -- all 1000
+
+# Custom output directory
+cargo run --profile profiling --features profiling --bin profile -- parse 1000 --output my-profiles/
+
+# Get help
+cargo run --profile profiling --features profiling --bin profile -- --help
+```
+
+**Note:** Use `--profile profiling` instead of `--release` to ensure debug symbols are included for readable flamegraphs.
+
+Flamegraphs are saved to `target/profiling/` by default.
+
+### Running Regular Benchmarks
+
+Run Criterion benchmarks without profiling:
+
+```bash
+# Run all benchmarks
+cargo bench
+
+# Run specific benchmark suite
+cargo bench --bench parse_bench
+cargo bench --bench graph_bench
+
+# View HTML reports
+open target/criterion/report/index.html
+```
+
+### Interpreting Flamegraphs
+
+Flamegraphs visualize where your program spends time:
+
+- **Width**: Percentage of total time spent in a function
+- **Height**: Call stack depth (bottom = entry point, top = leaf functions)
+- **Colors**: Random, used only for visual distinction
+- **Interactive**: Click to zoom into specific call stacks
+
+Look for:
+- Wide blocks indicating hot paths
+- Unexpected function calls
+- Optimization opportunities in frequently-called code
+
+### CI Profiling
+
+Profiling runs automatically in CI on pushes to main. View results:
+
+```bash
+# Flamegraphs are uploaded as GitHub Actions artifacts
+# Download from: Actions → Profile → Artifacts
+```
+
+Manually trigger profiling:
+
+```bash
+# Via GitHub UI: Actions → Profile → Run workflow
+```
+
+## Software Bill of Materials (SBOM)
+
+CCVer automatically generates comprehensive Software Bill of Materials (SBOM) for all releases and Docker images to support supply chain security and compliance.
+
+### What is an SBOM?
+
+An SBOM is a complete inventory of all components, libraries, and dependencies used in the software, enabling:
+
+- **Supply Chain Security**: Track and verify all software components
+- **Vulnerability Management**: Identify and respond to security issues quickly
+- **Compliance**: Meet regulatory requirements (e.g., Executive Order 14028)
+- **License Management**: Track open source licenses and obligations
+
+### SBOM Formats
+
+CCVer generates SBOMs in multiple industry-standard formats:
+
+- **CycloneDX**: OWASP standard format optimized for software supply chain
+- **SPDX**: Linux Foundation standard for license compliance
+- **SARIF**: Security analysis format integrated with GitHub Security
+
+### Automated SBOM Generation
+
+SBOMs are automatically generated for:
+
+1. **Cargo Dependencies**: Complete dependency tree from `Cargo.lock`
+2. **Binary Analysis**: Deep analysis including system libraries
+3. **Docker Images**: Full container image composition
+
+The SBOM workflow (`docker.yml`) runs on:
+- Pushes to `main`/`master` branches
+- Tagged releases (`v*`)
+- Pull requests modifying dependencies or source code
+- Can be triggered manually via workflow_dispatch
+- Called by other workflows via workflow_call
+
+### Accessing SBOMs
+
+#### From GitHub Artifacts
+
+```bash
+# Download SBOM artifacts from GitHub Actions
+# Navigate to: Actions → Build and Push Docker Image with SBOM → Artifacts
+```
+
+#### From Docker Images
+
+SBOMs are embedded in Docker images at `/usr/share/sbom/`:
+
+```bash
+# Extract SBOM from Docker image
+docker run --rm ghcr.io/ryanguild/ccver:latest cat /usr/share/sbom/sbom-docker-cyclonedx.json
+
+# Copy SBOM files from container
+docker create --name temp ghcr.io/ryanguild/ccver:latest
+docker cp temp:/usr/share/sbom ./sbom
+docker rm temp
+```
+
+#### SBOM Attestation
+
+Docker images include cryptographically signed SBOM attestations:
+
+```bash
+# Verify SBOM attestation using GitHub CLI
+gh attestation verify oci://ghcr.io/ryanguild/ccver:latest --owner ryanguild
+
+# View attestation details
+gh attestation list --owner ryanguild --repo ccver
+```
+
+### SBOM Files
+
+The following SBOM files are generated:
+
+| File | Format | Description |
+|------|--------|-------------|
+| `sbom-cargo-cyclonedx.json` | CycloneDX | Rust dependency tree |
+| `sbom-cargo-spdx.json` | SPDX | Rust dependency tree |
+| `sbom-binary-cyclonedx.json` | CycloneDX | Binary analysis with system libs |
+| `sbom-binary-spdx.json` | SPDX | Binary analysis with system libs |
+| `sbom-binary.sarif` | SARIF | Security-focused analysis |
+| `sbom-docker-cyclonedx.json` | CycloneDX | Complete Docker image |
+| `sbom-docker-spdx.json` | SPDX | Complete Docker image |
+
+### Supply Chain Security Features
+
+- ✅ **Cryptographic Signing**: SBOMs are signed and verifiable
+- ✅ **Provenance Tracking**: Full build transparency and reproducibility
+- ✅ **Attestation Storage**: SBOMs stored in GitHub Container Registry
+- ✅ **GitHub Security Integration**: SARIF format uploaded to Security tab
+- ✅ **Sigstore Compatible**: Works with cosign and other verification tools
+
+### Using SBOMs for Vulnerability Scanning
+
+```bash
+# Scan SBOM with Grype
+grype sbom:./sbom-docker-cyclonedx.json
+
+# Generate vulnerability report
+grype sbom:./sbom-cargo-cyclonedx.json -o json > vulnerabilities.json
+
+# Use with Trivy
+trivy sbom ./sbom-docker-spdx.json
+```
+
+### Manual SBOM Generation
+
+To generate SBOMs locally:
+
+```bash
+# Install cargo-sbom
+cargo install cargo-sbom
+
+# Generate Cargo-based SBOM
+cargo sbom --output-format cyclone_dx_json_1_5 > sbom.json
+
+# Install Syft
+curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+# Generate binary SBOM
+syft target/release/ccver -o cyclonedx-json=sbom.json
+```
+
+## Local Development with act
+
+[act](https://github.com/nektos/act) enables you to run GitHub Actions workflows locally for testing before pushing to GitHub. This is particularly useful for testing the CI/CD pipeline, including builds, tests, and Docker image creation.
+
+### Prerequisites
+
+1. **Docker**: Required to run workflow containers
+   ```bash
+   # macOS
+   brew install --cask docker
+   
+   # Or use Docker Desktop
+   ```
+
+2. **act**: GitHub Actions local runner
+   ```bash
+   brew install act
+   ```
+
+3. **GitHub CLI**: For authentication
+   ```bash
+   brew install gh
+   gh auth login
+   ```
+
+### Quick Start
+
+1. **Set up the environment**
+   ```bash
+   cargo run --bin act-runner -- setup
+   ```
+   
+   This automatically:
+   - Creates a `.env` file with your GitHub token from `gh auth token`
+   - Verifies act is installed
+   - Configures necessary environment variables
+
+2. **List available workflows**
+   ```bash
+   cargo run --bin act-runner -- list
+   ```
+
+3. **Run a specific workflow**
+   ```bash
+   # Run just the build workflow
+   cargo run --bin act-runner -- run build
+   
+   # Run just tests
+   cargo run --bin act-runner -- run test
+   
+   # Run the complete pre-release suite
+   cargo run --bin act-runner -- run all
+   ```
+
+### Available Workflows
+
+| Workflow | Description | Dependencies |
+|----------|-------------|--------------|
+| `check` | Update version and tag | none |
+| `build` | Build binaries for all platforms | none |
+| `test` | Run test suite | none |
+| `profile` | Performance profiling | none |
+| `sbom` | Generate SBOM artifacts | build |
+| `docker` | Build and push Docker images | build, sbom |
+| `test-action` | Test GitHub Action | docker |
+
+### Configuration
+
+The repository includes pre-configured act settings:
+
+- **`.actrc`**: Configuration file specifying the smallest valid Ubuntu image for faster execution
+- **`.env.example`**: Template for environment variables (copied to `.env` during setup)
+
+### Limitations
+
+When running workflows locally with act, be aware of these limitations:
+
+1. **Platform Builds**
+   - Only Linux builds work in act containers regardless of host platform
+   - macOS and Windows builds require native runners
+   - The act-runner tool automatically filters matrix jobs to match your host platform
+
+2. **Apple Code Signing**
+   - Apple certificate signing steps are skipped locally
+   - Requires actual Apple Developer certificates and macOS runners
+   - Binary artifacts are still generated, just not signed
+
+3. **GitHub Attestations**
+   - `actions/attest-build-provenance` and similar attestation actions won't work locally
+   - These require GitHub's OIDC token and are GitHub-hosted only
+   - Steps will be skipped without affecting the workflow
+
+4. **Artifact Sharing**
+   - act has limited support for artifacts between workflow_call jobs
+   - Dependent workflows (like `docker` depending on `build`) may need artifacts to be built first
+   - Consider running workflows sequentially when dependencies exist
+
+5. **Container Registry**
+   - Docker push operations will attempt to authenticate with ghcr.io
+   - Set `push: false` in local runs or skip the push step
+   - Images are still built locally for testing
+
+### Troubleshooting
+
+#### Token Issues
+```bash
+# Refresh your GitHub token
+gh auth refresh
+
+# Recreate .env file
+cargo run --bin act-runner -- setup
+```
+
+#### Docker Issues
+```bash
+# Verify Docker is running
+docker ps
+
+# Clean up act containers
+docker container prune -f
+
+# Clean up act images
+docker image prune -a -f
+```
+
+#### Workflow Failures
+```bash
+# Run with more verbose output (already enabled in .actrc)
+act -v workflow_dispatch -W .github/workflows/test.yml
+
+# Check act logs
+act --list --verbose
+```
+
+#### Platform-Specific Issues
+```bash
+# For macOS M1/M2, ensure you're using the right architecture
+act --container-architecture linux/amd64 workflow_dispatch -W .github/workflows/build.yml
+```
+
+### Advanced Usage
+
+#### Run workflows manually with act
+```bash
+# Run a specific workflow file directly
+act workflow_dispatch -W .github/workflows/build.yml
+
+# Run with specific secrets
+act workflow_dispatch -W .github/workflows/build.yml --secret-file .env
+
+# Run with specific matrix combinations
+act workflow_dispatch -W .github/workflows/build.yml --matrix runner:ubuntu-latest
+
+# Dry run to see what would execute
+act workflow_dispatch -W .github/workflows/test.yml --dryrun
+```
+
+#### Testing workflow changes
+```bash
+# Test modified workflows before committing
+cargo run --bin act-runner -- run <workflow-name>
+
+# Validate workflow syntax
+act --list
+```
+
+### Performance Tips
+
+1. **Use smallest valid images**: Already configured in `.actrc` with `catthehacker/ubuntu:act-latest`
+2. **Run specific workflows**: Avoid running `all` unless testing the full pipeline
+3. **Clean up regularly**: Remove old Docker containers and images
+4. **Use host network**: Already configured in `.actrc` for faster downloads
+5. **Cache Rust dependencies**: Workflows use `rust-cache` action which works with act
+
+### Integration with CI/CD
+
+The act-runner tool mirrors the same workflow dependency order as the CI/CD pipeline:
+
+```
+check → build → (test, profile, sbom) → docker → test-action
+```
+
+Running `cargo run --bin act-runner -- run all` executes workflows in this exact order, simulating a complete pre-release CI/CD run locally.

@@ -5,26 +5,38 @@
 # Linux x86_64 (GNU libc)
 # ============================================================================
 [target.x86_64-unknown-linux-gnu]
-linker = "x86_64-linux-gnu-gcc"
+# Native builds use system compiler automatically
+# For cross-compilation, install: gcc-x86-64-linux-gnu
+# linker = "x86_64-linux-gnu-gcc"
 
 # ============================================================================
 # Linux ARM64 (GNU libc)
 # ============================================================================
 [target.aarch64-unknown-linux-gnu]
-linker = "aarch64-linux-gnu-gcc"
+# Native builds use system compiler automatically
+# For cross-compilation, install: gcc-aarch64-linux-gnu
+# linker = "aarch64-linux-gnu-gcc"
 
 # ============================================================================
 # Linux x86_64 (musl - static linking for Alpine)
 # ============================================================================
 [target.x86_64-unknown-linux-musl]
-linker = "x86_64-linux-musl-gcc"
+# NOTE: musl targets require cross-compilation on glibc systems
+# Use 'cross' tool for musl builds: cargo install cross
+# cross build --target x86_64-unknown-linux-musl
+# When using cross, linker is managed automatically by cross
+# linker = "x86_64-linux-musl-gcc"  # Only if using musl-cross directly
 rustflags = ["-C", "target-feature=+crt-static"]
 
 # ============================================================================
 # Linux ARM64 (musl - static linking for Alpine)
 # ============================================================================
 [target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
+# NOTE: musl targets require cross-compilation on glibc systems
+# Use 'cross' tool for musl builds: cargo install cross
+# cross build --target aarch64-unknown-linux-musl
+# When using cross, linker is managed automatically by cross
+# linker = "aarch64-linux-musl-gcc"  # Only if using musl-cross directly
 rustflags = ["-C", "target-feature=+crt-static"]
 
 # ============================================================================
@@ -43,12 +55,17 @@ rustflags = ["-C", "target-feature=+crt-static"]
 # Windows x86_64 (MSVC)
 # ============================================================================
 [target.x86_64-pc-windows-msvc]
-# Uses MSVC toolchain, no special configuration needed
+# Statically link the C runtime for better portability
+# This produces standalone executables without dependencies on VC++ runtime DLLs
+rustflags = ["-C", "target-feature=+crt-static"]
 
 # ============================================================================
 # Windows ARM64 (MSVC)
 # ============================================================================
 [target.aarch64-pc-windows-msvc]
+# Statically link the C runtime for better portability
+# This produces standalone executables without dependencies on VC++ runtime DLLs
+rustflags = ["-C", "target-feature=+crt-static"]
 # Requires Visual Studio ARM64 build tools
 # Cross-compile from x64 Windows using:
 #   cargo build --target aarch64-pc-windows-msvc
@@ -94,24 +111,30 @@ build-all = "build --release --target x86_64-unknown-linux-gnu --target aarch64-
 # Platform-specific notes
 # ============================================================================
 #
+# Linux native builds:
+#   Native builds (same arch as host) use system compiler automatically
+#   No special configuration needed - cargo will use gcc/clang from PATH
+#
 # Linux cross-compilation:
-#   Install cross-compilation toolchains:
+#   For cross-compiling between GNU Linux targets:
 #     Ubuntu/Debian: sudo apt-get install gcc-aarch64-linux-gnu
 #     Fedora: sudo dnf install gcc-aarch64-linux-gnu
+#     Then uncomment the linker line in the target section above
 #
-#   For musl targets, use cross or musl-cross:
-#     cargo install cross
-#     cross build --target x86_64-unknown-linux-musl
+#   For musl targets (static linking for Alpine):
+#     REQUIRES: cargo install cross
+#     Then use: cross build --target x86_64-unknown-linux-musl
+#     Note: cross manages linkers automatically, no config needed
 #
 # macOS cross-compilation:
-#   On macOS, you can build both architectures natively
-#   On Linux, requires osxcross: https://github.com/tpoechtrager/osxcross
+#   On macOS: Can build both x86_64 and aarch64 natively
+#   On Linux: Requires osxcross (complex setup)
 #
 # Windows cross-compilation:
 #   On Windows: Install Visual Studio with ARM64 support
-#   On Linux: Use wine + mingw-w64 (not recommended for ARM64)
-#   On macOS: Use cross or xwin
+#   On Linux/macOS: Use cross or xwin
 #
-# General cross-compilation tool:
+# Recommended cross-compilation tool:
 #   cargo install cross
 #   cross build --target <target-triple>
+#   cross handles all linker and toolchain setup automatically

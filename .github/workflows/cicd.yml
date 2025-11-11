@@ -11,6 +11,8 @@ permissions:
   attestations: write
   checks: write
   packages: write
+  security-events: write
+  pages: write
 
 
 jobs:
@@ -20,16 +22,27 @@ jobs:
     uses: "./.github/workflows/tag.yml"
   build:
     name: Build
-    needs: [check]
     secrets: inherit
     uses: "./.github/workflows/build.yml"
+  sbom:
+    name: SBOM
+    needs: build
+    uses: "./.github/workflows/sbom.yml"
   docker:
     name: Docker
-    needs: [build]
+    needs: [build, sbom]
     secrets: inherit
     uses: "./.github/workflows/docker.yml"
+  profile:
+    name: Profile
+    secrets: inherit
+    uses: "./.github/workflows/profile.yml"
+  docs:
+    name: Docs
+    needs: profile
+    if: github.ref_name == 'main' || github.ref_name == 'master'
+    uses: "./.github/workflows/docs.yaml"
   test:
-    needs: [build]
     name: Test
     uses: "./.github/workflows/test.yml"
   test-action:
@@ -39,7 +52,7 @@ jobs:
   release:
     name: Release
     if: github.ref_name == 'main' || github.ref_name == 'master'
-    needs: [check,build, test, test-action, docker]
+    needs: [check, build, sbom, test, test-action, docker, profile, docs]
     uses: "./.github/workflows/release.yml"
     secrets: inherit
     with:

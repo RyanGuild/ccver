@@ -263,3 +263,236 @@ where
         self.inner.commit_idx_by_hash(commit)
     }
 }
+
+#[cfg(test)]
+mod branch_tests {
+    use super::*;
+    use crate::graph::{
+        GraphOps, commit::CommitMemo, head::HeadMemo, node::CommitGraphNodeData,
+        parents_and_children::WithParentsAndChildEdges, tail::TailMemo,
+    };
+    use crate::logs::{Decoration, LogEntry, Subject};
+    use petgraph::{Directed, Graph};
+    use std::sync::{Arc, Mutex};
+
+    type TestNodeWeight = Arc<Mutex<CommitGraphNodeData<'static>>>;
+
+    /// Helper to create a test node with decorations
+    fn create_node(
+        hash: &'static str,
+        parents: Vec<&'static str>,
+        decorations: Vec<Decoration<'static>>,
+    ) -> TestNodeWeight {
+        let entry = LogEntry {
+            name: "Test User",
+            branch: "main",
+            commit_hash: hash,
+            commit_timezone: chrono::Utc,
+            commit_datetime: chrono::Utc::now(),
+            parent_hashes: Arc::from(parents),
+            decorations: Arc::from(decorations),
+            subject: Subject::Text("test commit"),
+            footers: std::collections::HashMap::new(),
+        };
+        Arc::new(Mutex::new(CommitGraphNodeData::from(entry)))
+    }
+
+    #[test]
+    fn test_branch_indexing() {
+        let graph: Graph<TestNodeWeight, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let graph = WithParentsAndChildEdges::new(memo);
+        let mut branch_graph = BranchMemo::new(graph);
+
+        let c1 = create_node("c1", vec![], vec![Decoration::Branch("main")]);
+        let c2 = create_node("c2", vec!["c1"], vec![Decoration::Branch("develop")]);
+
+        let idx1 = branch_graph.add_node(c1);
+        let idx2 = branch_graph.add_node(c2);
+
+        // Verify branches are indexed
+        assert_eq!(branch_graph.branch_memo.get("main"), Some(&idx1));
+        assert_eq!(branch_graph.branch_memo.get("develop"), Some(&idx2));
+    }
+
+    #[test]
+    fn test_local_branch_indexing() {
+        let graph: Graph<TestNodeWeight, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let graph = WithParentsAndChildEdges::new(memo);
+        let mut branch_graph = BranchMemo::new(graph);
+
+        let c1 = create_node("c1", vec![], vec![Decoration::Branch("feature")]);
+
+        let idx1 = branch_graph.add_node(c1);
+
+        // Verify local branch is indexed
+        assert_eq!(branch_graph.local_branch_memo.get("feature"), Some(&idx1));
+    }
+
+    #[test]
+    fn test_remote_branch_indexing() {
+        let graph: Graph<TestNodeWeight, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let graph = WithParentsAndChildEdges::new(memo);
+        let mut branch_graph = BranchMemo::new(graph);
+
+        let c1 = create_node(
+            "c1",
+            vec![],
+            vec![Decoration::RemoteBranch(("origin", "main"))],
+        );
+
+        let idx1 = branch_graph.add_node(c1);
+
+        // Verify remote branch is indexed
+        assert_eq!(
+            branch_graph
+                .remote_branch_memo
+                .get(&("origin".to_string(), "main".to_string())),
+            Some(&idx1)
+        );
+    }
+
+    #[test]
+    fn test_multiple_branches_on_commit() {
+        let graph: Graph<TestNodeWeight, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let graph = WithParentsAndChildEdges::new(memo);
+        let mut branch_graph = BranchMemo::new(graph);
+
+        let c1 = create_node(
+            "c1",
+            vec![],
+            vec![
+                Decoration::Branch("main"),
+                Decoration::Branch("stable"),
+                Decoration::RemoteBranch(("origin", "main")),
+            ],
+        );
+
+        let idx1 = branch_graph.add_node(c1);
+
+        // All branches should point to the same commit
+        assert_eq!(branch_graph.branch_memo.get("main"), Some(&idx1));
+        assert_eq!(branch_graph.branch_memo.get("stable"), Some(&idx1));
+        assert_eq!(
+            branch_graph
+                .remote_branch_memo
+                .get(&("origin".to_string(), "main".to_string())),
+            Some(&idx1)
+        );
+    }
+
+    #[test]
+    fn test_head_indicator_as_branch() {
+        let graph: Graph<TestNodeWeight, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let graph = WithParentsAndChildEdges::new(memo);
+        let mut branch_graph = BranchMemo::new(graph);
+
+        let c1 = create_node("c1", vec![], vec![Decoration::HeadIndicator("develop")]);
+
+        let idx1 = branch_graph.add_node(c1);
+
+        // HEAD indicator should also be indexed as a branch
+        assert_eq!(branch_graph.branch_memo.get("develop"), Some(&idx1));
+    }
+
+    #[test]
+    fn test_has_branches_trait() {
+        let node = create_node(
+            "c1",
+            vec![],
+            vec![
+                Decoration::Branch("main"),
+                Decoration::RemoteBranch(("origin", "main")),
+                Decoration::HeadIndicator("main"),
+            ],
+        );
+
+        let branches = node.branch();
+        assert_eq!(branches.len(), 3);
+        assert!(branches.contains(&"main"));
+    }
+
+    #[test]
+    fn test_has_local_branches_trait() {
+        let node = create_node(
+            "c1",
+            vec![],
+            vec![
+                Decoration::Branch("main"),
+                Decoration::RemoteBranch(("origin", "develop")),
+            ],
+        );
+
+        let local_branches = node.local_branch();
+        assert_eq!(local_branches.len(), 1);
+        assert_eq!(local_branches[0], "main");
+    }
+
+    #[test]
+    fn test_has_remote_branches_trait() {
+        let node = create_node(
+            "c1",
+            vec![],
+            vec![
+                Decoration::RemoteBranch(("origin", "main")),
+                Decoration::RemoteBranch(("upstream", "develop")),
+            ],
+        );
+
+        let remote_branches = node.remote_branch();
+        assert_eq!(remote_branches.len(), 2);
+        assert!(remote_branches.contains(&("origin", "main")));
+        assert!(remote_branches.contains(&("upstream", "develop")));
+    }
+
+    #[test]
+    fn test_branch_forwarding_traits() {
+        let graph: Graph<TestNodeWeight, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let mut graph = WithParentsAndChildEdges::new(memo);
+
+        let c1 = create_node("c1", vec![], vec![]);
+        let c2 = create_node("c2", vec!["c1"], vec![Decoration::HeadIndicator("main")]);
+
+        let idx1 = graph.add_node(c1);
+        let idx2 = graph.add_node(c2);
+
+        let tail_graph = TailMemo::new(graph).unwrap();
+        let head_graph = HeadMemo::new(tail_graph);
+        let branch_graph = BranchMemo::new(head_graph);
+
+        // Verify HasHead is forwarded correctly
+        assert_eq!(branch_graph.head_idx(), Some(idx2));
+
+        // Verify HasTail is forwarded correctly
+        assert_eq!(branch_graph.tail_idx(), Some(idx1));
+
+        // Verify HasParentsAndChildren is forwarded correctly
+        let parents = branch_graph.parent_idxs(idx2);
+        assert_eq!(parents, vec![idx1]);
+
+        // Verify CommitExt is forwarded correctly
+        assert!(branch_graph.commit_by_hash("c1").is_some());
+        assert_eq!(branch_graph.commit_idx_by_hash("c2"), Some(idx2));
+    }
+
+    #[test]
+    fn test_branch_memo_with_no_decorations() {
+        let graph: Graph<TestNodeWeight, (), Directed, u32> = Graph::new();
+        let memo = CommitMemo::new(graph);
+        let graph = WithParentsAndChildEdges::new(memo);
+        let mut branch_graph = BranchMemo::new(graph);
+
+        let c1 = create_node("c1", vec![], vec![]);
+        branch_graph.add_node(c1);
+
+        // No branches should be indexed
+        assert_eq!(branch_graph.branch_memo.len(), 0);
+        assert_eq!(branch_graph.local_branch_memo.len(), 0);
+        assert_eq!(branch_graph.remote_branch_memo.len(), 0);
+    }
+}

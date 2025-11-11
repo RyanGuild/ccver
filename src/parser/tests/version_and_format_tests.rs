@@ -1,9 +1,6 @@
-use crate::{
-    parser::macros::{cc_parse_format, cc_parse_with_data},
-    version::Version,
-    version_format::VersionFormat,
-};
+use crate::{cc_parse_format, cc_parse_with_data, version::Version, version_format::VersionFormat};
 use eyre::Result;
+use pest_consume::Parser as _;
 #[test]
 fn test_parsing() -> Result<()> {
     dbg!(cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.CC.CC")?);
@@ -18,7 +15,7 @@ fn test_parsing() -> Result<()> {
         .expect_err("Day before month will not monotonically increase");
 
     cc_parse_format!(CCVER_VERSION_FORMAT, "vCC.MM.DD-rc.CC")
-        .expect_err("CalVer format segments must be proceeded by a year segment to maintain semver monotonic incresing versions");
+        .expect_err("CalVer format segments must be proceeded by a year segment to maintain semver monotonic increasing versions");
     Ok(())
 }
 

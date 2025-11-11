@@ -1,11 +1,17 @@
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
+    sync::Arc,
 };
 
+use tracing::{debug, instrument};
+
 use crate::{
+    alpha_branches, beta_branches,
     logs::{LogEntry, Subject},
-    pattern_macros::*,
+    major_commit_types, major_conventional_subject, major_subject, minor_commit_types,
+    minor_conventional_subject, minor_subject, patch_commit_types, patch_conventional_subject,
+    patch_subject, rc_branches, release_branches,
     version_format::{
         CalVerFormat, CalVerFormatSegment, PreTagFormat, VersionFormat, VersionNumberFormat,
     },
@@ -33,6 +39,10 @@ impl Display for Version {
     }
 }
 
+fn branch_to_named_pre_string(branch: &str) -> String {
+    branch.chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
 impl Version {
     pub fn no_pre(&self) -> Version {
         Version {
@@ -43,12 +53,14 @@ impl Version {
             prerelease: None,
         }
     }
+
+    #[instrument(skip(self, log_entry, version_format), fields(version_format = %version_format, commit_hash = %log_entry.commit_hash, branch = %log_entry.branch))]
     pub fn next_version<'a>(
         &self,
         log_entry: &LogEntry<'a>,
         version_format: &VersionFormat,
     ) -> Version {
-        match (
+        let result = match (
             &log_entry.subject,
             log_entry.branch,
             log_entry.parent_hashes.len() == 2,
@@ -109,7 +121,10 @@ impl Version {
             (Subject::Text(_), beta_branches!(), _) => self.beta(log_entry, version_format),
             (Subject::Text(_), alpha_branches!(), _) => self.alpha(log_entry, version_format),
             (Subject::Text(_), _, _) => self.named(log_entry, version_format),
-        }
+        };
+
+        debug!(version = %result);
+        result
     }
 
     pub fn major(&self, commit: &LogEntry, version_format: &VersionFormat) -> Self {
@@ -222,21 +237,18 @@ impl Version {
 
     pub fn named(&self, commit: &LogEntry, version_format: &VersionFormat) -> Version {
         let pre_format = version_format.prerelease.as_ref().unwrap_or_default();
+        let branch_tag = branch_to_named_pre_string(commit.branch);
         Version {
             v_prefix: version_format.v_prefix,
             major: self.major.peek(commit),
             minor: self.minor.peek(commit),
             patch: self.patch.peek(commit),
             prerelease: match &self.prerelease {
-                Some(PreTag::Named(tag, v)) if tag.eq(commit.branch) => {
+                Some(PreTag::Named(tag, v)) if tag.eq(&branch_tag) => {
                     Some(PreTag::Named(tag.to_string(), v.bump(commit)))
                 }
                 _ => Some(PreTag::Named(
-                    commit
-                        .branch
-                        .chars()
-                        .filter(|c| c.is_alphanumeric())
-                        .collect::<String>(),
+                    branch_tag,
                     pre_format
                         .version_format()
                         .as_default_version_number(commit),
@@ -261,9 +273,9 @@ impl Version {
             major: self.major.peek(commit),
             minor: self.minor.peek(commit),
             patch: self.patch.peek(commit),
-            prerelease: Some(PreTag::Sha(VersionNumber::Sha(
-                commit.commit_hash.to_string(),
-            ))),
+            prerelease: Some(PreTag::Sha(VersionNumber::Sha(Arc::from(
+                commit.commit_hash,
+            )))),
         }
     }
 
@@ -273,9 +285,9 @@ impl Version {
             major: self.major.peek(commit),
             minor: self.minor.peek(commit),
             patch: self.patch.peek(commit),
-            prerelease: Some(PreTag::ShortSha(VersionNumber::ShortSha(
-                commit.commit_hash[0..7].to_string(),
-            ))),
+            prerelease: Some(PreTag::ShortSha(VersionNumber::ShortSha(Arc::from(
+                &commit.commit_hash[0..7],
+            )))),
         }
     }
 }
@@ -395,8 +407,8 @@ impl From<PreTag> for PreTagFormat {
 pub enum VersionNumber {
     CCVer(usize),
     CalVer(CalVerFormat, chrono::DateTime<chrono::Utc>),
-    Sha(String),
-    ShortSha(String),
+    Sha(Arc<str>),
+    ShortSha(Arc<str>),
 }
 
 impl From<Version> for VersionFormat {
@@ -429,9 +441,9 @@ impl VersionNumber {
             VersionNumber::CalVer(format, _) => {
                 VersionNumber::CalVer(format.clone(), commit.commit_datetime)
             }
-            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::Sha(_) => VersionNumber::Sha(Arc::from(commit.commit_hash)),
             VersionNumber::ShortSha(_) => {
-                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+                VersionNumber::ShortSha(Arc::from(&commit.commit_hash[0..7]))
             }
         }
     }
@@ -442,9 +454,9 @@ impl VersionNumber {
             VersionNumber::CalVer(format, _) => {
                 VersionNumber::CalVer(format.clone(), commit.commit_datetime)
             }
-            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::Sha(_) => VersionNumber::Sha(Arc::from(commit.commit_hash)),
             VersionNumber::ShortSha(_) => {
-                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+                VersionNumber::ShortSha(Arc::from(&commit.commit_hash[0..7]))
             }
         }
     }
@@ -453,9 +465,9 @@ impl VersionNumber {
         match self {
             VersionNumber::CCVer(_) => VersionNumber::CCVer(0),
             VersionNumber::CalVer(_, _) => self.bump(commit),
-            VersionNumber::Sha(_) => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumber::Sha(_) => VersionNumber::Sha(Arc::from(commit.commit_hash)),
             VersionNumber::ShortSha(_) => {
-                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+                VersionNumber::ShortSha(Arc::from(&commit.commit_hash[0..7]))
             }
         }
     }

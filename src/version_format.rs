@@ -55,9 +55,9 @@ impl VersionNumberFormat {
             VersionNumberFormat::CalVer(calendar_parts) => {
                 VersionNumber::CalVer(calendar_parts.clone(), commit.commit_datetime)
             }
-            VersionNumberFormat::Sha => VersionNumber::Sha(commit.commit_hash.to_string()),
+            VersionNumberFormat::Sha => VersionNumber::Sha(Arc::from(commit.commit_hash)),
             VersionNumberFormat::ShortSha => {
-                VersionNumber::ShortSha(commit.commit_hash[0..7].to_string())
+                VersionNumber::ShortSha(Arc::from(&commit.commit_hash[0..7]))
             }
         }
     }
@@ -199,11 +199,11 @@ impl PreTagFormat {
                 PreTag::Named(name.clone(), vf.as_default_version_number(commit))
             }
             PreTagFormat::Sha => {
-                PreTag::Sha(VersionNumber::ShortSha(commit.commit_hash.to_string()))
+                PreTag::Sha(VersionNumber::ShortSha(Arc::from(commit.commit_hash)))
             }
-            PreTagFormat::ShortSha => PreTag::ShortSha(VersionNumber::ShortSha(
-                commit.commit_hash[0..7].to_string(),
-            )),
+            PreTagFormat::ShortSha => PreTag::ShortSha(VersionNumber::ShortSha(Arc::from(
+                &commit.commit_hash[0..7],
+            ))),
         }
     }
 
@@ -226,9 +226,9 @@ impl PreTagFormat {
             PreTagFormat::Alpha(vf) => PreTag::Alpha(vf.parse(data)),
             PreTagFormat::Build(vf) => PreTag::Build(vf.parse(data)),
             PreTagFormat::Named(name, vf) => PreTag::Named(name.clone(), vf.parse(data)),
-            PreTagFormat::Sha => PreTag::Sha(VersionNumber::Sha(data.to_string())),
+            PreTagFormat::Sha => PreTag::Sha(VersionNumber::Sha(Arc::from(data))),
             PreTagFormat::ShortSha => {
-                PreTag::ShortSha(VersionNumber::ShortSha(data[0..7].to_string()))
+                PreTag::ShortSha(VersionNumber::ShortSha(Arc::from(&data[0..7])))
             }
         }
     }
@@ -258,8 +258,8 @@ impl VersionNumberFormat {
                 let date = chrono::DateTime::parse_from_str(data, &format_str).unwrap();
                 VersionNumber::CalVer(calendar_parts.clone(), date.to_utc())
             }
-            VersionNumberFormat::Sha => VersionNumber::Sha(data.to_string()),
-            VersionNumberFormat::ShortSha => VersionNumber::ShortSha(data[0..7].to_string()),
+            VersionNumberFormat::Sha => VersionNumber::Sha(Arc::from(data)),
+            VersionNumberFormat::ShortSha => VersionNumber::ShortSha(Arc::from(&data[0..7])),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Display, rc::Rc, vec};
+use std::{cmp::Ordering, fmt::Display, rc::Rc};
 
 use eyre::*;
 use petgraph::graph::NodeIndex;
@@ -8,17 +8,17 @@ use crate::{
         GraphOps, assign_versions::AsLogEntry, head::HasHead,
         parents_and_children::HasParentsAndChildren, version::ExistingVersionExt,
     },
-    logs::{ConventionalSubject, Subject},
-    pattern_macros::{
-        major_commit_types, minor_commit_types, patch_commit_types, semver_advancing_subject,
-    },
+    logs::{ConventionalSubject, LogEntry, Subject},
+    major_commit_types, major_conventional_subject, minor_commit_types, minor_conventional_subject,
+    patch_commit_types, patch_conventional_subject, semver_advancing_conventional_subject,
+    semver_advancing_subject,
 };
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ChangeLogData(Rc<[ChangeScoped]>);
-pub type ChangeLog = Rc<ChangeLogData>;
+pub struct ChangeLogData<'a>(Rc<[ChangeScoped<'a>]>);
+pub type ChangeLog<'a> = Rc<ChangeLogData<'a>>;
 
-impl Ord for ChangeScoped {
+impl Ord for ChangeScoped<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (ChangeScoped::All(a), ChangeScoped::All(b))
@@ -29,51 +29,51 @@ impl Ord for ChangeScoped {
     }
 }
 
-impl Display for ChangeLogData {
+impl Display for ChangeLogData<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         assert!(self.0.is_sorted());
         writeln!(f, "# ChangeLog",)?;
 
-        let mut current_scope: Option<String> = None;
-        let mut last_level: Option<String> = None;
+        let mut current_scope: Option<&str> = None;
+        let mut last_level: Option<&str> = None;
         for change in self.0.iter() {
             match change {
                 ChangeScoped::All(change) => match change {
                     Change::Breaking(desc, date) => {
-                        if last_level != "Breaking Changes".to_string().into() {
+                        if last_level != Some("Breaking Changes") {
                             writeln!(f, "## Breaking Changes")?;
-                            last_level = Some("Breaking Changes".to_string());
+                            last_level = Some("Breaking Changes");
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Feature(desc, date) => {
-                        if last_level != "Features".to_string().into() {
+                        if last_level != Some("Features") {
                             writeln!(f, "## Features")?;
-                            last_level = Some("Features".to_string());
+                            last_level = Some("Features");
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Fix(desc, date) => {
-                        if last_level != "Fixes".to_string().into() {
+                        if last_level != Some("Fixes") {
                             writeln!(f, "## Fixes")?;
-                            last_level = Some("Fixes".to_string());
+                            last_level = Some("Fixes");
                         };
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Named(name, desc, date) => {
-                        if last_level != name.to_string().into() {
+                        if last_level != Some(name.as_ref()) {
                             writeln!(f, "## {}", name)?;
-                            last_level = Some(name.to_string());
+                            last_level = Some(name.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Misc(desc, date) => {
-                        if last_level != "Misc".to_string().into() {
+                        if last_level != Some("Misc") {
                             writeln!(f, "## Misc")?;
-                            last_level = Some("Misc".to_string());
+                            last_level = Some("Misc");
                         }
 
                         writeln!(f, "- ({}): {}", date, desc)?;
@@ -81,65 +81,65 @@ impl Display for ChangeLogData {
                 },
                 ChangeScoped::Scoped(scope, change) => match change {
                     Change::Breaking(desc, date) => {
-                        if last_level != Some("Breaking Changes".to_string()) {
+                        if last_level != Some("Breaking Changes") {
                             writeln!(f, "## Breaking Changes")?;
-                            last_level = Some("Breaking Changes".to_string());
+                            last_level = Some("Breaking Changes");
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Feature(desc, date) => {
-                        if last_level != Some("Features".to_string()) {
+                        if last_level != Some("Features") {
                             writeln!(f, "## Features")?;
-                            last_level = "Features".to_string().into();
+                            last_level = Some("Features");
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Fix(desc, date) => {
-                        if last_level != Some("Fixes".to_string()) {
+                        if last_level != Some("Fixes") {
                             writeln!(f, "## Fixes")?;
-                            last_level = Some("Fixes".to_string());
+                            last_level = Some("Fixes");
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Named(name, desc, date) => {
-                        if last_level != Some(name.clone()) {
+                        if last_level != Some(name.as_ref()) {
                             writeln!(f, "## {}", name)?;
-                            last_level = Some(name.to_string());
+                            last_level = Some(name.as_ref());
                         };
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
                     }
                     Change::Misc(desc, date) => {
-                        if last_level != Some("Misc".to_string()) {
+                        if last_level != Some("Misc") {
                             writeln!(f, "## Misc")?;
-                            last_level = Some("Misc".to_string());
+                            last_level = Some("Misc");
                         }
 
-                        if current_scope != Some(scope.clone()) {
+                        if current_scope != Some(scope.as_ref()) {
                             writeln!(f, "### {}", scope)?;
-                            current_scope = Some(scope.clone());
+                            current_scope = Some(scope.as_ref());
                         };
 
                         writeln!(f, "- ({}): {}", date, desc)?;
@@ -152,32 +152,69 @@ impl Display for ChangeLogData {
     }
 }
 
-impl PartialOrd for ChangeScoped {
+impl PartialOrd for ChangeScoped<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum ChangeScoped {
-    All(Change),
-    Scoped(String, Change),
+enum ChangeScoped<'a> {
+    All(Change<'a>),
+    Scoped(&'a str, Change<'a>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Change {
-    Breaking(String, chrono::DateTime<chrono::Utc>),
-    Feature(String, chrono::DateTime<chrono::Utc>),
-    Fix(String, chrono::DateTime<chrono::Utc>),
-    Named(String, String, chrono::DateTime<chrono::Utc>),
-    Misc(String, chrono::DateTime<chrono::Utc>),
+enum Change<'a> {
+    Breaking(&'a str, chrono::DateTime<chrono::Utc>),
+    Feature(&'a str, chrono::DateTime<chrono::Utc>),
+    Fix(&'a str, chrono::DateTime<chrono::Utc>),
+    Named(&'a str, &'a str, chrono::DateTime<chrono::Utc>),
+    Misc(&'a str, chrono::DateTime<chrono::Utc>),
 }
 
-impl ChangeLogData {
-    pub fn new<'a, N, E, Ty, Ix, T>(graph: T) -> Result<ChangeLog>
+impl<'a> From<LogEntry<'a>> for ChangeScoped<'a> {
+    fn from(log_entry: LogEntry<'a>) -> Self {
+        match log_entry.subject {
+            Subject::Text(text) => ChangeScoped::All(Change::Misc(text, log_entry.commit_datetime)),
+            Subject::Conventional(ConventionalSubject {
+                description,
+                commit_type,
+                scope,
+                breaking,
+                ..
+            }) => {
+                let change = if breaking {
+                    Change::Breaking(description, log_entry.commit_datetime)
+                } else {
+                    match commit_type {
+                        major_commit_types!() => {
+                            Change::Breaking(description, log_entry.commit_datetime)
+                        }
+                        minor_commit_types!() => {
+                            Change::Feature(description, log_entry.commit_datetime)
+                        }
+                        patch_commit_types!() => {
+                            Change::Fix(description, log_entry.commit_datetime)
+                        }
+                        _ => Change::Named(commit_type, description, log_entry.commit_datetime),
+                    }
+                };
+
+                match scope {
+                    Some(scope) => ChangeScoped::Scoped(scope, change),
+                    None => ChangeScoped::All(change),
+                }
+            }
+        }
+    }
+}
+
+impl<'a> ChangeLogData<'a> {
+    pub fn new<N, E, Ty, Ix, T>(graph: &'a T) -> Result<ChangeLog<'a>>
     where
         T: GraphOps<N, E, Ty, Ix> + HasHead<N, E, Ty, Ix> + HasParentsAndChildren<N, E, Ty, Ix>,
-        N: AsLogEntry + ExistingVersionExt,
+        N: AsLogEntry + ExistingVersionExt + 'a,
         Ix: Copy,
     {
         let root = graph
@@ -186,94 +223,33 @@ impl ChangeLogData {
         Self::from_index(graph, root)
     }
 
-    pub fn from_index<'a, N, E, Ty, Ix, T>(graph: T, from: NodeIndex<Ix>) -> Result<ChangeLog>
+    pub fn from_index<N, E, Ty, Ix, T>(graph: &'a T, from: NodeIndex<Ix>) -> Result<ChangeLog<'a>>
     where
-        T: GraphOps<N, E, Ty, Ix> + HasParentsAndChildren<N, E, Ty, Ix>,
-        N: AsLogEntry + ExistingVersionExt,
+        T: GraphOps<N, E, Ty, Ix> + HasHead<N, E, Ty, Ix> + HasParentsAndChildren<N, E, Ty, Ix>,
+        N: AsLogEntry + ExistingVersionExt + 'a,
         Ix: Copy,
     {
-        let versions = {
-            let mut stack = graph.parent_idxs(from);
-            let current_ver = graph.node_weight(from).unwrap();
-            let mut versions = vec![current_ver];
-            while let Some(parent_idx) = stack.pop() {
-                let parent = graph.node_weight(parent_idx).unwrap();
-                match parent.as_log_entry().subject {
-                    semver_advancing_subject!() => {}
-                    _ => {
-                        stack.extend(graph.parent_idxs(parent_idx));
-                        versions.push(parent);
-                    }
-                };
+        let mut stack = graph.parent_idxs(from);
+        let mut versions = Vec::new();
+        while let Some(parent_idx) = stack.pop() {
+            let parent_version: LogEntry<'a> = graph
+                .node_weight(parent_idx)
+                .ok_or_eyre("No node weight found in graph")?
+                .as_log_entry()
+                .clone();
+            if matches!(parent_version.subject, semver_advancing_subject!()) {
+                versions.push(parent_version);
+                break;
+            } else {
+                versions.push(parent_version);
+                stack.extend(graph.parent_idxs(parent_idx));
             }
-            versions
-        };
+        }
 
-        let mut changes = versions
-            .iter()
-            .map(|commit| match &commit.as_log_entry().subject {
-                Subject::Conventional(ConventionalSubject {
-                    commit_type,
-                    scope: None,
-                    description,
-                    ..
-                }) => {
-                    let commit_datetime = commit.as_log_entry().commit_datetime;
-                    match *commit_type {
-                        major_commit_types!() => ChangeScoped::All(Change::Breaking(
-                            description.to_string(),
-                            commit_datetime,
-                        )),
-                        minor_commit_types!() => ChangeScoped::All(Change::Feature(
-                            description.to_string(),
-                            commit_datetime,
-                        )),
-                        patch_commit_types!() => {
-                            ChangeScoped::All(Change::Fix(description.to_string(), commit_datetime))
-                        }
-                        _ => ChangeScoped::All(Change::Named(
-                            commit_type.to_string(),
-                            description.to_string(),
-                            commit_datetime,
-                        )),
-                    }
-                }
-                Subject::Conventional(ConventionalSubject {
-                    commit_type,
-                    scope: Some(scope),
-                    description,
-                    ..
-                }) => {
-                    let commit_datetime = commit.as_log_entry().commit_datetime;
-                    match *commit_type {
-                        major_commit_types!() => ChangeScoped::Scoped(
-                            scope.to_string(),
-                            Change::Breaking(description.to_string(), commit_datetime),
-                        ),
-                        minor_commit_types!() => ChangeScoped::Scoped(
-                            scope.to_string(),
-                            Change::Feature(description.to_string(), commit_datetime),
-                        ),
-                        patch_commit_types!() => ChangeScoped::Scoped(
-                            scope.to_string(),
-                            Change::Fix(description.to_string(), commit_datetime),
-                        ),
-                        _ => ChangeScoped::Scoped(
-                            scope.to_string(),
-                            Change::Named(
-                                commit_type.to_string(),
-                                description.to_string(),
-                                commit_datetime,
-                            ),
-                        ),
-                    }
-                }
-                Subject::Text(t) => {
-                    let commit_datetime = commit.as_log_entry().commit_datetime;
-                    ChangeScoped::All(Change::Misc(t.to_string(), commit_datetime))
-                }
-            })
-            .collect::<Vec<_>>();
+        let mut changes: Vec<ChangeScoped<'a>> = versions
+            .into_iter()
+            .map(|commit| commit.clone().into())
+            .collect();
 
         changes.sort();
 
@@ -281,14 +257,14 @@ impl ChangeLogData {
     }
 }
 
-impl Ord for Change {
+impl Ord for Change<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Change::Breaking(_, a), Change::Breaking(_, b)) => a.cmp(b),
-            (Change::Feature(_, a), Change::Feature(_, b)) => a.cmp(b),
-            (Change::Fix(_, a), Change::Fix(_, b)) => a.cmp(b),
-            (Change::Named(_, _, a), Change::Named(_, _, b)) => a.cmp(b),
-            (Change::Misc(_, a), Change::Misc(_, b)) => a.cmp(b),
+            (Change::Breaking(_, a), Change::Breaking(_, b)) => a.cmp(&b),
+            (Change::Feature(_, a), Change::Feature(_, b)) => a.cmp(&b),
+            (Change::Fix(_, a), Change::Fix(_, b)) => a.cmp(&b),
+            (Change::Named(_, _, a), Change::Named(_, _, b)) => a.cmp(&b),
+            (Change::Misc(_, a), Change::Misc(_, b)) => a.cmp(&b),
             (Change::Breaking(_, _), _) => Ordering::Less,
             (Change::Feature(_, _), Change::Breaking(_, _)) => Ordering::Greater,
             (Change::Feature(_, _), _) => Ordering::Less,
@@ -304,7 +280,7 @@ impl Ord for Change {
     }
 }
 
-impl PartialOrd for Change {
+impl PartialOrd for Change<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -324,22 +300,22 @@ mod changelog_tests {
         let dummy_date = chrono::DateTime::from_timestamp(0, 0).unwrap();
         let cl = ChangeLogData(Rc::new([
             ChangeScoped::All(Change::Breaking(
-                "Added Emojis".to_string(),
+                "Added Emojis",
                 dummy_date.with_hour(1).unwrap(),
             )),
             ChangeScoped::All(Change::Feature(
-                "Temp Removed Emojis".to_string(),
+                "Temp Removed Emojis",
                 dummy_date.with_hour(2).unwrap(),
             )),
             ChangeScoped::All(Change::Fix(
-                "Fixed Emojis".to_string(),
+                "Fixed Emojis",
                 dummy_date.with_hour(3).unwrap(),
             )),
             ChangeScoped::Scoped(
-                "./src/emoji.rs".to_string(),
+                "./src/emoji.rs",
                 Change::Named(
-                    "docs".to_string(),
-                    "Documented Emojis".to_string(),
+                    "docs",
+                    "Documented Emojis",
                     dummy_date.with_hour(4).unwrap(),
                 ),
             ),

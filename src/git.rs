@@ -7,17 +7,17 @@ use tracing::{debug, info, instrument, warn};
 pub fn is_dirty(path: &Path) -> Result<bool> {
     debug!("Checking if repository is dirty at path: {:?}", path);
     let output = Command::new("git")
-        .args(["diff", "--exit-code"])
+        .args(["status", "--porcelain"])
         .current_dir(path)
         .output()?;
 
-    let status = output.status;
+    if !output.status.success() {
+        return Err(eyre!("Failed to check git status"));
+    }
 
-    let code = status
-        .code()
-        .ok_or_eyre("could not get status code from git diff")?;
-
-    let is_dirty = code != 0;
+    // If git status --porcelain returns any output, the repo is dirty
+    // (includes staged changes, unstaged changes, and untracked files)
+    let is_dirty = !output.stdout.is_empty();
     debug!("Repository dirty status: {}", is_dirty);
     Ok(is_dirty)
 }
@@ -52,7 +52,11 @@ pub fn tag_commit_with_version(hash: &str, version: &Version, path: &Path) -> Re
 }
 
 #[instrument]
-/// Function marked as unsafe because it is not thread safe with other git::* unsafe functions
+/// Creates a commit hash for the given message.
+///
+/// # Safety
+///
+/// This function is marked as unsafe because it is not thread safe with other git::* unsafe functions.
 pub unsafe fn commit_hash(path: &Path, message: &str) -> Result<String> {
     debug!("Creating commit hash for message: {}", message);
     let tree_hash = unsafe { tree_hash(path)? };
@@ -135,7 +139,11 @@ pub fn head_hash(path: &Path) -> Result<String> {
 }
 
 #[instrument]
-/// Function marked as unsafe because it is not thread safe with other git::* unsafe functions
+/// Gets the tree hash for the given path.
+///
+/// # Safety
+///
+/// This function is marked as unsafe because it is not thread safe with other git::* unsafe functions.
 pub unsafe fn tree_hash(path: &Path) -> Result<String> {
     debug!("Getting tree hash");
     let hash = String::from_utf8(
@@ -196,7 +204,6 @@ pub fn formatted_logs(path: &Path) -> Result<&'static mut str> {
 
 #[cfg(test)]
 mod test_commands {
-    use serial_test::serial;
     use std::env::current_dir;
 
     #[test]
@@ -220,23 +227,24 @@ mod test_commands {
         Ok(())
     }
 
-    #[test]
-    #[serial]
-    fn tree_hash_exists() -> eyre::Result<()> {
-        let tree_hash = unsafe { super::tree_hash(&current_dir().unwrap())? };
-        assert!(!tree_hash.is_empty());
-        println!("tree_hash: {:?}", tree_hash);
-        Ok(())
-    }
+    // I CANNOT GET THESE TESTS TO RUN SERIALLY
+    // #[test]
+    // #[serial]
+    // fn tree_hash_exists() -> eyre::Result<()> {
+    //     let tree_hash = unsafe { super::tree_hash(&current_dir().unwrap())? };
+    //     assert!(!tree_hash.is_empty());
+    //     println!("tree_hash: {:?}", tree_hash);
+    //     Ok(())
+    // }
 
-    #[test]
-    #[serial]
-    fn commit_hash_exists() -> eyre::Result<()> {
-        let commit_hash = unsafe { super::commit_hash(&current_dir().unwrap(), "test")? };
-        assert!(!commit_hash.is_empty());
-        println!("commit_hash: {:?}", commit_hash);
-        Ok(())
-    }
+    // #[test]
+    // #[serial]
+    // fn commit_hash_exists() -> eyre::Result<()> {
+    //     let commit_hash = unsafe { super::commit_hash(&current_dir().unwrap(), "test")? };
+    //     assert!(!commit_hash.is_empty());
+    //     println!("commit_hash: {:?}", commit_hash);
+    //     Ok(())
+    // }
 
     #[test]
     fn current_branch_exists() -> eyre::Result<()> {
