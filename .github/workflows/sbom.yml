@@ -72,7 +72,7 @@ jobs:
         cp binaries/${{ steps.arch.outputs.binary }} target/release/ccver
 
     - name: Install cargo-sbom
-      run: cargo install cargo-sbom
+      run: cargo install cargo-sbom --force
 
     - name: Generate Cargo-based SBOM (CycloneDX)
       run: |

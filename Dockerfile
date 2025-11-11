@@ -1,9 +1,5 @@
-# Use a minimal base image for the builder stage (just to organize binaries)
-ARG BUILDPLATFORM=linux/amd64
-FROM --platform=$BUILDPLATFORM alpine:latest AS builder
-
-# Arguments for selecting the correct binary
-ARG TARGETPLATFORM
+# Builder stage - selects the appropriate binary
+FROM alpine:latest AS builder
 
 # Create directory for the binary
 RUN mkdir -p /usr/src/app
@@ -11,17 +7,26 @@ RUN mkdir -p /usr/src/app
 # Copy pre-built binaries from the build workflow
 COPY binaries/ /binaries/
 
-# Select the appropriate binary based on the target platform
-RUN case "$TARGETPLATFORM" in \
-    "linux/amd64") cp /binaries/ccver-linux-amd64 /usr/src/app/ccver ;; \
-    "linux/arm64") cp /binaries/ccver-linux-arm64 /usr/src/app/ccver ;; \
-    "linux/arm/v7") echo "ARM v7 not yet supported with pre-built binaries" && exit 1 ;; \
-    *) echo "Unsupported platform: $TARGETPLATFORM" && exit 1 ;; \
-    esac && \
+# Auto-detect and select the appropriate binary
+# Prefer arm64 if available (for Apple Silicon), otherwise use amd64
+RUN if [ -f /binaries/ccver-linux-arm64 ]; then \
+        cp /binaries/ccver-linux-arm64 /usr/src/app/ccver && \
+        echo "Selected arm64 binary" && \
+        ls -lh /usr/src/app/ccver; \
+    elif [ -f /binaries/ccver-linux-amd64 ]; then \
+        cp /binaries/ccver-linux-amd64 /usr/src/app/ccver && \
+        echo "Selected amd64 binary" && \
+        ls -lh /usr/src/app/ccver; \
+    else \
+        echo "Error: No suitable binary found in /binaries/" && \
+        echo "Available files:" && \
+        ls -la /binaries/ && \
+        exit 1; \
+    fi && \
     chmod +x /usr/src/app/ccver
 
-# Start a new stage for the final image
-FROM --platform=$TARGETPLATFORM ubuntu:latest AS runner
+# Final stage - use ubuntu base image
+FROM ubuntu:latest AS runner
 
 # Install git (Ubuntu doesn't include git by default)
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
