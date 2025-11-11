@@ -46,9 +46,6 @@ jobs:
           - runner: windows-latest
             arch: x86_64-pc-windows-msvc
             artifact_name: ccver-windows-amd64.exe
-          - runner: macos-13
-            arch: x86_64-apple-darwin
-            artifact_name: ccver-macos-amd64
           - runner: macos-latest
             arch: aarch64-apple-darwin
             artifact_name: ccver-macos-arm64
@@ -289,7 +286,7 @@ jobs:
           fi
 
       - name: Sign Apple binary
-        if: ${{ (matrix.target.runner == 'macos-latest' || matrix.target.runner == 'macos-13') && env.ACT_RUNNER != 'true' }}
+        if: ${{ matrix.target.runner == 'macos-latest' && env.ACT_RUNNER != 'true' }}
         uses: lando/code-sign-action@v3
         with:
           file: ${{ matrix.target.artifact_name }}
