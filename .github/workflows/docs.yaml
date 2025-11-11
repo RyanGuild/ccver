@@ -2,7 +2,9 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
+  workflow_call: {}
+  workflow_dispatch: {}
+  # Also runs on pushes targeting the default branch for standalone documentation updates
   push:
     branches: ["master", "main"]
     paths:
@@ -10,9 +12,6 @@ on:
       - "src/**"
       - "README.md"
       - "Cargo.toml"
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
@@ -26,6 +25,9 @@ concurrency:
   group: "pages"
   cancel-in-progress: true
 
+env:
+  ACT_RUNNER: false
+
 jobs:
   # Single deploy job since we're just deploying
   deploy:
@@ -33,7 +35,7 @@ jobs:
     strategy:
       matrix:
         # Define the Rust version to use
-        rust: [nightly]
+        rust: [stable]
         # Define the target runner and architecture
         target:
           - runner: ubuntu-latest
@@ -45,21 +47,63 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      - name: Get Rust Cache
-        uses: ./.github/actions/rust_depcache
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          runner: ${{ matrix.target.runner }}
-          arch: ${{ matrix.target.arch }}
-          rust: ${{ matrix.rust }}
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target.arch }}
+      - name: Cache Rust toolchain and cargo dependencies
+        uses: actions/cache@v4
+        id: cargo_cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.rustup/
+            target/
+          key: ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-
+            ${{ runner.os }}-rust-stable-
+            ${{ runner.os }}-rust-
+
+      - name: Download profiling artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: flamegraphs-latest
+          path: .
+        continue-on-error: true
+
+      - name: Verify profiling artifacts
+        if: env.ACT_RUNNER != 'true'
+        run: |
+          mkdir -p target/profiling
+          if [ ! -f "target/profiling/parse.svg" ] || [ ! -f "target/profiling/graph.svg" ] || [ ! -f "target/profiling/e2e.svg" ]; then
+            echo "⚠️  Warning: Profiling artifacts not found. Documentation will be built without performance profiles."
+            echo "   Run the profile workflow to generate flamegraphs for documentation."
+            echo "   Missing files:"
+            [ ! -f "target/profiling/parse.svg" ] && echo "     - parse.svg" || true
+            [ ! -f "target/profiling/graph.svg" ] && echo "     - graph.svg" || true
+            [ ! -f "target/profiling/e2e.svg" ] && echo "     - e2e.svg" || true
+          else
+            echo "✅ All profiling artifacts found:"
+            ls -lh target/profiling/*.svg
+          fi
+
       - name: Build Docs
-        run: cargo doc
+        run: cargo doc --features documentation
       - name: Setup Pages
+        if: env.ACT_RUNNER != 'true'
         uses: actions/configure-pages@v5
       - name: Upload artifact
+        if: env.ACT_RUNNER != 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           # Upload entire repository
           path: './target/doc'
       - name: Deploy to GitHub Pages
+        if: env.ACT_RUNNER != 'true'
         id: deployment
         uses: actions/deploy-pages@v4

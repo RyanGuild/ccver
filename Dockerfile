@@ -1,4 +1,5 @@
 # Use a minimal base image for the builder stage (just to organize binaries)
+ARG BUILDPLATFORM=linux/amd64
 FROM --platform=$BUILDPLATFORM alpine:latest AS builder
 
 # Arguments for selecting the correct binary

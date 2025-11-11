@@ -4,6 +4,9 @@ on:
   workflow_call: {}
   workflow_dispatch: {}
 
+env:
+  ACT_RUNNER: false
+
 jobs:
   sbom:
     runs-on: ubuntu-latest
@@ -24,20 +27,49 @@ jobs:
         path: binaries/
         merge-multiple: true
 
-    - name: Prepare binary for SBOM
+    - name: Detect architecture
+      id: arch
       run: |
-        chmod +x binaries/ccver-linux-amd64
-        mkdir -p target/release
-        cp binaries/ccver-linux-amd64 target/release/ccver
-        ls -lh binaries/
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)
+            echo "arch=x86_64-unknown-linux-gnu" >> $GITHUB_OUTPUT
+            echo "binary=ccver-linux-amd64" >> $GITHUB_OUTPUT
+            ;;
+          aarch64)
+            echo "arch=aarch64-unknown-linux-gnu" >> $GITHUB_OUTPUT
+            echo "binary=ccver-linux-arm64" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "Unknown architecture: $ARCH"
+            exit 1
+            ;;
+        esac
+
+    - name: Cache Rust toolchain and cargo dependencies
+      uses: actions/cache@v4
+      id: cargo_cache
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          ~/.rustup/
+          target/
+        key: ${{ runner.os }}-rust-stable-${{ steps.arch.outputs.arch }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-rust-stable-${{ steps.arch.outputs.arch }}-
+          ${{ runner.os }}-rust-stable-
+          ${{ runner.os }}-rust-
 
     - name: Install Rust toolchain (for cargo-sbom only)
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-      with:
-        key: docker-sbom-${{ runner.os }}
+    - name: Prepare binary for SBOM
+      run: |
+        mkdir -p target/release
+        cp binaries/${{ steps.arch.outputs.binary }} target/release/ccver
 
     - name: Install cargo-sbom
       run: cargo install cargo-sbom
@@ -87,7 +119,7 @@ jobs:
         retention-days: 90
 
     - name: Upload SARIF to GitHub Security
-      if: github.event_name != 'pull_request'
+      if: env.ACT_RUNNER != 'true' && github.event_name != 'pull_request'
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: sbom/grype-report.sarif

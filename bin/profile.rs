@@ -94,17 +94,28 @@ fn profile_parse(
     println!("Profiling parse operation with {} commits...", size);
     let log_str = generate_mock_git_log(size);
 
+    // Signal-based profiling is required for flamegraph generation
     let guard = pprof::ProfilerGuardBuilder::default()
-        .frequency(1000) // Increased from 100 to 1000 Hz for more samples
+        .frequency(100)
         .blocklist(&["libc", "libgcc", "pthread", "vdso"])
-        .build()?;
+        .build()
+        .map_err(|e| {
+            format!(
+                "Failed to initialize profiling: {:?}\n\
+                 Signal-based profiling is required to generate flamegraphs.\n\
+                 This typically fails in containerized environments (Docker, act, etc.)\n\
+                 Run this script on a GitHub Actions runner or a system with proper signal handling capabilities.",
+                e
+            )
+        })?;
 
+    println!("  Using signal-based sampling profiler");
     // Run the operation multiple times for better profiling data
     for _ in 0..100 {
         let _ = parse_log(&log_str)?;
     }
-
     save_profile(guard, output_dir, "parse", format)?;
+
     println!("✓ Parse profiling complete");
     Ok(())
 }
@@ -122,17 +133,27 @@ fn profile_graph(
     let logs = parse_log(&log_str)?;
     let version_format = parse_version_format("vCC.CC.CC")?;
 
+    // Signal-based profiling is required for flamegraph generation
     let guard = pprof::ProfilerGuardBuilder::default()
-        .frequency(1000) // Increased from 100 to 1000 Hz for more samples
+        .frequency(100)
         .blocklist(&["libc", "libgcc", "pthread", "vdso"])
-        .build()?;
+        .build()
+        .map_err(|e| {
+            format!(
+                "Failed to initialize profiling: {:?}\n\
+                 Signal-based profiling is required to generate flamegraphs.\n\
+                 This typically fails in containerized environments (Docker, act, etc.)\n\
+                 Run this script on a GitHub Actions runner or a system with proper signal handling capabilities.",
+                e
+            )
+        })?;
 
-    // Run the operation multiple times for better profiling data
+    println!("  Using signal-based sampling profiler");
     for _ in 0..100 {
         let _graph = MemoizedCommitGraph::new(logs.clone(), &version_format);
     }
-
     save_profile(guard, output_dir, "graph", format)?;
+
     println!("✓ Graph profiling complete");
     Ok(())
 }
@@ -148,24 +169,32 @@ fn profile_e2e(
     println!("Profiling end-to-end workflow with {} commits...", size);
     let log_str = generate_mock_git_log(size);
 
+    // Signal-based profiling is required for flamegraph generation
     let guard = pprof::ProfilerGuardBuilder::default()
-        .frequency(1000) // Increased from 100 to 1000 Hz for more samples
+        .frequency(100)
         .blocklist(&["libc", "libgcc", "pthread", "vdso"])
-        .build()?;
+        .build()
+        .map_err(|e| {
+            format!(
+                "Failed to initialize profiling: {:?}\n\
+                 Signal-based profiling is required to generate flamegraphs.\n\
+                 This typically fails in containerized environments (Docker, act, etc.)\n\
+                 Run this script on a GitHub Actions runner or a system with proper signal handling capabilities.",
+                e
+            )
+        })?;
 
-    // Run the complete workflow multiple times
+    println!("  Using signal-based sampling profiler");
     for _ in 0..100 {
         let version_format = parse_version_format("vCC.CC.CC")?;
         let logs = parse_log(&log_str)?;
         let graph = MemoizedCommitGraph::new(logs, &version_format);
-
-        // Simulate getting version
         if let Some(head) = graph.head() {
             let _version = head.lock().unwrap().version.clone();
         }
     }
-
     save_profile(guard, output_dir, "e2e", format)?;
+
     println!("✓ E2E profiling complete");
     Ok(())
 }

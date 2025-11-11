@@ -1,15 +1,14 @@
 name: Profile
 
 on:
-  # Allow manual triggering
-  workflow_dispatch:
+  workflow_call:
     inputs:
       size:
         description: 'Number of commits to profile'
         required: false
         default: '5000'
         type: string
-  workflow_call:
+  workflow_dispatch:
     inputs:
       size:
         description: 'Number of commits to profile'
@@ -26,26 +25,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cache Rust toolchain and cargo dependencies
+        uses: actions/cache@v4
+        id: cargo_cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.rustup/
+            target/
+          key: ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-
+            ${{ runner.os }}-rust-stable-
+            ${{ runner.os }}-rust-
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: profile-${{ runner.os }}
-
-      - name: Install profiling dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y linux-tools-common linux-tools-generic
-
-      - name: Enable perf events
-        run: |
-          # Allow perf events for non-root users in GitHub Actions
-          echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
-          echo 0 | sudo tee /proc/sys/kernel/kptr_restrict
 
       - name: Build profiling binary
         run: cargo build --profile profiling --features profiling --bin profile
@@ -63,6 +63,16 @@ jobs:
           name: flamegraphs-${{ github.sha }}
           path: target/profiling/*.svg
           retention-days: 30
+
+      - name: Upload flamegraphs for documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: flamegraphs-latest
+          path: |
+            target/profiling/parse.svg
+            target/profiling/graph.svg
+            target/profiling/e2e.svg
+          retention-days: 90
 
       - name: Generate profiling summary
         run: |
@@ -97,11 +107,25 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
 
+      - name: Cache Rust toolchain and cargo dependencies
+        uses: actions/cache@v4
+        id: cargo_cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.rustup/
+            target/
+          key: ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-
+            ${{ runner.os }}-rust-stable-
+            ${{ runner.os }}-rust-
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
 
       - name: Run benchmarks (base)
         run: |

@@ -462,3 +462,187 @@ curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -
 # Generate binary SBOM
 syft target/release/ccver -o cyclonedx-json=sbom.json
 ```
+
+## Local Development with act
+
+[act](https://github.com/nektos/act) enables you to run GitHub Actions workflows locally for testing before pushing to GitHub. This is particularly useful for testing the CI/CD pipeline, including builds, tests, and Docker image creation.
+
+### Prerequisites
+
+1. **Docker**: Required to run workflow containers
+   ```bash
+   # macOS
+   brew install --cask docker
+   
+   # Or use Docker Desktop
+   ```
+
+2. **act**: GitHub Actions local runner
+   ```bash
+   brew install act
+   ```
+
+3. **GitHub CLI**: For authentication
+   ```bash
+   brew install gh
+   gh auth login
+   ```
+
+### Quick Start
+
+1. **Set up the environment**
+   ```bash
+   cargo run --bin act-runner -- setup
+   ```
+   
+   This automatically:
+   - Creates a `.env` file with your GitHub token from `gh auth token`
+   - Verifies act is installed
+   - Configures necessary environment variables
+
+2. **List available workflows**
+   ```bash
+   cargo run --bin act-runner -- list
+   ```
+
+3. **Run a specific workflow**
+   ```bash
+   # Run just the build workflow
+   cargo run --bin act-runner -- run build
+   
+   # Run just tests
+   cargo run --bin act-runner -- run test
+   
+   # Run the complete pre-release suite
+   cargo run --bin act-runner -- run all
+   ```
+
+### Available Workflows
+
+| Workflow | Description | Dependencies |
+|----------|-------------|--------------|
+| `check` | Update version and tag | none |
+| `build` | Build binaries for all platforms | none |
+| `test` | Run test suite | none |
+| `profile` | Performance profiling | none |
+| `sbom` | Generate SBOM artifacts | build |
+| `docker` | Build and push Docker images | build, sbom |
+| `test-action` | Test GitHub Action | docker |
+
+### Configuration
+
+The repository includes pre-configured act settings:
+
+- **`.actrc`**: Configuration file specifying the smallest valid Ubuntu image for faster execution
+- **`.env.example`**: Template for environment variables (copied to `.env` during setup)
+
+### Limitations
+
+When running workflows locally with act, be aware of these limitations:
+
+1. **Platform Builds**
+   - Only Linux builds work in act containers regardless of host platform
+   - macOS and Windows builds require native runners
+   - The act-runner tool automatically filters matrix jobs to match your host platform
+
+2. **Apple Code Signing**
+   - Apple certificate signing steps are skipped locally
+   - Requires actual Apple Developer certificates and macOS runners
+   - Binary artifacts are still generated, just not signed
+
+3. **GitHub Attestations**
+   - `actions/attest-build-provenance` and similar attestation actions won't work locally
+   - These require GitHub's OIDC token and are GitHub-hosted only
+   - Steps will be skipped without affecting the workflow
+
+4. **Artifact Sharing**
+   - act has limited support for artifacts between workflow_call jobs
+   - Dependent workflows (like `docker` depending on `build`) may need artifacts to be built first
+   - Consider running workflows sequentially when dependencies exist
+
+5. **Container Registry**
+   - Docker push operations will attempt to authenticate with ghcr.io
+   - Set `push: false` in local runs or skip the push step
+   - Images are still built locally for testing
+
+### Troubleshooting
+
+#### Token Issues
+```bash
+# Refresh your GitHub token
+gh auth refresh
+
+# Recreate .env file
+cargo run --bin act-runner -- setup
+```
+
+#### Docker Issues
+```bash
+# Verify Docker is running
+docker ps
+
+# Clean up act containers
+docker container prune -f
+
+# Clean up act images
+docker image prune -a -f
+```
+
+#### Workflow Failures
+```bash
+# Run with more verbose output (already enabled in .actrc)
+act -v workflow_dispatch -W .github/workflows/test.yml
+
+# Check act logs
+act --list --verbose
+```
+
+#### Platform-Specific Issues
+```bash
+# For macOS M1/M2, ensure you're using the right architecture
+act --container-architecture linux/amd64 workflow_dispatch -W .github/workflows/build.yml
+```
+
+### Advanced Usage
+
+#### Run workflows manually with act
+```bash
+# Run a specific workflow file directly
+act workflow_dispatch -W .github/workflows/build.yml
+
+# Run with specific secrets
+act workflow_dispatch -W .github/workflows/build.yml --secret-file .env
+
+# Run with specific matrix combinations
+act workflow_dispatch -W .github/workflows/build.yml --matrix runner:ubuntu-latest
+
+# Dry run to see what would execute
+act workflow_dispatch -W .github/workflows/test.yml --dryrun
+```
+
+#### Testing workflow changes
+```bash
+# Test modified workflows before committing
+cargo run --bin act-runner -- run <workflow-name>
+
+# Validate workflow syntax
+act --list
+```
+
+### Performance Tips
+
+1. **Use smallest valid images**: Already configured in `.actrc` with `catthehacker/ubuntu:act-latest`
+2. **Run specific workflows**: Avoid running `all` unless testing the full pipeline
+3. **Clean up regularly**: Remove old Docker containers and images
+4. **Use host network**: Already configured in `.actrc` for faster downloads
+5. **Cache Rust dependencies**: Workflows use `rust-cache` action which works with act
+
+### Integration with CI/CD
+
+The act-runner tool mirrors the same workflow dependency order as the CI/CD pipeline:
+
+```
+check → build → (test, profile, sbom) → docker → test-action
+```
+
+Running `cargo run --bin act-runner -- run all` executes workflows in this exact order, simulating a complete pre-release CI/CD run locally.

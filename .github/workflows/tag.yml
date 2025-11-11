@@ -19,12 +19,28 @@ jobs:
           fetch-tags: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get Rust Cache
-        uses: ./.github/actions/rust_depcache
+      - name: Cache Rust toolchain and cargo dependencies
+        uses: actions/cache@v4
+        id: cargo_cache
         with:
-          runner: ubuntu-latest
-          arch: x86_64-unknown-linux-gnu
-          rust: stable
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.rustup/
+            target/
+          key: ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-stable-x86_64-unknown-linux-gnu-
+            ${{ runner.os }}-rust-stable-
+            ${{ runner.os }}-rust-
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
 
       - name: Run version updater
         id: update-cargo-toml-version

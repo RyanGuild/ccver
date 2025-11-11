@@ -20,6 +20,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  ACT_RUNNER: false
 
 jobs:
   build:
@@ -39,11 +40,9 @@ jobs:
           - runner: ubuntu-latest
             arch: x86_64-unknown-linux-musl
             artifact_name: ccver-linux-amd64-musl
-            use_cross: true
           - runner: ubuntu-latest
             arch: aarch64-unknown-linux-musl
             artifact_name: ccver-linux-arm64-musl
-            use_cross: true
           - runner: windows-latest
             arch: x86_64-pc-windows-msvc
             artifact_name: ccver-windows-amd64.exe
@@ -59,36 +58,238 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
-      - name: Get Rust Cache
-        uses: ./.github/actions/rust_depcache
-        with:
-          runner: ${{ matrix.target.runner }}
-          arch: ${{ matrix.target.arch }}
-          rust: ${{ matrix.rust }}
-
-      - name: Install cross
-        if: matrix.target.use_cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build target (native)
-        if: ${{ !matrix.target.use_cross }}
-        run: cargo build --release --target ${{ matrix.target.arch }}
-
-      - name: Build target (cross)
-        if: matrix.target.use_cross
-        run: cross build --release --target ${{ matrix.target.arch }}
-
-      - name: Prepare binary
+      - name: Verify native build compatibility
+        id: verify_native
         shell: bash
         run: |
-          if [ "${{ matrix.target.runner }}" = "windows-latest" ]; then
+          set -euo pipefail
+
+          ACT_RUNNER="${ACT_RUNNER:-false}"
+          TARGET="${{ matrix.target.arch }}"
+
+          # Detect if this is a musl target (requires cross in GitHub Actions)
+          NEEDS_CROSS="false"
+          if [[ "$TARGET" == *"-musl" ]]; then
+            NEEDS_CROSS="true"
+          fi
+
+          # In GitHub Actions (ACT_RUNNER=false), allow all builds
+          if [[ "$ACT_RUNNER" != "true" ]]; then
+            echo "✅ Running on GitHub Actions - cross-compilation supported"
+            echo "is_native=true" >> $GITHUB_OUTPUT
+            echo "needs_cross=$NEEDS_CROSS" >> $GITHUB_OUTPUT
+            if [[ "$NEEDS_CROSS" == "true" ]]; then
+              echo "📦 musl target detected - will use cross for build"
+            fi
+            exit 0
+          fi
+
+          # In act (ACT_RUNNER=true): skip macOS/Windows (they require native runners)
+          if [[ "$TARGET" == *"-apple-darwin"* ]] || [[ "$TARGET" == *"-pc-windows-msvc"* ]]; then
+            echo "⏭️  Skipping $TARGET - macOS/Windows builds require native runners"
+            echo "is_native=false" >> $GITHUB_OUTPUT
+            echo "needs_cross=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # In act, only allow native Linux builds (skip musl and cross-compilation)
+
+          # Extract target architecture from triple (e.g., x86_64-unknown-linux-gnu -> x86_64)
+          TARGET_ARCH="${TARGET%%-*}"  # x86_64, aarch64, etc.
+
+          # Get actual runner architecture
+          RUNNER_ARCH="$(uname -m)"
+          # Normalize architecture names
+          if [[ "$RUNNER_ARCH" == "arm64" ]]; then
+            RUNNER_ARCH="aarch64"
+          fi
+
+          # Check if architectures match
+          if [[ "$RUNNER_ARCH" != "$TARGET_ARCH" ]]; then
+            echo "⏭️  Skipping $TARGET - architecture mismatch"
+            echo "   Runner architecture: $RUNNER_ARCH"
+            echo "   Target architecture: $TARGET_ARCH"
+            echo "   Cross-compilation is not supported in act"
+            echo "is_native=false" >> $GITHUB_OUTPUT
+            echo "needs_cross=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Also check for musl targets - they require cross-compilation even on native arch
+          if [[ "$TARGET" == *"-musl" ]]; then
+            echo "⏭️  Skipping $TARGET - musl targets require cross-compilation"
+            echo "   Cross-compilation is not supported in act"
+            echo "is_native=false" >> $GITHUB_OUTPUT
+            echo "needs_cross=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "✅ Native build verified: runner=$RUNNER_ARCH, target=$TARGET_ARCH"
+          echo "is_native=true" >> $GITHUB_OUTPUT
+          echo "needs_cross=false" >> $GITHUB_OUTPUT
+
+      - name: Cache Rust toolchain and cargo dependencies
+        if: steps.verify_native.outputs.is_native == 'true'
+        uses: actions/cache@v4
+        id: cargo_cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.rustup/
+            target/
+          key: ${{ runner.os }}-rust-${{ matrix.rust }}-${{ matrix.target.arch }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-${{ matrix.rust }}-${{ matrix.target.arch }}-
+            ${{ runner.os }}-rust-${{ matrix.rust }}-
+            ${{ runner.os }}-rust-
+
+      - name: Install Rust
+        if: steps.verify_native.outputs.is_native == 'true'
+        shell: bash
+        id: install_rust
+        run: |
+          set -euo pipefail
+
+          RUST_TOOLCHAIN="${{ matrix.rust }}"
+          TARGET="${{ matrix.target.arch }}"
+
+          # Add cargo bin to PATH (persists via GITHUB_PATH)
+          CARGO_BIN="$HOME/.cargo/bin"
+          echo "$CARGO_BIN" >> $GITHUB_PATH
+          export PATH="$CARGO_BIN:$PATH"
+
+          # Install rustup if not present
+          if ! command -v rustup &> /dev/null; then
+            echo "📦 Installing rustup..."
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none --no-modify-path
+          fi
+
+          # Source cargo environment if it exists
+          if [[ -f "$HOME/.cargo/env" ]]; then
+            source "$HOME/.cargo/env"
+          fi
+          export PATH="$CARGO_BIN:$PATH"
+
+          # Verify rustup is available
+          if ! command -v rustup &> /dev/null; then
+            echo "❌ Error: rustup not found after installation"
+            exit 1
+          fi
+
+          echo "✅ rustup found: $(which rustup)"
+          rustup --version
+
+          # Install Rust toolchain with minimal profile (faster, smaller) if not already installed
+          if ! rustup toolchain list | grep -q "^$RUST_TOOLCHAIN"; then
+            echo "📦 Installing Rust $RUST_TOOLCHAIN toolchain (minimal profile)..."
+            rustup toolchain install $RUST_TOOLCHAIN --profile minimal
+          else
+            echo "✅ Rust $RUST_TOOLCHAIN toolchain already installed"
+          fi
+          rustup default $RUST_TOOLCHAIN
+
+          # Install only the target we need (check if already installed)
+          if ! rustup target list --installed --toolchain $RUST_TOOLCHAIN | grep -q "^$TARGET$"; then
+            echo "📦 Installing target $TARGET..."
+            rustup target add $TARGET --toolchain $RUST_TOOLCHAIN
+          else
+            echo "✅ Target $TARGET already installed"
+          fi
+
+          # Verify installation
+          echo "✅ Rust installation complete:"
+          cargo --version
+          rustc --version
+          echo "Installed targets:"
+          rustup target list --installed --toolchain $RUST_TOOLCHAIN
+
+          echo "toolchain=$RUST_TOOLCHAIN" >> $GITHUB_OUTPUT
+
+      - name: Install cross
+        if: steps.verify_native.outputs.is_native == 'true' && steps.verify_native.outputs.needs_cross == 'true' && env.ACT_RUNNER != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Ensure cargo is in PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
+
+          # Source cargo environment if it exists
+          if [[ -f "$HOME/.cargo/env" ]]; then
+            source "$HOME/.cargo/env"
+          fi
+
+          # Verify cargo is available
+          if ! command -v cargo > /dev/null; then
+            echo "❌ Error: cargo not found in PATH"
+            exit 1
+          fi
+
+          # Install cross if not already installed
+          if ! command -v cross > /dev/null; then
+            echo "📦 Installing cross for musl cross-compilation..."
+            cargo install cross --git https://github.com/cross-rs/cross --locked
+          else
+            echo "✅ cross already installed"
+          fi
+
+          # Verify cross installation
+          echo "✅ Cross installation complete:"
+          cross --version
+
+      - name: Build target
+        if: steps.verify_native.outputs.is_native == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Ensure cargo is in PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
+
+          # Source cargo environment if it exists
+          if [[ -f "$HOME/.cargo/env" ]]; then
+            source "$HOME/.cargo/env"
+          fi
+
+          # Verify cargo is available
+          if ! command -v cargo > /dev/null; then
+            echo "❌ Error: cargo not found in PATH"
+            exit 1
+          fi
+
+          TARGET="${{ matrix.target.arch }}"
+          NEEDS_CROSS="${{ steps.verify_native.outputs.needs_cross }}"
+
+          # Use cross for musl targets in GitHub Actions, cargo for everything else
+          if [[ "$NEEDS_CROSS" == "true" ]]; then
+            # Verify cross is available
+            if ! command -v cross > /dev/null; then
+              echo "❌ Error: cross not found in PATH"
+              echo "   This should not happen - cross should be installed for musl targets"
+              exit 1
+            fi
+            echo "✅ Building with cross for musl target $TARGET"
+            cross build --release --target $TARGET
+          else
+            echo "✅ Building with cargo for target $TARGET"
+            cargo build --release --target $TARGET
+          fi
+
+      - name: Prepare binary
+        if: steps.verify_native.outputs.is_native == 'true'
+        shell: bash
+        run: |
+          if [[ "${{ matrix.target.arch }}" == *"-windows-"* ]] || [[ "${{ matrix.target.arch }}" == *"-pc-windows"* ]]; then
             cp target/${{ matrix.target.arch }}/release/ccver.exe ${{ matrix.target.artifact_name }}
           else
             cp target/${{ matrix.target.arch }}/release/ccver ${{ matrix.target.artifact_name }}
           fi
 
       - name: Sign Apple binary
-        if: ${{ matrix.target.runner == 'macos-latest' || matrix.target.runner == 'macos-13' }}
+        if: ${{ (matrix.target.runner == 'macos-latest' || matrix.target.runner == 'macos-13') && env.ACT_RUNNER != 'true' }}
         uses: lando/code-sign-action@v3
         with:
           file: ${{ matrix.target.artifact_name }}
@@ -97,12 +298,14 @@ jobs:
           certificate-id: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Generate artifact attestation
+        if: env.ACT_RUNNER != 'true'
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: ${{ matrix.target.artifact_name }}
 
 
       - name: Upload artifact
+        if: steps.verify_native.outputs.is_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target.artifact_name }}
