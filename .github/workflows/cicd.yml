@@ -12,6 +12,7 @@ permissions:
   checks: write
   packages: write
   security-events: write
+  pages: write
 
 
 jobs:
