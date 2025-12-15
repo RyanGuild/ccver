@@ -107,7 +107,7 @@ jobs:
           GITHUB_TOKEN: ${{ inputs.github_token || secrets.GITHUB_TOKEN }}
 
       - name: Upload Debian package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ccver-debian-${{ matrix.arch }}
           path: ccver_${{ steps.release.outputs.version }}_${{ matrix.arch }}.deb
